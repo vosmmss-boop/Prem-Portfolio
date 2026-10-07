@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+}
+
+.font-editorial {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+}
+
+.font-nepali {
+  font-family: 'Mukta', 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Medical title flickering / glowing mode */
+@keyframes title-flicker {
+  0%, 100% {
+    opacity: 1;
+    color: #047857;
+    filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.5));
+  }
+  30% {
+    opacity: 0.75;
+    color: #065f46;
+    filter: drop-shadow(0 0 1px rgba(16, 185, 129, 0.2));
+  }
+  60% {
+    opacity: 1;
+    color: #059669;
+    filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.7));
+  }
+  85% {
+    opacity: 0.82;
+    color: #047857;
+    filter: drop-shadow(0 0 2px rgba(16, 185, 129, 0.3));
+  }
+}
+
+.animate-flicker {
+  animation: title-flicker 2.8s infinite ease-in-out;
+}
+
+/* Shimmer Skeleton Animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(229, 231, 235, 0.8) 0%,
+    rgba(243, 244, 246, 1) 50%,
+    rgba(229, 231, 235, 0.8) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite ease-in-out;
+}
+
+/* Accessibility Modifications */
+.access-high-contrast {
+  filter: contrast(1.35) saturate(1.1);
+}
+
+.access-high-contrast body,
+.access-high-contrast .bg-neutral-50,
+.access-high-contrast .bg-white {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+.access-grayscale {
+  filter: grayscale(100%);
+}
+
+.access-warm {
+  filter: sepia(25%) contrast(1.05);
+}
+
+.access-dyslexia * {
+  font-family: 'Comic Sans MS', 'Mukta', sans-serif !important;
+  letter-spacing: 0.05em !important;
+  word-spacing: 0.1em !important;
+}
+
+.access-cursor-large,
+.access-cursor-large * {
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="%23047857" stroke="%23ffffff" stroke-width="2"><polygon points="3 3 10 21 14 14 21 10 3 3"/></svg>'), auto !important;
+}
+
+/* Print Styles for Consultation / Inquiry summaries */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}
