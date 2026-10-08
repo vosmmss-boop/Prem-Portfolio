@@ -42,6 +42,14 @@ export interface Branding {
     stat3LabelNp: string;
   };
   youtubeEmbedUrl?: string;
+  socialLinks?: {
+    facebook?: string;
+    instagram?: string;
+    tiktok?: string;
+    twitter?: string;
+    youtube?: string;
+    whatsapp?: string;
+  };
 }
 
 export interface HeroSlide {

@@ -41,9 +41,9 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
   const { isAdmin, login, logout } = useAuth();
   const { language } = useLanguage();
 
-  // Login form state if unauthenticated
-  const [loginEmail, setLoginEmail] = useState('admin@prem');
-  const [loginPass, setLoginPass] = useState('Prem@admin');
+  // Login form state if unauthenticated (empty defaults)
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -98,6 +98,7 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
               <input
                 type="text"
                 required
+                placeholder="Enter doctor or admin username"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:outline-none"
@@ -111,6 +112,7 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
               <input
                 type="password"
                 required
+                placeholder="Enter password"
                 value={loginPass}
                 onChange={(e) => setLoginPass(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:outline-none"

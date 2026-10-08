@@ -53,7 +53,7 @@ export const firebaseConfig = {
   messagingSenderId: "355298760720",
   appId: "1:355298760720:web:0ad7aefac7edbfb6a89295",
   measurementId: "G-YH1KBCS635",
-  databaseURL: "https://drsaap-52b17-default-rtdb.firebaseio.com"
+  databaseURL: "https://drsaap-52b17-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 // Initialize Firebase App

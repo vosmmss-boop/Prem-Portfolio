@@ -49,9 +49,18 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
     { label: language === 'np' ? 'शैक्षिक यात्रा' : 'Study', href: '#journey' },
     { label: language === 'np' ? 'कार्य अनुभव' : 'Work', href: '#experience' },
     { label: language === 'np' ? 'सञ्जाल' : 'Social Media', href: '#socialmedia' },
+    { label: language === 'np' ? 'ग्यालरी' : 'Gallery', href: '#gallery' },
     { label: language === 'np' ? 'स्वास्थ्य लेख' : 'Blogs', href: '#blogs' },
     { label: language === 'np' ? 'प्राय सोधिने प्रश्न' : 'FAQ', href: '#faq' }
   ];
+
+  const activeSocialLinks = {
+    facebook: branding.socialLinks?.facebook || initialSocialLinks.facebook,
+    instagram: branding.socialLinks?.instagram || initialSocialLinks.instagram,
+    tiktok: branding.socialLinks?.tiktok || initialSocialLinks.tiktok,
+    twitter: branding.socialLinks?.twitter || initialSocialLinks.twitter,
+    youtube: branding.socialLinks?.youtube || initialSocialLinks.youtube
+  };
 
   return (
     <header className="sticky top-0 z-40 bg-white/98 backdrop-blur-md border-b border-neutral-200 shadow-2xs transition-colors">
@@ -94,7 +103,7 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
             {/* Social Media Icons: Facebook, TikTok, Instagram, X, YouTube */}
             <div className="flex items-center gap-2">
               <a
-                href={initialSocialLinks.facebook}
+                href={activeSocialLinks.facebook}
                 target="_blank"
                 rel="noreferrer"
                 className="w-6 h-6 rounded-md bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
@@ -103,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
                 <Facebook className="w-3.5 h-3.5" />
               </a>
               <a
-                href={initialSocialLinks.tiktok}
+                href={activeSocialLinks.tiktok}
                 target="_blank"
                 rel="noreferrer"
                 className="w-6 h-6 rounded-md bg-neutral-100 hover:bg-neutral-900 text-neutral-800 hover:text-white flex items-center justify-center transition-all shadow-2xs"
@@ -112,7 +121,7 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
                 <Music className="w-3.5 h-3.5" />
               </a>
               <a
-                href={initialSocialLinks.instagram}
+                href={activeSocialLinks.instagram}
                 target="_blank"
                 rel="noreferrer"
                 className="w-6 h-6 rounded-md bg-pink-50 hover:bg-pink-600 text-pink-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
@@ -121,7 +130,7 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
                 <Instagram className="w-3.5 h-3.5" />
               </a>
               <a
-                href={initialSocialLinks.twitter}
+                href={activeSocialLinks.twitter}
                 target="_blank"
                 rel="noreferrer"
                 className="w-6 h-6 rounded-md bg-sky-50 hover:bg-sky-500 text-sky-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
@@ -130,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
                 <Twitter className="w-3.5 h-3.5" />
               </a>
               <a
-                href={initialSocialLinks.youtube}
+                href={activeSocialLinks.youtube}
                 target="_blank"
                 rel="noreferrer"
                 className="w-6 h-6 rounded-md bg-red-50 hover:bg-red-600 text-red-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
@@ -140,10 +149,10 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
               </a>
             </div>
 
-            {/* Nepali Date & Time in BOLD: DD:MM:YY / 2083/06/21 and 12-Hour Time */}
+            {/* Nepali Date & Time in BOLD: 22 Asoj 2083 and 12-Hour Time */}
             <div className="flex items-center gap-1.5 text-[11px] font-mono leading-none tracking-tight">
               <span className="font-extrabold text-neutral-900 bg-neutral-200/80 px-1.5 py-0.5 rounded text-[11px]" title="Nepali Bikram Sambat Date">
-                {language === 'np' ? `वि.सं. ${nptTime.bsDateNp}` : `BS ${nptTime.bsDateEn}`}
+                {language === 'np' ? nptTime.asojDateNp : nptTime.asojDateEn}
               </span>
               <span className="font-extrabold text-emerald-900 bg-emerald-100/90 px-1.5 py-0.5 rounded text-[11px]" title="Nepal Standard Time (12-Hour format)">
                 {language === 'np' ? nptTime.time12Np : nptTime.time12En}
@@ -215,18 +224,18 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
         {/* Tablet / Mobile Sub-Bar: Nepali Date & Time */}
         <div className="xl:hidden mt-2 pt-2 border-t border-neutral-100 flex items-center justify-between text-[11px] font-mono">
           <div className="flex items-center gap-1.5">
-            <a href={initialSocialLinks.facebook} target="_blank" rel="noreferrer" className="text-neutral-600 hover:text-blue-600"><Facebook className="w-3.5 h-3.5" /></a>
-            <a href={initialSocialLinks.tiktok} target="_blank" rel="noreferrer" className="text-neutral-600 hover:text-neutral-900"><Music className="w-3.5 h-3.5" /></a>
-            <a href={initialSocialLinks.instagram} target="_blank" rel="noreferrer" className="text-neutral-600 hover:text-pink-600"><Instagram className="w-3.5 h-3.5" /></a>
-            <a href={initialSocialLinks.youtube} target="_blank" rel="noreferrer" className="text-neutral-600 hover:text-red-600"><Youtube className="w-3.5 h-3.5" /></a>
+            <a href={activeSocialLinks.facebook} target="_blank" rel="noreferrer" className="text-neutral-600 hover:text-blue-600"><Facebook className="w-3.5 h-3.5" /></a>
+            <a href={activeSocialLinks.tiktok} target="_blank" rel="noreferrer" className="text-neutral-600 hover:text-neutral-900"><Music className="w-3.5 h-3.5" /></a>
+            <a href={activeSocialLinks.instagram} target="_blank" rel="noreferrer" className="text-neutral-600 hover:text-pink-600"><Instagram className="w-3.5 h-3.5" /></a>
+            <a href={activeSocialLinks.youtube} target="_blank" rel="noreferrer" className="text-neutral-600 hover:text-red-600"><Youtube className="w-3.5 h-3.5" /></a>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-neutral-500 font-semibold text-[10px]">NPT:</span>
             <span className="font-black text-neutral-900 bg-neutral-200/70 px-1 py-0.5 rounded text-[10px]">
-              {language === 'np' ? nptTime.ddMmYyNp : nptTime.ddMmYyEn}
+              {language === 'np' ? nptTime.asojDateNp : nptTime.asojDateEn}
             </span>
             <span className="font-black text-emerald-800 bg-emerald-100/70 px-1 py-0.5 rounded text-[10px]">
-              {language === 'np' ? nptTime.hhMmSsNp : nptTime.hhMmSsEn}
+              {language === 'np' ? nptTime.time12Np : nptTime.time12En}
             </span>
           </div>
         </div>

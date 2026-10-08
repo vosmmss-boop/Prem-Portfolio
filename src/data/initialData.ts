@@ -53,7 +53,15 @@ export const initialBranding: Branding = {
     stat3LabelEn: 'Rural Camps',
     stat3LabelNp: 'निःशुल्क ग्रामीण स्वास्थ्य शिविर'
   },
-  youtubeEmbedUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ'
+  youtubeEmbedUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+  socialLinks: {
+    facebook: 'https://facebook.com/drpremrajjoshi',
+    instagram: 'https://instagram.com/drpremrajjoshi',
+    tiktok: 'https://tiktok.com/@drpremrajjoshi',
+    twitter: 'https://twitter.com/drpremrajjoshi',
+    youtube: 'https://youtube.com/@drpremrajjoshi',
+    whatsapp: 'https://wa.me/9779848721200'
+  }
 };
 
 export const initialHeroSlides: HeroSlide[] = [

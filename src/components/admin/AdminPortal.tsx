@@ -39,7 +39,9 @@ import {
   MapPin,
   BarChart3,
   Video,
-  FileUp
+  FileUp,
+  Share2,
+  Globe
 } from 'lucide-react';
 
 interface AdminPortalProps {
@@ -109,9 +111,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const { isAdmin, login, logout } = useAuth();
   const { language } = useLanguage();
 
-  // Login form state
-  const [loginEmail, setLoginEmail] = useState('admin@prem');
-  const [loginPass, setLoginPass] = useState('Prem@admin');
+  // Login form state (empty defaults - no prefilled passwords)
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
@@ -159,6 +161,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <input
                 type="text"
                 required
+                placeholder="Enter admin username or email"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:outline-none"
@@ -172,16 +175,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <input
                 type="password"
                 required
+                placeholder="Enter admin password"
                 value={loginPass}
                 onChange={(e) => setLoginPass(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:outline-none"
               />
-            </div>
-
-            <div className="bg-neutral-50 border border-neutral-200 rounded-lg p-3 text-[11px] text-neutral-600 space-y-0.5 font-mono">
-              <p className="font-bold text-neutral-800">Default Credentials:</p>
-              <p>Username: <span className="text-emerald-700 font-semibold">admin@prem</span></p>
-              <p>Password: <span className="text-emerald-700 font-semibold">Prem@admin</span></p>
             </div>
 
             {loginError && (
@@ -214,6 +212,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   // CMS Content Management Tabs (Pure content editing, no patient inquiries!)
   const cmsTabs = [
     { id: 'profile_stats', label: 'Profile, Location & Stats', icon: BarChart3 },
+    { id: 'social_links', label: 'Social Media Handles', icon: Share2 },
     { id: 'sliders', label: 'Hero Sliders', icon: Layers },
     { id: 'autobiography', label: 'Autobiography (EN/NP)', icon: User },
     { id: 'education', label: 'Education Journey', icon: GraduationCap },
@@ -317,6 +316,23 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 await saveNodeData('branding', 'dr_joshi_branding', b);
                 await saveNodeData('autobiography', 'dr_joshi_autobiography', a);
                 showToast('Global Live Push: Pushed directly to Firebase Realtime Database!');
+              }}
+            />
+          )}
+
+          {/* Module: Social Media Redirecting Links Manager */}
+          {activeTab === 'social_links' && (
+            <SocialMediaLinksManager
+              branding={branding}
+              onSaveLocal={(b) => {
+                onUpdateBranding(b);
+                localStorage.setItem('dr_joshi_branding', JSON.stringify(b));
+                showToast('Social media links saved locally.');
+              }}
+              onSaveLive={async (b) => {
+                onUpdateBranding(b);
+                await saveNodeData('branding', 'dr_joshi_branding', b);
+                showToast('Global Live Push: Social media redirect links pushed to Firebase!');
               }}
             />
           )}
@@ -778,6 +794,142 @@ const ProfileLocationStatsManager: React.FC<{
               />
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// 1.5 SOCIAL MEDIA REDIRECTING LINKS MANAGER
+// ==========================================
+const SocialMediaLinksManager: React.FC<{
+  branding: Branding;
+  onSaveLocal: (b: Branding) => void;
+  onSaveLive: (b: Branding) => void;
+}> = ({ branding, onSaveLocal, onSaveLive }) => {
+  const [bData, setBData] = useState<Branding>(branding);
+
+  const socialLinks = {
+    facebook: bData.socialLinks?.facebook ?? 'https://facebook.com/drpremrajjoshi',
+    instagram: bData.socialLinks?.instagram ?? 'https://instagram.com/drpremrajjoshi',
+    tiktok: bData.socialLinks?.tiktok ?? 'https://tiktok.com/@drpremrajjoshi',
+    twitter: bData.socialLinks?.twitter ?? 'https://twitter.com/drpremrajjoshi',
+    youtube: bData.socialLinks?.youtube ?? 'https://youtube.com/@drpremrajjoshi',
+    whatsapp: bData.socialLinks?.whatsapp ?? 'https://wa.me/9779848721200'
+  };
+
+  const updateLink = (key: keyof typeof socialLinks, value: string) => {
+    setBData({
+      ...bData,
+      socialLinks: {
+        ...socialLinks,
+        [key]: value
+      }
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-neutral-900 font-editorial">
+            Social Media Redirecting Links
+          </h2>
+          <p className="text-xs text-neutral-500">
+            Edit the destination URL for each official social media handle shown in header and channels section.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onSaveLocal(bData)}
+            className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs"
+          >
+            <Save className="w-3.5 h-3.5" />
+            <span>Save Draft</span>
+          </button>
+          <button
+            onClick={() => onSaveLive(bData)}
+            className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs"
+          >
+            <CloudUpload className="w-3.5 h-3.5" />
+            <span>Global Live Push (Firebase)</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs space-y-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-blue-700 mb-1">Facebook Page URL</label>
+            <input
+              type="url"
+              value={socialLinks.facebook}
+              onChange={(e) => updateLink('facebook', e.target.value)}
+              placeholder="https://facebook.com/yourpage"
+              className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-pink-700 mb-1">Instagram Profile URL</label>
+            <input
+              type="url"
+              value={socialLinks.instagram}
+              onChange={(e) => updateLink('instagram', e.target.value)}
+              placeholder="https://instagram.com/yourhandle"
+              className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-neutral-900 mb-1">TikTok Channel URL</label>
+            <input
+              type="url"
+              value={socialLinks.tiktok}
+              onChange={(e) => updateLink('tiktok', e.target.value)}
+              placeholder="https://tiktok.com/@yourhandle"
+              className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-sky-600 mb-1">X (Twitter) Profile URL</label>
+            <input
+              type="url"
+              value={socialLinks.twitter}
+              onChange={(e) => updateLink('twitter', e.target.value)}
+              placeholder="https://twitter.com/yourhandle"
+              className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-red-600 mb-1">YouTube Channel URL</label>
+            <input
+              type="url"
+              value={socialLinks.youtube}
+              onChange={(e) => updateLink('youtube', e.target.value)}
+              placeholder="https://youtube.com/@yourchannel"
+              className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-emerald-700 mb-1">Direct WhatsApp Chat URL</label>
+            <input
+              type="url"
+              value={socialLinks.whatsapp}
+              onChange={(e) => updateLink('whatsapp', e.target.value)}
+              placeholder="https://wa.me/9779848721200"
+              className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg font-mono"
+            />
+          </div>
+        </div>
+
+        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 font-mono">
+          ✓ Clean Single-Click Redirect: Links update everywhere instantly on both Header & Social Handles section.
         </div>
       </div>
     </div>

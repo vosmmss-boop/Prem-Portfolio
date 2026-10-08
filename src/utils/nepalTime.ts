@@ -24,10 +24,12 @@ export interface FormattedNepalTime {
   timeOnlyNp: string;
   time12En: string;
   time12Np: string;
-  bsDateEn: string; // "2083/06/21"
-  bsDateNp: string; // "२०८३/०६/२१"
-  ddMmYyEn: string; // "21:06:83"
-  ddMmYyNp: string; // "२१:०६:८३"
+  bsDateEn: string; // "2083/06/22"
+  bsDateNp: string; // "२०८३/०६/२२"
+  asojDateEn: string; // "22 Asoj 2083"
+  asojDateNp: string; // "२२ असोज २०८३"
+  ddMmYyEn: string; // "22:06:83"
+  ddMmYyNp: string; // "२२:०६:८३"
   hhMmSsEn: string; // "05:45:12 PM"
   hhMmSsNp: string; // "०५:४५:१२ साँझ"
   nepaliDay: string;
@@ -74,19 +76,22 @@ export function formatNepalTime(date = getNepalCurrentDate()): FormattedNepalTim
   const timeOnlyEn = `${displayHoursStr}:${minutes}:${seconds} ${ampmEn} NPT`;
   const timeOnlyNp = `${toNepaliDigits(displayHoursStr)}:${toNepaliDigits(minutes)}:${toNepaliDigits(seconds)} ${ampmNp} (नेपाल समय)`;
 
-  // Bikram Sambat date requested: 2083/06/21 (Ashwin 21, 2083 BS)
+  // Bikram Sambat date requested: 22 Asoj 2083 (Ashwin 22, 2083 BS)
   const bsYear = '2083';
   const bsMonth = '06';
-  const bsDay = '21';
+  const bsDay = '22';
   const bsDateEn = `${bsYear}/${bsMonth}/${bsDay}`;
   const bsDateNp = `${toNepaliDigits(bsYear)}/${toNepaliDigits(bsMonth)}/${toNepaliDigits(bsDay)}`;
+
+  const asojDateEn = `${bsDay} Asoj ${bsYear}`;
+  const asojDateNp = `${toNepaliDigits(bsDay)} असोज ${toNepaliDigits(bsYear)}`;
 
   const ddMmYyEn = `${bsDay}:${bsMonth}:${bsYear.slice(-2)}`;
   const ddMmYyNp = `${toNepaliDigits(bsDay)}:${toNepaliDigits(bsMonth)}:${toNepaliDigits(bsYear.slice(-2))}`;
 
   const nepaliDay = NEPALI_DAYS[date.getDay()];
-  const english = `${dayEn} ${monthEn} ${yearEn} · BS ${bsDateEn}, ${hhMmSsEn} NPT (UTC+5:45)`;
-  const nepali = `${nepaliDay}, वि.सं. ${bsDateNp}, ${hhMmSsNp} (नेपाल समय)`;
+  const english = `${asojDateEn} · ${hhMmSsEn} NPT (UTC+5:45)`;
+  const nepali = `${nepaliDay}, ${asojDateNp}, ${hhMmSsNp} (नेपाल समय)`;
 
   return {
     english,
@@ -97,6 +102,8 @@ export function formatNepalTime(date = getNepalCurrentDate()): FormattedNepalTim
     time12Np,
     bsDateEn,
     bsDateNp,
+    asojDateEn,
+    asojDateNp,
     ddMmYyEn,
     ddMmYyNp,
     hhMmSsEn,

@@ -49,6 +49,37 @@ export const CardsSkeleton: React.FC<{ count?: number }> = ({ count = 3 }) => (
   </div>
 );
 
+export const HeaderSkeleton: React.FC = () => (
+  <div className="w-full bg-white border-b border-neutral-200 py-3 px-4 sm:px-8">
+    <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <div className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-full bg-neutral-200 skeleton-shimmer shrink-0" />
+        <div className="space-y-1.5">
+          <div className="h-5 w-44 bg-neutral-200 skeleton-shimmer rounded" />
+          <div className="h-3 w-56 bg-neutral-200 skeleton-shimmer rounded" />
+        </div>
+      </div>
+      <div className="hidden lg:flex flex-col items-center gap-1.5">
+        <div className="flex gap-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="w-6 h-6 rounded-md bg-neutral-200 skeleton-shimmer" />
+          ))}
+        </div>
+        <div className="h-3 w-40 bg-neutral-200 skeleton-shimmer rounded" />
+      </div>
+      <div className="hidden lg:flex items-center gap-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-4 w-16 bg-neutral-200 skeleton-shimmer rounded" />
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="h-8 w-16 bg-neutral-200 skeleton-shimmer rounded-lg" />
+        <div className="h-8 w-28 bg-neutral-200 skeleton-shimmer rounded-lg" />
+      </div>
+    </div>
+  </div>
+);
+
 export const TimelineSkeleton: React.FC = () => (
   <div className="space-y-6">
     {Array.from({ length: 3 }).map((_, i) => (
@@ -61,5 +92,17 @@ export const TimelineSkeleton: React.FC = () => (
         </div>
       </div>
     ))}
+  </div>
+);
+
+export const FullAreaSkeleton: React.FC = () => (
+  <div className="min-h-screen bg-neutral-50 flex flex-col">
+    <HeaderSkeleton />
+    <HeroSliderSkeleton />
+    <div className="max-w-7xl mx-auto px-6 py-16 w-full space-y-20">
+      <BioSkeleton />
+      <CardsSkeleton count={3} />
+      <TimelineSkeleton />
+    </div>
   </div>
 );

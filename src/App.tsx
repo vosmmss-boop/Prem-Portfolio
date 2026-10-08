@@ -26,7 +26,8 @@ import {
   initialUsefulLinks,
   initialDownloads,
   initialGallery,
-  initialPatientInquiries
+  initialPatientInquiries,
+  initialSocialLinks
 } from './data/initialData';
 import { subscribeToNode, getLocal, STORAGE_KEYS } from './services/firebase';
 
@@ -34,6 +35,7 @@ import { Header } from './components/common/Header';
 import { Footer } from './components/common/Footer';
 import { NamasteWidget } from './components/common/NamasteWidget';
 import { AccessibilityPanel } from './components/common/AccessibilityPanel';
+import { HeaderSkeleton } from './components/common/SkeletonLoaders';
 
 import { HeroSlider } from './components/sections/HeroSlider';
 import { AutobiographySection } from './components/sections/AutobiographySection';
@@ -146,6 +148,16 @@ export function AppContent() {
       // Check for Inquiries Portal slug /inq-prem
       if (rawHash === '#inq-prem' || rawHash === '#inquiries' || rawPath === '/inq-prem') {
         setCurrentView('inquiries');
+        return;
+      }
+
+      // Check for /gallery slug or #gallery
+      if (rawPath === '/gallery') {
+        setCurrentView('main');
+        setTimeout(() => {
+          const el = document.getElementById('gallery');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }, 150);
         return;
       }
 
@@ -374,11 +386,15 @@ export function AppContent() {
       ) : (
         /* 4. Main Public Website View */
         <>
-          <Header
-            branding={branding}
-            currentView={currentView}
-            onNavigate={handleNavigate}
-          />
+          {isDataLoading ? (
+            <HeaderSkeleton />
+          ) : (
+            <Header
+              branding={branding}
+              currentView={currentView}
+              onNavigate={handleNavigate}
+            />
+          )}
 
           <main className="flex-1">
             {/* Section 1: Hero Carousel (#home) */}
@@ -409,7 +425,16 @@ export function AppContent() {
             />
 
             {/* Section 5: Official Social Media Handles (#socialmedia) */}
-            <SocialMediaSection />
+            <SocialMediaSection
+              socialLinks={{
+                facebook: branding.socialLinks?.facebook || initialSocialLinks.facebook,
+                instagram: branding.socialLinks?.instagram || initialSocialLinks.instagram,
+                tiktok: branding.socialLinks?.tiktok || initialSocialLinks.tiktok,
+                twitter: branding.socialLinks?.twitter || initialSocialLinks.twitter,
+                youtube: branding.socialLinks?.youtube || initialSocialLinks.youtube,
+                whatsapp: branding.socialLinks?.whatsapp || initialSocialLinks.whatsapp
+              }}
+            />
 
             {/* Section 6: Photo Archive & YouTube Video (#gallery) */}
             <GallerySection
