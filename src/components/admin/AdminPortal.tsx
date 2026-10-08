@@ -13,7 +13,7 @@ import {
   DownloadItem,
   GalleryItem
 } from '../../types';
-import { saveNodeData, checkSlugUniqueness } from '../../services/firebase';
+import { saveNodeData, checkSlugUniqueness, checkFirebaseConnection, pushAllContentToFirebase } from '../../services/firebase';
 import { generateSlug } from '../../utils/slugify';
 import {
   Shield,
@@ -41,7 +41,15 @@ import {
   Video,
   FileUp,
   Share2,
-  Globe
+  Globe,
+  AlertTriangle,
+  RefreshCw,
+  Copy,
+  Check,
+  ExternalLink,
+  Database,
+  X,
+  DownloadCloud
 } from 'lucide-react';
 
 interface AdminPortalProps {
@@ -117,13 +125,174 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Active Tab
+  // Active Tab & Sync Status
   const [activeTab, setActiveTab] = useState('profile_stats');
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'warning' | 'error' } | null>(null);
+  const [firebaseStatus, setFirebaseStatus] = useState<'checking' | 'connected' | 'permission_denied' | 'offline'>('checking');
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
+  const [copiedRules, setCopiedRules] = useState(false);
 
-  const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3500);
+  const showToast = (msg: string, type: 'success' | 'warning' | 'error' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 5000);
+  };
+
+  // Test live Firebase connection on mount
+  React.useEffect(() => {
+    checkFirebaseConnection().then((res) => {
+      if (res.connected) {
+        setFirebaseStatus('connected');
+      } else if (res.isPermissionDenied) {
+        setFirebaseStatus('permission_denied');
+      } else {
+        setFirebaseStatus('offline');
+      }
+    });
+  }, []);
+
+  // Universal save handler that saves locally AND syncs to Firebase with explicit feedback
+  const saveEntityWithGlobalSync = async (
+    nodePath: string,
+    storageKey: string,
+    data: any,
+    updater: (d: any) => void,
+    moduleName: string
+  ) => {
+    updater(data);
+    const result = await saveNodeData(nodePath, storageKey, data);
+    if (result.syncedToFirebase) {
+      setFirebaseStatus('connected');
+      showToast(`✓ ${moduleName} saved locally and synced globally to Firebase!`, 'success');
+    } else if (result.isPermissionDenied) {
+      setFirebaseStatus('permission_denied');
+      showToast(
+        `⚠️ ${moduleName} saved locally, but Firebase Realtime Database blocked global sync (Permission Denied). Update Firebase Rules so all visitors can see this change.`,
+        'warning'
+      );
+      setShowRulesModal(true);
+    } else {
+      showToast(`⚠️ ${moduleName} saved locally. Firebase sync warning: ${result.error || 'Network error'}`, 'warning');
+    }
+  };
+
+  // Profile, stats and autobiography handler
+  const saveProfileStatsWithGlobalSync = async (b: Branding, a: Autobiography) => {
+    onUpdateBranding(b);
+    onUpdateAutobiography(a);
+    const resB = await saveNodeData('branding', 'dr_joshi_branding', b);
+    const resA = await saveNodeData('autobiography', 'dr_joshi_autobiography', a);
+    if (resB.syncedToFirebase && resA.syncedToFirebase) {
+      setFirebaseStatus('connected');
+      showToast('✓ Profile, stats and autobiography saved locally & synced globally to Firebase!', 'success');
+    } else if (resB.isPermissionDenied || resA.isPermissionDenied) {
+      setFirebaseStatus('permission_denied');
+      showToast(
+        '⚠️ Saved locally, but Firebase Realtime Database blocked global sync (Permission Denied). Update Firebase Rules so all visitors can see this change.',
+        'warning'
+      );
+      setShowRulesModal(true);
+    } else {
+      showToast(`⚠️ Saved locally. Firebase sync warning: ${resB.error || resA.error || 'Check network'}`, 'warning');
+    }
+  };
+
+  // Push all 10 modules simultaneously to Firebase
+  const handleSyncAllToFirebase = async () => {
+    setIsSyncingAll(true);
+    const res = await pushAllContentToFirebase({
+      branding,
+      slides,
+      autobiography,
+      education,
+      experience,
+      blogs,
+      faqs,
+      usefulLinks,
+      downloads,
+      gallery
+    });
+    setIsSyncingAll(false);
+    if (res.success) {
+      setFirebaseStatus('connected');
+      showToast(`✓ All ${res.pushedCount} content modules successfully pushed & published globally to Firebase!`, 'success');
+      setShowRulesModal(false);
+    } else {
+      const isDenied = res.errors.some((e) => /permission/i.test(e));
+      if (isDenied) {
+        setFirebaseStatus('permission_denied');
+        showToast('⚠️ Firebase write failed: Permission Denied. Follow the 1-click guide to publish rules in Firebase Console.', 'warning');
+        setShowRulesModal(true);
+      } else {
+        showToast(`⚠️ Sync warning: ${res.errors[0] || 'Check network connection'}`, 'warning');
+      }
+    }
+  };
+
+  // Export complete site data as JSON
+  const handleExportBackup = () => {
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      branding,
+      slides,
+      autobiography,
+      education,
+      experience,
+      blogs,
+      faqs,
+      usefulLinks,
+      downloads,
+      gallery
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `drpremrajjoshi-site-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('✓ Complete portfolio backup exported as JSON file!', 'success');
+  };
+
+  // Import JSON backup
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (json.branding) onUpdateBranding(json.branding);
+        if (json.slides) onUpdateSlides(json.slides);
+        if (json.autobiography) onUpdateAutobiography(json.autobiography);
+        if (json.education) onUpdateEducation(json.education);
+        if (json.experience) onUpdateExperience(json.experience);
+        if (json.blogs) onUpdateBlogs(json.blogs);
+        if (json.faqs) onUpdateFaqs(json.faqs);
+        if (json.usefulLinks) onUpdateUsefulLinks(json.usefulLinks);
+        if (json.downloads) onUpdateDownloads(json.downloads);
+        if (json.gallery) onUpdateGallery(json.gallery);
+        showToast('✓ Backup restored locally! Pushing globally to Firebase...', 'success');
+        await handleSyncAllToFirebase();
+      } catch (err: any) {
+        showToast('Failed to parse backup JSON file: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const recommendedRulesJson = `{
+  "rules": {
+    ".read": true,
+    ".write": true
+  }
+}`;
+
+  const handleCopyRules = () => {
+    navigator.clipboard.writeText(recommendedRulesJson);
+    setCopiedRules(true);
+    setTimeout(() => setCopiedRules(false), 3000);
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -228,7 +397,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   return (
     <div className="min-h-screen bg-neutral-100 flex flex-col">
       {/* Top Admin Header */}
-      <header className="bg-neutral-900 text-white px-6 py-3.5 flex items-center justify-between border-b border-neutral-800">
+      <header className="bg-neutral-900 text-white px-6 py-3.5 flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800">
         <div className="flex items-center gap-3">
           <button
             onClick={onBackToSite}
@@ -248,10 +417,58 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <span className="text-xs text-neutral-400 hidden md:inline">
-            Logged in as <strong className="text-white">admin@prem</strong>
-          </span>
+        <div className="flex items-center gap-3">
+          {/* Real-time Global Sync Status Badge */}
+          {firebaseStatus === 'connected' ? (
+            <span className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-mono bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-500/40">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Global Live Synced</span>
+            </span>
+          ) : firebaseStatus === 'permission_denied' ? (
+            <button
+              onClick={() => setShowRulesModal(true)}
+              className="flex items-center gap-1.5 text-[11px] text-amber-300 font-mono bg-amber-950/80 hover:bg-amber-900/90 px-2.5 py-1 rounded-full border border-amber-500/50 transition-colors"
+            >
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 animate-bounce" />
+              <span>Permission Denied (Fix Rules)</span>
+            </button>
+          ) : (
+            <span className="flex items-center gap-1.5 text-[11px] text-neutral-400 font-mono bg-neutral-800 px-2.5 py-1 rounded-full border border-neutral-700">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              <span>Checking RTDB...</span>
+            </span>
+          )}
+
+          {/* Sync All Button */}
+          <button
+            onClick={handleSyncAllToFirebase}
+            disabled={isSyncingAll}
+            className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-2xs"
+            title="Push all 10 modules simultaneously to Firebase Realtime Database"
+          >
+            <CloudUpload className={`w-3.5 h-3.5 ${isSyncingAll ? 'animate-bounce' : ''}`} />
+            <span>{isSyncingAll ? 'Syncing All...' : 'Sync All to Live'}</span>
+          </button>
+
+          {/* Backup Export/Import */}
+          <button
+            onClick={handleExportBackup}
+            className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white rounded-lg transition-colors"
+            title="Download full content backup as JSON"
+          >
+            <DownloadCloud className="w-4 h-4" />
+          </button>
+
+          <label
+            className="p-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white rounded-lg transition-colors cursor-pointer"
+            title="Restore content from backup JSON"
+          >
+            <FileUp className="w-4 h-4" />
+            <input type="file" accept=".json" onChange={handleImportBackup} className="hidden" />
+          </label>
+
+          <div className="h-5 w-px bg-neutral-700 hidden md:block" />
+
           <button
             onClick={logout}
             className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold rounded-lg flex items-center gap-1.5 border border-neutral-700"
@@ -261,6 +478,118 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           </button>
         </div>
       </header>
+
+      {/* Global Sync Action Required Warning Banner */}
+      {firebaseStatus === 'permission_denied' && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-300 px-6 py-3 flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs">
+          <div className="flex items-center gap-2.5 text-amber-900 font-medium">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <strong className="font-bold">Global Sync Action Required:</strong> Firebase Realtime Database responded with <code className="bg-amber-200/70 px-1 py-0.5 rounded font-mono font-bold text-amber-950">Permission denied</code>.
+              Your CMS changes are currently saved only in this browser and will not appear to visitors until Firebase security rules allow read/write.
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowRulesModal(true)}
+              className="px-3.5 py-1.5 bg-amber-700 hover:bg-amber-800 text-white font-bold rounded-lg text-xs transition-colors shadow-xs"
+            >
+              Fix Firebase Rules (1-Click Guide)
+            </button>
+            <button
+              onClick={handleSyncAllToFirebase}
+              disabled={isSyncingAll}
+              className="px-3 py-1.5 bg-neutral-900 hover:bg-black text-white font-bold rounded-lg text-xs transition-colors flex items-center gap-1"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncingAll ? 'animate-spin' : ''}`} />
+              <span>{isSyncingAll ? 'Testing...' : 'Test & Sync All'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Firebase Rules Configuration Modal */}
+      {showRulesModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-xl w-full border border-neutral-200 shadow-2xl overflow-hidden flex flex-col">
+            <div className="bg-neutral-900 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Database className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-bold text-sm">Enable Global Firebase Updates (Rules Setup)</h3>
+              </div>
+              <button
+                onClick={() => setShowRulesModal(false)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-xs text-neutral-800">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 leading-relaxed">
+                <strong>Why is this needed?</strong> Your Firebase Realtime Database at <code className="font-mono text-[11px] font-bold">asia-southeast1</code> has locked security rules. Once you publish these 2 lines, every CMS update will instantly sync globally across all devices!
+              </div>
+
+              <div className="space-y-2">
+                <span className="font-bold text-neutral-900 block">Step 1: Open Firebase Console Rules</span>
+                <a
+                  href="https://console.firebase.google.com/project/drsaap-52b17/database/drsaap-52b17-default-rtdb/rules"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs shadow-2xs"
+                >
+                  <span>Open Firebase Rules Editor</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+                <span className="text-neutral-500 text-[11px] block">
+                  (Project: <strong>drsaap-52b17</strong> · Database: <strong>drsaap-52b17-default-rtdb</strong>)
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-neutral-900">Step 2: Replace Rules with the JSON below:</span>
+                  <button
+                    onClick={handleCopyRules}
+                    className="flex items-center gap-1 text-emerald-700 hover:text-emerald-800 font-bold text-[11px]"
+                  >
+                    {copiedRules ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedRules ? 'Copied to Clipboard!' : 'Copy Rules JSON'}</span>
+                  </button>
+                </div>
+
+                <pre className="bg-neutral-900 text-emerald-300 p-3 rounded-xl font-mono text-[11px] overflow-x-auto border border-neutral-800">
+{recommendedRulesJson}
+                </pre>
+              </div>
+
+              <div className="space-y-1">
+                <span className="font-bold text-neutral-900 block">Step 3: Click "Publish" in Firebase Console</span>
+                <p className="text-neutral-600 text-[11px]">
+                  Then click the green button below to test and push all 10 site modules immediately!
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-neutral-200 flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setShowRulesModal(false)}
+                  className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl font-semibold text-xs"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleSyncAllToFirebase}
+                  disabled={isSyncingAll}
+                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-xs"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingAll ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingAll ? 'Testing Connection...' : 'Test Connection & Sync All Now'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Admin Layout: Sidebar + Workspace */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
@@ -291,10 +620,22 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
         {/* Content Area */}
         <main className="flex-1 p-6 md:p-8 overflow-y-auto bg-neutral-100">
-          {toastMsg && (
-            <div className="mb-6 p-4 bg-emerald-800 text-white rounded-xl shadow-lg flex items-center gap-2 text-xs font-semibold animate-in fade-in">
-              <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-              <span>{toastMsg}</span>
+          {toast && (
+            <div
+              className={`mb-6 p-4 rounded-xl shadow-lg flex items-center gap-2 text-xs font-semibold animate-in fade-in ${
+                toast.type === 'success'
+                  ? 'bg-emerald-800 text-white'
+                  : toast.type === 'warning'
+                  ? 'bg-amber-600 text-white'
+                  : 'bg-rose-700 text-white'
+              }`}
+            >
+              {toast.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-amber-200 shrink-0" />
+              )}
+              <span>{toast.msg}</span>
             </div>
           )}
 
@@ -303,20 +644,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             <ProfileLocationStatsManager
               branding={branding}
               autobiography={autobiography}
-              onSaveLocal={(b, a) => {
-                onUpdateBranding(b);
-                onUpdateAutobiography(a);
-                localStorage.setItem('dr_joshi_branding', JSON.stringify(b));
-                localStorage.setItem('dr_joshi_autobiography', JSON.stringify(a));
-                showToast('Saved locally in draft mode.');
-              }}
-              onSaveLive={async (b, a) => {
-                onUpdateBranding(b);
-                onUpdateAutobiography(a);
-                await saveNodeData('branding', 'dr_joshi_branding', b);
-                await saveNodeData('autobiography', 'dr_joshi_autobiography', a);
-                showToast('Global Live Push: Pushed directly to Firebase Realtime Database!');
-              }}
+              onSaveLocal={saveProfileStatsWithGlobalSync}
+              onSaveLive={saveProfileStatsWithGlobalSync}
             />
           )}
 
@@ -324,16 +653,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {activeTab === 'social_links' && (
             <SocialMediaLinksManager
               branding={branding}
-              onSaveLocal={(b) => {
-                onUpdateBranding(b);
-                localStorage.setItem('dr_joshi_branding', JSON.stringify(b));
-                showToast('Social media links saved locally.');
-              }}
-              onSaveLive={async (b) => {
-                onUpdateBranding(b);
-                await saveNodeData('branding', 'dr_joshi_branding', b);
-                showToast('Global Live Push: Social media redirect links pushed to Firebase!');
-              }}
+              onSaveLocal={(b) => saveEntityWithGlobalSync('branding', 'dr_joshi_branding', b, onUpdateBranding, 'Social Media Links')}
+              onSaveLive={(b) => saveEntityWithGlobalSync('branding', 'dr_joshi_branding', b, onUpdateBranding, 'Social Media Links')}
             />
           )}
 
@@ -341,16 +662,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {activeTab === 'sliders' && (
             <SlidersManager
               slides={slides}
-              onSaveLocal={(newSlides) => {
-                onUpdateSlides(newSlides);
-                localStorage.setItem('dr_joshi_slider_images', JSON.stringify(newSlides));
-                showToast('Hero sliders saved locally.');
-              }}
-              onSaveLive={async (newSlides) => {
-                onUpdateSlides(newSlides);
-                await saveNodeData('slider_images', 'dr_joshi_slider_images', newSlides);
-                showToast('Global Live Push: Hero slides synced to Firebase!');
-              }}
+              onSaveLocal={(newSlides) => saveEntityWithGlobalSync('slider_images', 'dr_joshi_slider_images', newSlides, onUpdateSlides, 'Hero Sliders')}
+              onSaveLive={(newSlides) => saveEntityWithGlobalSync('slider_images', 'dr_joshi_slider_images', newSlides, onUpdateSlides, 'Hero Sliders')}
             />
           )}
 
@@ -358,16 +671,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {activeTab === 'autobiography' && (
             <AutobiographyManager
               autobiography={autobiography}
-              onSaveLocal={(newBio) => {
-                onUpdateAutobiography(newBio);
-                localStorage.setItem('dr_joshi_autobiography', JSON.stringify(newBio));
-                showToast('Autobiography saved locally.');
-              }}
-              onSaveLive={async (newBio) => {
-                onUpdateAutobiography(newBio);
-                await saveNodeData('autobiography', 'dr_joshi_autobiography', newBio);
-                showToast('Global Live Push: Autobiography pushed to Firebase!');
-              }}
+              onSaveLocal={(newBio) => saveEntityWithGlobalSync('autobiography', 'dr_joshi_autobiography', newBio, onUpdateAutobiography, 'Autobiography')}
+              onSaveLive={(newBio) => saveEntityWithGlobalSync('autobiography', 'dr_joshi_autobiography', newBio, onUpdateAutobiography, 'Autobiography')}
             />
           )}
 
@@ -375,16 +680,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {activeTab === 'education' && (
             <EducationManager
               education={education}
-              onSaveLocal={(newEdu) => {
-                onUpdateEducation(newEdu);
-                localStorage.setItem('dr_joshi_education', JSON.stringify(newEdu));
-                showToast('Education milestones saved locally.');
-              }}
-              onSaveLive={async (newEdu) => {
-                onUpdateEducation(newEdu);
-                await saveNodeData('education', 'dr_joshi_education', newEdu);
-                showToast('Global Live Push: Education milestones pushed to Firebase!');
-              }}
+              onSaveLocal={(newEdu) => saveEntityWithGlobalSync('education', 'dr_joshi_education', newEdu, onUpdateEducation, 'Education Milestones')}
+              onSaveLive={(newEdu) => saveEntityWithGlobalSync('education', 'dr_joshi_education', newEdu, onUpdateEducation, 'Education Milestones')}
             />
           )}
 
@@ -392,16 +689,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {activeTab === 'experience' && (
             <ExperienceManager
               experience={experience}
-              onSaveLocal={(newExp) => {
-                onUpdateExperience(newExp);
-                localStorage.setItem('dr_joshi_experience', JSON.stringify(newExp));
-                showToast('Experience entries saved locally.');
-              }}
-              onSaveLive={async (newExp) => {
-                onUpdateExperience(newExp);
-                await saveNodeData('experience', 'dr_joshi_experience', newExp);
-                showToast('Global Live Push: Work experience pushed to Firebase!');
-              }}
+              onSaveLocal={(newExp) => saveEntityWithGlobalSync('experience', 'dr_joshi_experience', newExp, onUpdateExperience, 'Work Experience')}
+              onSaveLive={(newExp) => saveEntityWithGlobalSync('experience', 'dr_joshi_experience', newExp, onUpdateExperience, 'Work Experience')}
             />
           )}
 
@@ -409,16 +698,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {activeTab === 'blogs' && (
             <BlogsManager
               blogs={blogs}
-              onSaveLocal={(newBlogs) => {
-                onUpdateBlogs(newBlogs);
-                localStorage.setItem('dr_joshi_blogs', JSON.stringify(newBlogs));
-                showToast('Blog articles saved locally.');
-              }}
-              onSaveLive={async (newBlogs) => {
-                onUpdateBlogs(newBlogs);
-                await saveNodeData('blogs', 'dr_joshi_blogs', newBlogs);
-                showToast('Global Live Push: Blogs synced with unique slug validation to Firebase!');
-              }}
+              onSaveLocal={(newBlogs) => saveEntityWithGlobalSync('blogs', 'dr_joshi_blogs', newBlogs, onUpdateBlogs, 'Blog Articles')}
+              onSaveLive={(newBlogs) => saveEntityWithGlobalSync('blogs', 'dr_joshi_blogs', newBlogs, onUpdateBlogs, 'Blog Articles')}
             />
           )}
 
@@ -426,16 +707,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {activeTab === 'faq' && (
             <FAQManager
               faqs={faqs}
-              onSaveLocal={(newFaqs) => {
-                onUpdateFaqs(newFaqs);
-                localStorage.setItem('dr_joshi_faq', JSON.stringify(newFaqs));
-                showToast('FAQs saved locally.');
-              }}
-              onSaveLive={async (newFaqs) => {
-                onUpdateFaqs(newFaqs);
-                await saveNodeData('faq', 'dr_joshi_faq', newFaqs);
-                showToast('Global Live Push: FAQs pushed to Firebase!');
-              }}
+              onSaveLocal={(newFaqs) => saveEntityWithGlobalSync('faq', 'dr_joshi_faq', newFaqs, onUpdateFaqs, 'FAQs')}
+              onSaveLive={(newFaqs) => saveEntityWithGlobalSync('faq', 'dr_joshi_faq', newFaqs, onUpdateFaqs, 'FAQs')}
             />
           )}
 
@@ -443,16 +716,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {activeTab === 'links' && (
             <LinksManager
               links={usefulLinks}
-              onSaveLocal={(newL) => {
-                onUpdateUsefulLinks(newL);
-                localStorage.setItem('dr_joshi_links', JSON.stringify(newL));
-                showToast('Useful links saved locally.');
-              }}
-              onSaveLive={async (newL) => {
-                onUpdateUsefulLinks(newL);
-                await saveNodeData('links', 'dr_joshi_links', newL);
-                showToast('Global Live Push: Useful links pushed to Firebase!');
-              }}
+              onSaveLocal={(newL) => saveEntityWithGlobalSync('links', 'dr_joshi_links', newL, onUpdateUsefulLinks, 'Useful Links')}
+              onSaveLive={(newL) => saveEntityWithGlobalSync('links', 'dr_joshi_links', newL, onUpdateUsefulLinks, 'Useful Links')}
             />
           )}
 
@@ -460,16 +725,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {activeTab === 'downloads' && (
             <DownloadsManager
               downloads={downloads}
-              onSaveLocal={(newD) => {
-                onUpdateDownloads(newD);
-                localStorage.setItem('dr_joshi_downloads', JSON.stringify(newD));
-                showToast('Downloads saved locally.');
-              }}
-              onSaveLive={async (newD) => {
-                onUpdateDownloads(newD);
-                await saveNodeData('downloads', 'dr_joshi_downloads', newD);
-                showToast('Global Live Push: PDF download assets pushed to Firebase!');
-              }}
+              onSaveLocal={(newD) => saveEntityWithGlobalSync('downloads', 'dr_joshi_downloads', newD, onUpdateDownloads, 'Download Files')}
+              onSaveLive={(newD) => saveEntityWithGlobalSync('downloads', 'dr_joshi_downloads', newD, onUpdateDownloads, 'Download Files')}
             />
           )}
 
@@ -477,16 +734,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {activeTab === 'logo_flag' && (
             <LogoFlagManager
               branding={branding}
-              onSaveLocal={(newB) => {
-                onUpdateBranding(newB);
-                localStorage.setItem('dr_joshi_branding', JSON.stringify(newB));
-                showToast('Branding & video saved locally.');
-              }}
-              onSaveLive={async (newB) => {
-                onUpdateBranding(newB);
-                await saveNodeData('branding', 'dr_joshi_branding', newB);
-                showToast('Global Live Push: Branding & YouTube pushed to Firebase!');
-              }}
+              onSaveLocal={(newB) => saveEntityWithGlobalSync('branding', 'dr_joshi_branding', newB, onUpdateBranding, 'Branding & Video')}
+              onSaveLive={(newB) => saveEntityWithGlobalSync('branding', 'dr_joshi_branding', newB, onUpdateBranding, 'Branding & Video')}
             />
           )}
 
@@ -494,16 +743,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {activeTab === 'gallery' && (
             <GalleryManager
               gallery={gallery}
-              onSaveLocal={(newG) => {
-                onUpdateGallery(newG);
-                localStorage.setItem('dr_joshi_gallery', JSON.stringify(newG));
-                showToast('Gallery saved locally.');
-              }}
-              onSaveLive={async (newG) => {
-                onUpdateGallery(newG);
-                await saveNodeData('gallery', 'dr_joshi_gallery', newG);
-                showToast('Global Live Push: Gallery photos pushed to Firebase!');
-              }}
+              onSaveLocal={(newG) => saveEntityWithGlobalSync('gallery', 'dr_joshi_gallery', newG, onUpdateGallery, 'Gallery Photos')}
+              onSaveLive={(newG) => saveEntityWithGlobalSync('gallery', 'dr_joshi_gallery', newG, onUpdateGallery, 'Gallery Photos')}
             />
           )}
         </main>

@@ -198,6 +198,14 @@ export function subscribeToNode<T>(
   }
 }
 
+export interface SaveResult {
+  success: boolean;
+  savedLocally: boolean;
+  syncedToFirebase: boolean;
+  error?: string;
+  isPermissionDenied?: boolean;
+}
+
 /**
  * Update a node in Firebase and Local Cache simultaneously
  */
@@ -205,7 +213,7 @@ export async function saveNodeData<T>(
   nodePath: string,
   storageKey: string,
   data: T
-): Promise<void> {
+): Promise<SaveResult> {
   // Always update local storage first so changes appear instantly on screen
   setLocal(storageKey, data);
 
@@ -213,10 +221,93 @@ export async function saveNodeData<T>(
     try {
       const nodeRef = ref(database, nodePath);
       await set(nodeRef, data);
+      return { success: true, savedLocally: true, syncedToFirebase: true };
     } catch (err: any) {
-      console.warn(`Failed to push to Firebase /${nodePath}:`, err.message);
+      const msg = err?.message || String(err);
+      const isPermissionDenied = /permission_denied|permission denied/i.test(msg);
+      console.warn(`Failed to push to Firebase /${nodePath}:`, msg);
+      return {
+        success: false,
+        savedLocally: true,
+        syncedToFirebase: false,
+        error: msg,
+        isPermissionDenied
+      };
     }
   }
+  return {
+    success: false,
+    savedLocally: true,
+    syncedToFirebase: false,
+    error: 'Firebase Database instance not ready'
+  };
+}
+
+/**
+ * Check whether Firebase Realtime Database is accessible or blocked by rules
+ */
+export async function checkFirebaseConnection(): Promise<{
+  connected: boolean;
+  error?: string;
+  isPermissionDenied?: boolean;
+}> {
+  try {
+    const res = await fetch(
+      'https://drsaap-52b17-default-rtdb.asia-southeast1.firebasedatabase.app/.json?shallow=true'
+    );
+    if (res.ok) {
+      return { connected: true };
+    }
+    const data = await res.json().catch(() => ({}));
+    const errText = data?.error || `HTTP ${res.status}`;
+    const isPermissionDenied = /permission denied/i.test(errText) || res.status === 401 || res.status === 403;
+    return { connected: false, error: errText, isPermissionDenied };
+  } catch (err: any) {
+    return { connected: false, error: err.message };
+  }
+}
+
+/**
+ * Push all 10 CMS content nodes to Firebase Realtime Database in one operation
+ */
+export async function pushAllContentToFirebase(allData: {
+  branding: Branding;
+  slides: HeroSlide[];
+  autobiography: Autobiography;
+  education: EducationMilestone[];
+  experience: ExperienceEntry[];
+  blogs: BlogArticle[];
+  faqs: FAQItem[];
+  usefulLinks: UsefulLink[];
+  downloads: DownloadItem[];
+  gallery: GalleryItem[];
+}): Promise<{ success: boolean; pushedCount: number; errors: string[] }> {
+  const nodes = [
+    { path: 'branding', key: STORAGE_KEYS.BRANDING, data: allData.branding },
+    { path: 'slider_images', key: STORAGE_KEYS.SLIDERS, data: allData.slides },
+    { path: 'autobiography', key: STORAGE_KEYS.AUTOBIOGRAPHY, data: allData.autobiography },
+    { path: 'education', key: STORAGE_KEYS.EDUCATION, data: allData.education },
+    { path: 'experience', key: STORAGE_KEYS.EXPERIENCE, data: allData.experience },
+    { path: 'blogs', key: STORAGE_KEYS.BLOGS, data: allData.blogs },
+    { path: 'faq', key: STORAGE_KEYS.FAQ, data: allData.faqs },
+    { path: 'links', key: STORAGE_KEYS.LINKS, data: allData.usefulLinks },
+    { path: 'downloads', key: STORAGE_KEYS.DOWNLOADS, data: allData.downloads },
+    { path: 'gallery', key: STORAGE_KEYS.GALLERY, data: allData.gallery }
+  ];
+
+  let pushed = 0;
+  const errors: string[] = [];
+
+  for (const node of nodes) {
+    const res = await saveNodeData(node.path, node.key, node.data);
+    if (res.syncedToFirebase) {
+      pushed++;
+    } else if (res.error) {
+      errors.push(`${node.path}: ${res.error}`);
+    }
+  }
+
+  return { success: errors.length === 0, pushedCount: pushed, errors };
 }
 
 /**

@@ -24,7 +24,7 @@ export async function onRequest(context) {
   // Fetch dynamic slugs from Firebase RTDB REST API
   let dynamicBlogs = [];
   try {
-    const res = await fetch(`https://drsaap-52b17-default-rtdb.firebaseio.com/blogs.json`);
+    const res = await fetch(`https://drsaap-52b17-default-rtdb.asia-southeast1.firebasedatabase.app/blogs.json`);
     if (res.ok) {
       const data = await res.json();
       if (data) {

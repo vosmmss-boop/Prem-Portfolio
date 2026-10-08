@@ -176,23 +176,33 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
         : item
     );
     onUpdateInquiries(updated);
-    await saveNodeData('patient_inquiries', 'dr_joshi_patient_inquiries', updated);
+    const result = await saveNodeData('patient_inquiries', 'dr_joshi_patient_inquiries', updated);
     setSelectedCard({
       ...selectedCard,
       doctorNotes,
       prescribedAdvice,
       status: editStatus
     });
-    showToast('Patient record saved and synced.');
+    if (result.syncedToFirebase) {
+      showToast('✓ Patient record saved and updated globally in Firebase!');
+    } else if (result.isPermissionDenied) {
+      showToast('⚠️ Saved in local browser, but Firebase rejected global write (Permission Denied). Update Firebase Rules.');
+    } else {
+      showToast('Patient record saved locally.');
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (confirm('Delete this patient record permanently?')) {
       const updated = inquiries.filter((i) => i.id !== id);
       onUpdateInquiries(updated);
-      await saveNodeData('patient_inquiries', 'dr_joshi_patient_inquiries', updated);
+      const result = await saveNodeData('patient_inquiries', 'dr_joshi_patient_inquiries', updated);
       if (selectedCard?.id === id) setSelectedCard(null);
-      showToast('Record deleted.');
+      if (result.syncedToFirebase) {
+        showToast('✓ Record deleted locally and removed globally from Firebase.');
+      } else {
+        showToast('Record deleted locally.');
+      }
     }
   };
 

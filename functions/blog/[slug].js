@@ -20,8 +20,8 @@ export async function onRequest(context) {
   }
 
   // Firebase Realtime Database endpoint
-  // Using user project id: drsaap-52b17
-  const firebaseRestUrl = `https://drsaap-52b17-default-rtdb.firebaseio.com/blogs.json`;
+  // Using user project id: drsaap-52b17 (asia-southeast1 region)
+  const firebaseRestUrl = `https://drsaap-52b17-default-rtdb.asia-southeast1.firebasedatabase.app/blogs.json`;
 
   let blogData = {
     titleEn: 'Dr. Prem Raj Joshi - Health Article',
