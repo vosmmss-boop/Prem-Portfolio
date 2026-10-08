@@ -32,7 +32,7 @@ jobs:
           node-version: 20
 
       - name: Install Dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Build Vite App (Outputs to ./dist)
         run: npm run build
