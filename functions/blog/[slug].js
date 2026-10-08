@@ -1,20 +1,20 @@
 /**
- * Cloudflare Pages Function: /functions/blog/[slug].js
+ * Cloudflare Pages Function / Worker: /functions/blog/[slug].js
  * Dynamic Open Graph (OG) & Twitter Card Meta Tag Injection for Social Media Crawlers
- * Connected to Firebase Realtime Database REST API
+ * Connected to Firebase Realtime Database REST API with flexible queries & schema fallbacks
  */
 
 export async function onRequest(context) {
   const { request, params, env } = context;
-  const slug = params.slug;
+  const slug = params?.slug || new URL(request.url).pathname.split('/').filter(Boolean).pop();
   const userAgent = request.headers.get('user-agent') || '';
 
-  // Detect social media crawlers
-  const isCrawler = /facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|TelegramBot|Slackbot|Discordbot|Applebot/i.test(
+  // Detect social media and search crawlers
+  const isCrawler = /facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|TelegramBot|Slackbot|Discordbot|Applebot|Pinterest|SkypeUriPreview/i.test(
     userAgent
   );
 
-  // If regular user browser, forward request to standard SPA index page
+  // If regular user browser, forward request to standard root SPA HTML shell
   if (!isCrawler) {
     if (env && env.ASSETS) {
       return env.ASSETS.fetch(new Request(new URL('/', request.url), request));
@@ -26,66 +26,141 @@ export async function onRequest(context) {
     }
   }
 
-  // Firebase Realtime Database endpoint
-  // Using user project id: drsaap-52b17 (asia-southeast1 region)
-  const firebaseRestUrl = `https://drsaap-52b17-default-rtdb.asia-southeast1.firebasedatabase.app/blogs.json`;
   const origin = new URL(request.url).origin;
 
-  let blogData = {
-    titleEn: 'Dr. Prem Raj Joshi - Health Article',
-    excerptEn: 'Ayurvedic Medical Article by Dr. Prem Raj Joshi (BAMS, IOM, TU).',
-    coverImage: `${origin}/assets/images/doctor_portrait_1791392878397.jpg`
-  };
+  // Firebase Realtime Database default endpoint
+  // Works with both default regional domain and default rtdb
+  const RTDB_URL = env?.FIREBASE_DATABASE_URL ||
+    'https://drsaap-52b17-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+  let blogData = null;
 
   try {
-    const res = await fetch(firebaseRestUrl);
+    // 1. Flexible Firebase Querying using orderBy="slug"&equalTo="${slug}"
+    const queryUrl = `${RTDB_URL}/blogs.json?orderBy="slug"&equalTo="${encodeURIComponent(slug)}"`;
+    let res = await fetch(queryUrl);
+
+    // If region query fails or index isn't ready, try default firebaseio.com or fetch fallback
+    if (!res.ok && RTDB_URL.includes('.asia-southeast1.')) {
+      const fallbackUrl = `https://drsaap-52b17-default-rtdb.firebaseio.com/blogs.json?orderBy="slug"&equalTo="${encodeURIComponent(slug)}"`;
+      res = await fetch(fallbackUrl);
+    }
+
     if (res.ok) {
-      const allBlogs = await res.json();
-      if (allBlogs) {
-        // Find matching blog by slug
-        const blogsList = Array.isArray(allBlogs) ? allBlogs : Object.values(allBlogs);
-        const match = blogsList.find((b) => b && b.slug === slug);
-        if (match) {
-          blogData = match;
+      const data = await res.json();
+      if (data && typeof data === 'object') {
+        // Firebase returns a map keyed by push ID (e.g., {"-NkJ1829s": { ...blogData }})
+        const keys = Object.keys(data);
+        if (keys.length > 0) {
+          const firstKey = keys[0];
+          blogData = data[firstKey];
+        }
+      }
+    }
+
+    // Secondary fallback: if query by slug returned null/empty, fetch blogs list and search
+    if (!blogData) {
+      const allRes = await fetch(`${RTDB_URL}/blogs.json`);
+      if (allRes.ok) {
+        const allData = await allRes.json();
+        if (allData && typeof allData === 'object') {
+          const list = Array.isArray(allData) ? allData : Object.values(allData);
+          blogData = list.find((b) => b && (b.slug === slug || b.id === slug)) || null;
         }
       }
     }
   } catch (err) {
-    // Graceful fallback to default metadata
+    // Network or parse issue: fall back gracefully
+    blogData = null;
   }
 
-  // Fetch the base HTML response
+  // 2. Fallback Object Access
+  const title =
+    blogData?.title_en ||
+    blogData?.titleEn ||
+    blogData?.title ||
+    blogData?.title_np ||
+    blogData?.titleNp ||
+    'Dr. Prem Raj Joshi | Ayurvedic Health & Medical Insights';
+
+  const description =
+    blogData?.summary_en ||
+    blogData?.summaryEn ||
+    blogData?.excerptEn ||
+    blogData?.summary ||
+    blogData?.description ||
+    blogData?.summary_np ||
+    blogData?.summaryNp ||
+    'Integrative Ayurvedic medicine consultations, holistic wellness therapies, and lifestyle guidance by Dr. Prem Raj Joshi (BAMS, IOM, TU).';
+
+  const coverImage =
+    blogData?.cover_image ||
+    blogData?.coverImage ||
+    blogData?.image ||
+    blogData?.thumbnail ||
+    `${origin}/assets/images/doctor_portrait_1791392878397.jpg`;
+
+  const canonicalUrl = `${origin}/blog/${slug}`;
+
+  // 3. Fetch the root HTML shell ('/') to ensure 200 OK status
   let response;
   if (env && env.ASSETS) {
     response = await env.ASSETS.fetch(new Request(new URL('/', request.url), request));
   } else {
-    response = await context.next();
+    try {
+      response = await fetch(new Request(new URL('/', request.url), request));
+    } catch {
+      response = await context.next();
+    }
   }
 
-  const title = blogData.titleEn || 'Dr. Prem Raj Joshi - Ayurvedic Physician';
-  const description = blogData.excerptEn || 'Integrative Ayurvedic medicine and consultations.';
-  const image = blogData.coverImage || `${origin}/assets/images/doctor_portrait_1791392878397.jpg`;
-  const url = `${origin}/blog/${slug}`;
+  const safeTitle = title.replace(/"/g, '&quot;');
+  const safeDesc = description.replace(/"/g, '&quot;');
+  const safeImage = coverImage;
+  const safeUrl = canonicalUrl;
 
-  // HTMLRewriter dynamic head injection
+  // 4. HTMLRewriter: strip existing static og: / twitter: meta tags and inject dynamic ones
   return new HTMLRewriter()
+    // Strip existing static open graph & twitter tags to avoid duplicate tag conflicts
+    .on('meta[property^="og:"]', {
+      element(el) {
+        el.remove();
+      }
+    })
+    .on('meta[name^="twitter:"]', {
+      element(el) {
+        el.remove();
+      }
+    })
+    .on('meta[name="description"]', {
+      element(el) {
+        el.setAttribute('content', safeDesc);
+      }
+    })
     .on('title', {
-      element(e) {
-        e.setInnerContent(`${title} | Dr. Prem Raj Joshi`);
+      element(el) {
+        el.setInnerContent(`${safeTitle} | Dr. Prem Raj Joshi`);
       }
     })
     .on('head', {
-      element(e) {
-        e.append(`<meta property="og:type" content="article" />`, { html: true });
-        e.append(`<meta property="og:title" content="${title.replace(/"/g, '&quot;')}" />`, { html: true });
-        e.append(`<meta property="og:description" content="${description.replace(/"/g, '&quot;')}" />`, { html: true });
-        e.append(`<meta property="og:image" content="${image}" />`, { html: true });
-        e.append(`<meta property="og:url" content="${url}" />`, { html: true });
-        e.append(`<meta name="twitter:card" content="summary_large_image" />`, { html: true });
-        e.append(`<meta name="twitter:title" content="${title.replace(/"/g, '&quot;')}" />`, { html: true });
-        e.append(`<meta name="twitter:description" content="${description.replace(/"/g, '&quot;')}" />`, { html: true });
-        e.append(`<meta name="twitter:image" content="${image}" />`, { html: true });
+      element(el) {
+        // Append dynamic Open Graph tags
+        el.append(`<meta property="og:type" content="article" />`, { html: true });
+        el.append(`<meta property="og:title" content="${safeTitle}" />`, { html: true });
+        el.append(`<meta property="og:description" content="${safeDesc}" />`, { html: true });
+        el.append(`<meta property="og:image" content="${safeImage}" />`, { html: true });
+        el.append(`<meta property="og:image:width" content="1200" />`, { html: true });
+        el.append(`<meta property="og:image:height" content="630" />`, { html: true });
+        el.append(`<meta property="og:url" content="${safeUrl}" />`, { html: true });
+        el.append(`<meta property="og:site_name" content="Dr. Prem Raj Joshi - Ayurvedic Physician" />`, { html: true });
+
+        // Append dynamic Twitter Card tags
+        el.append(`<meta name="twitter:card" content="summary_large_image" />`, { html: true });
+        el.append(`<meta name="twitter:title" content="${safeTitle}" />`, { html: true });
+        el.append(`<meta name="twitter:description" content="${safeDesc}" />`, { html: true });
+        el.append(`<meta name="twitter:image" content="${safeImage}" />`, { html: true });
       }
     })
     .transform(response);
 }
+
