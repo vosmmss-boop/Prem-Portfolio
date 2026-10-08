@@ -25,7 +25,7 @@ export const initialBranding: Branding = {
     en: 'Integrative Ayurvedic Healthcare, Classical Therapeutics & Holistic Wellness',
     np: 'एकीकृत आयुर्वेदिक चिकित्सा, शास्त्रीय उपचार तथा समग्र स्वास्थ्य परामर्श'
   },
-  logoUrl: '/src/assets/images/doctor_portrait_1791392878397.jpg',
+  logoUrl: '/assets/images/doctor_portrait_1791392878397.jpg',
   flagUrl: 'https://upload.wikimedia.org/wikipedia/commons/9/9b/Flag_of_Nepal.svg',
   nmcNumber: 'NMC Reg. 1824 / AYU-NP',
   phone: '+977-9848721200',
@@ -67,7 +67,7 @@ export const initialBranding: Branding = {
 export const initialHeroSlides: HeroSlide[] = [
   {
     id: 'slide-1',
-    imageUrl: '/src/assets/images/hero_ayurveda_clinic_1791392890876.jpg',
+    imageUrl: '/assets/images/hero_ayurveda_clinic_1791392890876.jpg',
     titleEn: 'Ancient Healing Wisdom Meets Modern Diagnostics',
     titleNp: 'प्राचीन वैदिक ज्ञान र आधुनिक चिकित्साको वैज्ञानिक संगम',
     subtitleEn: 'Personalized holistic consultations by Dr. Prem Raj Joshi, graduate of Institute of Medicine (IOM), TU.',
@@ -79,7 +79,7 @@ export const initialHeroSlides: HeroSlide[] = [
   },
   {
     id: 'slide-2',
-    imageUrl: '/src/assets/images/hero_himalayan_wellness_1791392913647.jpg',
+    imageUrl: '/assets/images/hero_himalayan_wellness_1791392913647.jpg',
     titleEn: 'Root-Cause Therapeutics for Chronic Ailments',
     titleNp: 'दीर्घरोगहरूको जडबाटै निदान र प्राकृतिक उपचार',
     subtitleEn: 'Evidence-informed Ayurvedic care for digestive disorders, metabolic health, arthritis, and lifestyle harmony.',
@@ -91,7 +91,7 @@ export const initialHeroSlides: HeroSlide[] = [
   },
   {
     id: 'slide-3',
-    imageUrl: '/src/assets/images/academic_iom_tu_1791392932848.jpg',
+    imageUrl: '/assets/images/academic_iom_tu_1791392932848.jpg',
     titleEn: 'Academic Rigor & Medical Compassion',
     titleNp: 'चिकित्सकीय निष्ठा तथा जनस्वास्थ्य सेवामा समर्पण',
     subtitleEn: 'Committed to evidence-based Ayurvedic medicine, preventive community health, and patient education across Nepal.',
@@ -138,7 +138,7 @@ Beyond his clinical practice, Dr. Joshi is an avid educator, frequently conducti
       'प्रकृति अनुसारको व्यक्तिगत खानपान र जीवनशैली परामर्श'
     ]
   },
-  avatarUrl: '/src/assets/images/doctor_portrait_1791392878397.jpg'
+  avatarUrl: '/assets/images/doctor_portrait_1791392878397.jpg'
 };
 
 export const initialEducation: EducationMilestone[] = [
@@ -154,7 +154,7 @@ export const initialEducation: EducationMilestone[] = [
     descriptionNp: '५.५ वर्षे पूर्णकालीन चिकित्सा अध्ययन। आधुनिक शरीर रचना, रोग निदान तथा चरक, सुश्रुत, वाग्भट संहिता, कायचिकित्सा, शल्यतन्त्र, शालाक्यतन्त्र र प्रसूतीतन्त्रमा सैद्धान्तिक तथा व्यावहारिक निपुणता।',
     honorsEn: 'Graduated with First Division · Merit Scholarship Awardee',
     honorsNp: 'प्रथम श्रेणीमा उत्तीर्ण · योग्यता छात्रवृत्ति प्राप्त',
-    imageUrl: '/src/assets/images/academic_iom_tu_1791392932848.jpg'
+    imageUrl: '/assets/images/academic_iom_tu_1791392932848.jpg'
   },
   {
     id: 'edu-2',
@@ -168,7 +168,7 @@ export const initialEducation: EducationMilestone[] = [
     descriptionNp: 'अन्तरङ्ग (IPD), बहिरङ्ग (OPD), आकस्मिक कक्ष, पञ्चकर्म कक्ष तथा फार्मेसीमा बिरामी जाँच्ने र उपचार गर्ने गहन क्लिनिकल अभ्यास।',
     honorsEn: 'Excellence in Clinical Case Management',
     honorsNp: 'उत्कृष्ट क्लिनिकल सेवा प्रशंसा पत्र',
-    imageUrl: '/src/assets/images/hero_ayurveda_clinic_1791392890876.jpg'
+    imageUrl: '/assets/images/hero_ayurveda_clinic_1791392890876.jpg'
   },
   {
     id: 'edu-3',
@@ -317,7 +317,7 @@ Consult Dr. Prem Raj Joshi for a tailored assessment of your Dosha balance befor
     authorNp: 'डा. प्रेम राज जोशी (BAMS)',
     publishDate: '2026-09-15',
     readTime: '5 min read',
-    coverImage: '/src/assets/images/hero_ayurveda_clinic_1791392890876.jpg',
+    coverImage: '/assets/images/hero_ayurveda_clinic_1791392890876.jpg',
     metaKeywords: 'Ayurveda, Amlapitta, Gastritis Nepal, BAMS Doctor Kathmandu, Herbal Digestive Care',
     metaDescriptionEn: 'Clinical Ayurvedic guide to treating acidity, GERD, and gastritis by Dr. Prem Raj Joshi (BAMS, IOM, TU).',
     metaDescriptionNp: 'डा. प्रेम राज जोशीद्वारा ग्यास्ट्रिक, अम्लपित्त तथा पेट पोल्ने समस्याको प्राकृतिक उपचार सम्बन्धी लेख।'
@@ -353,7 +353,7 @@ Nature operates in cycles, and human biology is genetically tuned to the rising 
     authorNp: 'डा. प्रेम राज जोशी (BAMS)',
     publishDate: '2026-08-20',
     readTime: '4 min read',
-    coverImage: '/src/assets/images/hero_himalayan_wellness_1791392913647.jpg',
+    coverImage: '/assets/images/hero_himalayan_wellness_1791392913647.jpg',
     metaKeywords: 'Dinacharya, Ojas, Immunity, Daily routine Ayurveda Nepal',
     metaDescriptionEn: 'How to build natural immunity through classical Ayurvedic daily routine by Dr. Prem Raj Joshi.',
     metaDescriptionNp: 'दैनिक स्वस्थ दिनचर्या र रोग प्रतिरोधात्मक क्षमता बढाउने उपायहरू।'
@@ -387,7 +387,7 @@ Chronic occupational stress, excessive blue light from smartphones, and irregula
     authorNp: 'डा. प्रेम राज जोशी (BAMS)',
     publishDate: '2026-07-10',
     readTime: '6 min read',
-    coverImage: '/src/assets/images/academic_iom_tu_1791392932848.jpg',
+    coverImage: '/assets/images/academic_iom_tu_1791392932848.jpg',
     metaKeywords: 'Stress, Insomnia, Ashwagandha, Brahmi Nepal, Shirodhara Kathmandu',
     metaDescriptionEn: 'Overcoming chronic stress and insomnia naturally with Dr. Prem Raj Joshi.',
     metaDescriptionNp: 'तनाव र अनिद्राबाट मुक्ति पाउने आयुर्वेदिक घरेलु तथा शास्त्रीय उपायहरू।'
@@ -531,7 +531,7 @@ export const initialGallery: GalleryItem[] = [
     titleEn: 'Pulse Diagnosis (Nadi Pariksha) Session at Clinic',
     titleNp: 'क्लिनिकमा बिरामीको नाडी परीक्षा गर्दै',
     type: 'photo',
-    mediaUrl: '/src/assets/images/hero_ayurveda_clinic_1791392890876.jpg',
+    mediaUrl: '/assets/images/hero_ayurveda_clinic_1791392890876.jpg',
     captionEn: 'Nadi Pariksha reveals the subtle vibrations of Vata, Pitta, and Kapha.',
     captionNp: 'नाडीको चालबाट त्रिदोषको सन्तुलन परीक्षण गरिँदै।',
     date: '2026-09-01'
@@ -542,7 +542,7 @@ export const initialGallery: GalleryItem[] = [
     titleEn: 'Free Rural Health Camp in Far-Western Nepal',
     titleNp: 'सुदूरपश्चिमको ग्रामीण भेगमा निःशुल्क स्वास्थ्य शिविर',
     type: 'photo',
-    mediaUrl: '/src/assets/images/academic_iom_tu_1791392932848.jpg',
+    mediaUrl: '/assets/images/academic_iom_tu_1791392932848.jpg',
     captionEn: 'Providing free consultations and essential herbal supplies to over 500 local residents.',
     captionNp: '५०० भन्दा बढी स्थानीय आमाबुबा तथा बालबालिकालाई निःशुल्क औषधि वितरण।',
     date: '2026-08-14'
@@ -553,7 +553,7 @@ export const initialGallery: GalleryItem[] = [
     titleEn: 'Himalayan Medicinal Herbs Field Study & Identification',
     titleNp: 'हिमाली जडीबुटी पहिचान तथा अध्ययन भ्रमण',
     type: 'photo',
-    mediaUrl: '/src/assets/images/hero_himalayan_wellness_1791392913647.jpg',
+    mediaUrl: '/assets/images/hero_himalayan_wellness_1791392913647.jpg',
     captionEn: 'Studying wild specimens of Tulsi, Chiraito, and Ashwagandha in native habitats.',
     captionNp: 'प्राकृतिक वासस्थानमा बहुमूल्य नेपाली जडीबुटीहरूको अध्ययन।',
     date: '2026-07-22'
@@ -564,7 +564,7 @@ export const initialGallery: GalleryItem[] = [
     titleEn: 'Institute of Medicine (IOM) Alumni Medical Conference',
     titleNp: 'त्रिवि शिक्षण अस्पताल आयुर्वेद सम्मेलन',
     type: 'photo',
-    mediaUrl: '/src/assets/images/doctor_portrait_1791392878397.jpg',
+    mediaUrl: '/assets/images/doctor_portrait_1791392878397.jpg',
     captionEn: 'Dr. Joshi presenting clinical insights on integrative therapies.',
     captionNp: 'अनुसन्धान पत्र तथा केस स्टडी प्रस्तुत गर्दै डा. जोशी।',
     date: '2026-06-11'

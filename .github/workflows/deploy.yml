@@ -39,9 +39,17 @@ jobs:
 
       - name: Prepare GitHub Pages Assets (SPA 404 & CNAME & .nojekyll)
         run: |
-          # Copy index.html to 404.html so direct URLs and refreshes load properly
+          # Copy index.html to 404.html and static route folders so direct URLs (/webadminprem, /inq-prem, /track, /appointment) return HTTP 200 OK
           if [ -f dist/index.html ]; then
             cp dist/index.html dist/404.html
+            mkdir -p dist/webadminprem dist/admin dist/inq-prem dist/inquiries dist/track dist/appointment dist/gallery
+            cp dist/index.html dist/webadminprem/index.html
+            cp dist/index.html dist/admin/index.html
+            cp dist/index.html dist/inq-prem/index.html
+            cp dist/index.html dist/inquiries/index.html
+            cp dist/index.html dist/track/index.html
+            cp dist/index.html dist/appointment/index.html
+            cp dist/index.html dist/gallery/index.html
           fi
 
           # Ensure custom domain CNAME is present in dist

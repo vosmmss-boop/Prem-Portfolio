@@ -1,5 +1,16 @@
 export type Language = 'en' | 'np';
 
+export interface SocialChannelItem {
+  id: string;
+  platform: 'facebook' | 'youtube' | 'instagram' | 'tiktok' | 'twitter' | 'whatsapp' | 'custom';
+  name: string;
+  handle: string;
+  url: string;
+  descriptionEn: string;
+  descriptionNp: string;
+  active: boolean;
+}
+
 export interface Branding {
   doctorName: {
     en: string;
@@ -50,6 +61,7 @@ export interface Branding {
     youtube?: string;
     whatsapp?: string;
   };
+  socialChannels?: SocialChannelItem[];
 }
 
 export interface HeroSlide {

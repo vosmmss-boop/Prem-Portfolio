@@ -11,7 +11,8 @@ import {
   FAQItem,
   UsefulLink,
   DownloadItem,
-  GalleryItem
+  GalleryItem,
+  SocialChannelItem
 } from '../../types';
 import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL, UploadTask } from 'firebase/storage';
 import {
@@ -461,8 +462,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
   // CMS Content Management Tabs (Pure content editing, no patient inquiries!)
   const cmsTabs = [
+    { id: 'active_feed', label: 'Active Live Feed', icon: Globe },
     { id: 'profile_stats', label: 'Profile, Location & Stats', icon: BarChart3 },
-    { id: 'social_links', label: 'Social Media Handles', icon: Share2 },
+    { id: 'social_links', label: 'Social Media & Feed', icon: Share2 },
     { id: 'sliders', label: 'Hero Sliders', icon: Layers },
     { id: 'autobiography', label: 'Autobiography (EN/NP)', icon: User },
     { id: 'education', label: 'Education Journey', icon: GraduationCap },
@@ -720,6 +722,24 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
           )}
 
+          {/* Module 0: Active Live Feed Overview */}
+          {activeTab === 'active_feed' && (
+            <ActiveFeedOverview
+              branding={branding}
+              slides={slides}
+              blogs={blogs}
+              education={education}
+              experience={experience}
+              faqs={faqs}
+              usefulLinks={usefulLinks}
+              downloads={downloads}
+              gallery={gallery}
+              onSelectTab={(tabId) => setActiveTab(tabId)}
+              onSyncAll={handleSyncAllToFirebase}
+              isSyncingAll={isSyncingAll}
+            />
+          )}
+
           {/* Module 1: Profile, Location & Stats Manager */}
           {activeTab === 'profile_stats' && (
             <ProfileLocationStatsManager
@@ -830,6 +850,301 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             />
           )}
         </main>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// 0. ACTIVE LIVE FEED OVERVIEW (Shows all currently active website feeds in CMS panel)
+// ==========================================
+const ActiveFeedOverview: React.FC<{
+  branding: Branding;
+  slides: HeroSlide[];
+  blogs: BlogArticle[];
+  education: EducationMilestone[];
+  experience: ExperienceEntry[];
+  faqs: FAQItem[];
+  usefulLinks: UsefulLink[];
+  downloads: DownloadItem[];
+  gallery: GalleryItem[];
+  onSelectTab: (tabId: string) => void;
+  onSyncAll: () => void;
+  isSyncingAll: boolean;
+}> = ({
+  branding,
+  slides,
+  blogs,
+  education,
+  experience,
+  faqs,
+  usefulLinks,
+  downloads,
+  gallery,
+  onSelectTab,
+  onSyncAll,
+  isSyncingAll
+}) => {
+  const socialLinks = {
+    facebook: branding.socialLinks?.facebook ?? 'https://facebook.com/drpremrajjoshi',
+    instagram: branding.socialLinks?.instagram ?? 'https://instagram.com/drpremrajjoshi',
+    tiktok: branding.socialLinks?.tiktok ?? 'https://tiktok.com/@drpremrajjoshi',
+    twitter: branding.socialLinks?.twitter ?? 'https://twitter.com/drpremrajjoshi',
+    youtube: branding.socialLinks?.youtube ?? 'https://youtube.com/@drpremrajjoshi',
+    whatsapp: branding.socialLinks?.whatsapp ?? 'https://wa.me/9779848721200'
+  };
+
+  const activeSocialList = Object.entries(socialLinks).filter(([, url]) => Boolean(url && url.trim()));
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <h2 className="text-xl font-bold text-neutral-900 font-editorial">
+              Active Website Live Feed Overview
+            </h2>
+          </div>
+          <p className="text-xs text-neutral-500 mt-0.5">
+            Real-time snapshot of all active content feeds, published medical blogs, social channels, and media currently live on your public portal.
+          </p>
+        </div>
+
+        <button
+          onClick={onSyncAll}
+          disabled={isSyncingAll}
+          className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs self-start sm:self-auto"
+        >
+          <CloudUpload className={`w-3.5 h-3.5 ${isSyncingAll ? 'animate-bounce' : ''}`} />
+          <span>{isSyncingAll ? 'Syncing Active Feeds...' : 'Sync All Active Feeds to Firebase'}</span>
+        </button>
+      </div>
+
+      {/* Summary Counts Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        <div
+          onClick={() => onSelectTab('blogs')}
+          className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-2xs hover:border-emerald-500 cursor-pointer transition-all"
+        >
+          <div className="flex items-center justify-between text-xs text-neutral-500 font-mono">
+            <span>ACTIVE BLOGS</span>
+            <FileText className="w-4 h-4 text-emerald-700" />
+          </div>
+          <div className="text-2xl font-black text-neutral-900 mt-1">{blogs.length}</div>
+          <span className="text-[11px] text-emerald-700 font-semibold">Manage Articles →</span>
+        </div>
+
+        <div
+          onClick={() => onSelectTab('social_links')}
+          className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-2xs hover:border-emerald-500 cursor-pointer transition-all"
+        >
+          <div className="flex items-center justify-between text-xs text-neutral-500 font-mono">
+            <span>SOCIAL FEEDS</span>
+            <Share2 className="w-4 h-4 text-emerald-700" />
+          </div>
+          <div className="text-2xl font-black text-neutral-900 mt-1">{activeSocialList.length}</div>
+          <span className="text-[11px] text-emerald-700 font-semibold">Manage Channels →</span>
+        </div>
+
+        <div
+          onClick={() => onSelectTab('gallery')}
+          className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-2xs hover:border-emerald-500 cursor-pointer transition-all"
+        >
+          <div className="flex items-center justify-between text-xs text-neutral-500 font-mono">
+            <span>GALLERY MEDIA</span>
+            <Camera className="w-4 h-4 text-emerald-700" />
+          </div>
+          <div className="text-2xl font-black text-neutral-900 mt-1">{gallery.length}</div>
+          <span className="text-[11px] text-emerald-700 font-semibold">Manage Photos →</span>
+        </div>
+
+        <div
+          onClick={() => onSelectTab('sliders')}
+          className="bg-white border border-neutral-200 rounded-2xl p-4 shadow-2xs hover:border-emerald-500 cursor-pointer transition-all"
+        >
+          <div className="flex items-center justify-between text-xs text-neutral-500 font-mono">
+            <span>HERO SLIDERS</span>
+            <Layers className="w-4 h-4 text-emerald-700" />
+          </div>
+          <div className="text-2xl font-black text-neutral-900 mt-1">{slides.length}</div>
+          <span className="text-[11px] text-emerald-700 font-semibold">Manage Sliders →</span>
+        </div>
+      </div>
+
+      {/* Active Blogs Feed Section */}
+      <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <h3 className="text-sm font-bold text-neutral-900">
+              Active Health Blogs Feed ({blogs.length} Published)
+            </h3>
+          </div>
+          <button
+            onClick={() => onSelectTab('blogs')}
+            className="text-xs font-bold text-emerald-700 hover:underline flex items-center gap-1"
+          >
+            <span>Edit / Add Blog</span>
+            <span>→</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {blogs.map((b) => {
+            const cover = b.cover_image || b.coverImage || '/assets/images/hero_ayurveda_clinic_1791392890876.jpg';
+            return (
+              <div
+                key={b.id}
+                className="border border-neutral-200 rounded-xl overflow-hidden bg-neutral-50 flex flex-col justify-between"
+              >
+                <div>
+                  <div className="aspect-16/9 bg-neutral-900 relative overflow-hidden">
+                    <img
+                      src={cover}
+                      alt={b.titleEn}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = '/assets/images/hero_ayurveda_clinic_1791392890876.jpg';
+                      }}
+                    />
+                    <span className="absolute top-2 left-2 px-2 py-0.5 bg-emerald-800/90 text-white text-[10px] font-bold rounded-md">
+                      {b.categoryEn}
+                    </span>
+                  </div>
+                  <div className="p-3.5 space-y-1">
+                    <div className="text-[10px] font-mono text-neutral-400">
+                      {b.publishDate} · {b.readTime}
+                    </div>
+                    <h4 className="font-bold text-xs text-neutral-900 line-clamp-2">{b.titleEn}</h4>
+                    <p className="text-[11px] text-neutral-600 font-nepali line-clamp-1">{b.titleNp}</p>
+                  </div>
+                </div>
+                <div className="px-3.5 py-2 bg-white border-t border-neutral-200 flex items-center justify-between text-[11px]">
+                  <span className="font-mono text-emerald-800 truncate">/blog/{b.slug}</span>
+                  <button
+                    onClick={() => onSelectTab('blogs')}
+                    className="font-bold text-neutral-700 hover:text-emerald-700 shrink-0"
+                  >
+                    Edit
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Active Social Media & Featured YouTube Feed */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <h3 className="text-sm font-bold text-neutral-900">
+                Active Social Media Channels ({activeSocialList.length} Live)
+              </h3>
+            </div>
+            <button
+              onClick={() => onSelectTab('social_links')}
+              className="text-xs font-bold text-emerald-700 hover:underline"
+            >
+              Configure Links →
+            </button>
+          </div>
+
+          <div className="space-y-2.5">
+            {activeSocialList.map(([platform, url]) => (
+              <div
+                key={platform}
+                className="flex items-center justify-between p-2.5 rounded-xl bg-neutral-50 border border-neutral-200 text-xs"
+              >
+                <div className="min-w-0 pr-3">
+                  <span className="font-bold uppercase text-neutral-800 block text-[11px] font-mono">
+                    {platform}
+                  </span>
+                  <span className="text-[11px] text-emerald-700 font-mono truncate block">{url}</span>
+                </div>
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 bg-white border border-neutral-300 hover:border-emerald-500 rounded-lg text-[11px] font-semibold text-neutral-700 flex items-center gap-1 shrink-0"
+                >
+                  <span>Open</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Active YouTube Video & Clinical Feed Summary */}
+        <div className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <h3 className="text-sm font-bold text-neutral-900">
+                Active Featured YouTube Lecture & Portal Feeds
+              </h3>
+            </div>
+            <button
+              onClick={() => onSelectTab('logo_flag')}
+              className="text-xs font-bold text-emerald-700 hover:underline"
+            >
+              Change Video →
+            </button>
+          </div>
+
+          {branding.youtubeEmbedUrl ? (
+            <div className="aspect-video rounded-xl overflow-hidden bg-black border border-neutral-200">
+              <iframe
+                src={branding.youtubeEmbedUrl}
+                title="Active Featured YouTube Feed"
+                className="w-full h-full border-0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          ) : (
+            <div className="p-4 bg-neutral-50 rounded-xl border text-xs text-neutral-500">
+              No featured YouTube embed URL configured.
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-center">
+            <div
+              onClick={() => onSelectTab('education')}
+              className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-200 cursor-pointer hover:border-emerald-500"
+            >
+              <div className="text-base font-black text-neutral-900">{education.length}</div>
+              <div className="text-[10px] font-semibold text-neutral-500">Education Items</div>
+            </div>
+            <div
+              onClick={() => onSelectTab('experience')}
+              className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-200 cursor-pointer hover:border-emerald-500"
+            >
+              <div className="text-base font-black text-neutral-900">{experience.length}</div>
+              <div className="text-[10px] font-semibold text-neutral-500">Work Entries</div>
+            </div>
+            <div
+              onClick={() => onSelectTab('faq')}
+              className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-200 cursor-pointer hover:border-emerald-500"
+            >
+              <div className="text-base font-black text-neutral-900">{faqs.length}</div>
+              <div className="text-[10px] font-semibold text-neutral-500">Active FAQs</div>
+            </div>
+            <div
+              onClick={() => onSelectTab('downloads')}
+              className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-200 cursor-pointer hover:border-emerald-500"
+            >
+              <div className="text-base font-black text-neutral-900">
+                {downloads.length + usefulLinks.length}
+              </div>
+              <div className="text-[10px] font-semibold text-neutral-500">PDFs & Links</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1163,8 +1478,71 @@ const ProfileLocationStatsManager: React.FC<{
 };
 
 // ==========================================
-// 1.5 SOCIAL MEDIA REDIRECTING LINKS MANAGER
+// 1.5 SOCIAL MEDIA REDIRECTING LINKS & ACTIVE FEED MANAGER
 // ==========================================
+const DEFAULT_SOCIAL_CHANNELS: SocialChannelItem[] = [
+  {
+    id: 'facebook',
+    platform: 'facebook',
+    name: 'Facebook Page',
+    handle: '@drpremrajjoshi',
+    url: 'https://facebook.com/drpremrajjoshi',
+    descriptionEn: 'Daily health columns, live Q&A, and community medical advisories.',
+    descriptionNp: 'दैनिक स्वास्थ्य सल्लाह, लाइभ प्रश्नोत्तर तथा जनचेतनामूलक पोस्टहरू।',
+    active: true
+  },
+  {
+    id: 'youtube',
+    platform: 'youtube',
+    name: 'YouTube Channel',
+    handle: 'Dr. Prem Raj Joshi',
+    url: 'https://youtube.com/@drpremrajjoshi',
+    descriptionEn: 'In-depth video lectures on Dinacharya, herbal medicines, and disease care.',
+    descriptionNp: 'रोग निदान, जडीबुटीको पहिचान र घरेलु उपचार सम्बन्धी भिडियोहरू।',
+    active: true
+  },
+  {
+    id: 'instagram',
+    platform: 'instagram',
+    name: 'Instagram',
+    handle: '@drpremrajjoshi',
+    url: 'https://instagram.com/drpremrajjoshi',
+    descriptionEn: 'Visual infographics on Ayurvedic diet, medicinal herbs, and lifestyle.',
+    descriptionNp: 'आयुर्वेदिक खानपान र जडीबुटी सम्बन्धी जानकारीमूलक फोटो र रिल्स।',
+    active: true
+  },
+  {
+    id: 'tiktok',
+    platform: 'tiktok',
+    name: 'TikTok',
+    handle: '@drpremrajjoshi',
+    url: 'https://tiktok.com/@drpremrajjoshi',
+    descriptionEn: 'Short 60-second health tips, myths vs. facts in Nepali language.',
+    descriptionNp: 'एक मिनेटका छरिता स्वास्थ्य टिप्स र भ्रम निवारण भिडियोहरू।',
+    active: true
+  },
+  {
+    id: 'twitter',
+    platform: 'twitter',
+    name: 'X (Twitter)',
+    handle: '@drpremrajjoshi',
+    url: 'https://twitter.com/drpremrajjoshi',
+    descriptionEn: 'Public health opinions, medical policy reflections, and research tweets.',
+    descriptionNp: 'जनस्वास्थ्य, चिकित्सा नीति र अनुसन्धान सम्बन्धी संक्षिप्त विचारहरू।',
+    active: true
+  },
+  {
+    id: 'whatsapp',
+    platform: 'whatsapp',
+    name: 'Direct WhatsApp',
+    handle: '+977-9848721200',
+    url: 'https://wa.me/9779848721200',
+    descriptionEn: 'Direct clinic desk for appointment verification and prescription coordination.',
+    descriptionNp: 'अपोइन्टमेन्ट तथा औषधि डेलिभरी समन्वयका लागि प्रत्यक्ष च्याट।',
+    active: true
+  }
+];
+
 const SocialMediaLinksManager: React.FC<{
   branding: Branding;
   onSaveLocal: (b: Branding) => void;
@@ -1185,25 +1563,56 @@ const SocialMediaLinksManager: React.FC<{
     whatsapp: bData.socialLinks ? (bData.socialLinks.whatsapp ?? '') : 'https://wa.me/9779848721200'
   };
 
+  const channels: SocialChannelItem[] =
+    bData.socialChannels && bData.socialChannels.length > 0
+      ? bData.socialChannels
+      : DEFAULT_SOCIAL_CHANNELS.map((c) => ({
+          ...c,
+          url: (socialLinks as Record<string, string>)[c.platform] ?? c.url,
+          active: Boolean(((socialLinks as Record<string, string>)[c.platform] ?? c.url).trim())
+        }));
+
   const updateLink = (key: keyof typeof socialLinks, value: string) => {
+    const nextLinks = {
+      ...socialLinks,
+      [key]: value
+    };
+    const nextChannels = channels.map((c) =>
+      c.platform === key ? { ...c, url: value, active: Boolean(value.trim()) } : c
+    );
     setBData({
       ...bData,
-      socialLinks: {
-        ...socialLinks,
-        [key]: value
-      }
+      socialLinks: nextLinks,
+      socialChannels: nextChannels
     });
   };
+
+  const updateChannelItem = (id: string, patch: Partial<SocialChannelItem>) => {
+    const nextChannels = channels.map((c) => (c.id === id ? { ...c, ...patch } : c));
+    const nextLinks = { ...socialLinks };
+    for (const ch of nextChannels) {
+      if (ch.platform in nextLinks) {
+        (nextLinks as any)[ch.platform] = ch.active ? ch.url : '';
+      }
+    }
+    setBData({
+      ...bData,
+      socialLinks: nextLinks,
+      socialChannels: nextChannels
+    });
+  };
+
+  const activeFeedChannels = channels.filter((c) => c.active && Boolean(c.url && c.url.trim()));
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-neutral-900 font-editorial">
-            Social Media Redirecting Links
+            Social Media Handles & Active Feed Cards
           </h2>
           <p className="text-xs text-neutral-500">
-            Edit the destination URL for each official social media handle shown in header and channels section.
+            Edit destination URLs, handles, and rich-text descriptions for the active social media feed shown on the public website.
           </p>
         </div>
 
@@ -1225,7 +1634,70 @@ const SocialMediaLinksManager: React.FC<{
         </div>
       </div>
 
+      {/* Live Preview of Active Feed in CMS Panel */}
+      <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800 font-mono">
+              Active Social Feed Preview ({activeFeedChannels.length} Active on Public Website)
+            </h3>
+          </div>
+          <span className="text-[11px] text-neutral-500 font-mono">
+            Section: #socialmedia
+          </span>
+        </div>
+
+        {activeFeedChannels.length === 0 ? (
+          <div className="p-4 bg-neutral-50 rounded-xl text-xs text-neutral-500 text-center">
+            No active social channels enabled. Enter a URL or toggle a channel active below.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {activeFeedChannels.map((chan) => (
+              <div
+                key={chan.id}
+                className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 flex flex-col justify-between space-y-3"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold font-mono uppercase">
+                      Active Feed
+                    </span>
+                    <a
+                      href={chan.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-neutral-400 hover:text-emerald-700"
+                      title="Test live link"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                  <h4 className="font-bold text-sm text-neutral-900">{chan.name}</h4>
+                  <span className="text-xs font-mono text-emerald-700 font-medium block mb-1.5">
+                    {chan.handle}
+                  </span>
+                  <div
+                    className="text-xs text-neutral-600 line-clamp-2"
+                    dangerouslySetInnerHTML={{ __html: chan.descriptionEn }}
+                  />
+                </div>
+                <div className="pt-2 border-t border-neutral-200/80 flex items-center justify-between text-[10px] font-mono text-neutral-500">
+                  <span className="truncate max-w-[180px]">{chan.url}</span>
+                  <span className="text-emerald-700 font-bold">LIVE</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Quick URL Editor */}
       <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs space-y-5">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-700 font-mono">
+          Quick Redirect URLs (Header & Footer Icons)
+        </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-blue-700 mb-1">Facebook Page URL</label>
@@ -1297,6 +1769,108 @@ const SocialMediaLinksManager: React.FC<{
         <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 font-mono">
           ✓ Clean Single-Click Redirect: Links update everywhere instantly on both Header & Social Handles section.
         </div>
+      </div>
+
+      {/* Detailed Active Feed Card Customization (Handles & Bilingual Rich Text Descriptions) */}
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-700 font-mono">
+          Customize Individual Social Feed Cards (Handle, Visibility & Descriptions)
+        </h3>
+        {channels.map((chan) => (
+          <div
+            key={chan.id}
+            className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-xs space-y-4"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 pb-3">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={chan.active}
+                  onChange={(e) => updateChannelItem(chan.id, { active: e.target.checked })}
+                  className="w-4 h-4 accent-emerald-700 rounded cursor-pointer"
+                />
+                <span className="font-bold text-sm text-neutral-900">{chan.name}</span>
+                <span
+                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                    chan.active ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-600'
+                  }`}
+                >
+                  {chan.active ? 'ACTIVE ON SITE' : 'HIDDEN'}
+                </span>
+              </div>
+              <a
+                href={chan.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-emerald-700 hover:underline flex items-center gap-1 font-mono"
+              >
+                <span>Test Link</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-neutral-600 mb-1">
+                  Channel Title
+                </label>
+                <input
+                  type="text"
+                  value={chan.name}
+                  onChange={(e) => updateChannelItem(chan.id, { name: e.target.value })}
+                  className="w-full p-2 text-xs border rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-neutral-600 mb-1">
+                  Display Handle (e.g. @drpremrajjoshi)
+                </label>
+                <input
+                  type="text"
+                  value={chan.handle}
+                  onChange={(e) => updateChannelItem(chan.id, { handle: e.target.value })}
+                  className="w-full p-2 text-xs border rounded-lg font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-neutral-600 mb-1">
+                  Destination URL
+                </label>
+                <input
+                  type="url"
+                  value={chan.url}
+                  onChange={(e) =>
+                    updateChannelItem(chan.id, {
+                      url: e.target.value,
+                      active: Boolean(e.target.value.trim())
+                    })
+                  }
+                  className="w-full p-2 text-xs border rounded-lg font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <UniversalRichTextEditor
+                label="Feed Card Description (English)"
+                value={chan.descriptionEn}
+                onChange={(val) => updateChannelItem(chan.id, { descriptionEn: val })}
+                minHeight={95}
+                allowImages={false}
+                allowTables={false}
+              />
+              <UniversalRichTextEditor
+                label="Feed Card Description (Nepali Unicode)"
+                value={chan.descriptionNp}
+                onChange={(val) => updateChannelItem(chan.id, { descriptionNp: val })}
+                isNepali={true}
+                minHeight={95}
+                allowImages={false}
+                allowTables={false}
+              />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

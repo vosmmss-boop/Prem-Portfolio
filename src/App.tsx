@@ -622,6 +622,7 @@ export function AppContent() {
                 youtube: branding.socialLinks?.youtube !== undefined ? branding.socialLinks.youtube : initialSocialLinks.youtube,
                 whatsapp: branding.socialLinks?.whatsapp !== undefined ? branding.socialLinks.whatsapp : initialSocialLinks.whatsapp
               }}
+              socialChannels={branding.socialChannels}
             />
 
             {/* Section 6: Photo Archive & YouTube Video (#gallery) */}

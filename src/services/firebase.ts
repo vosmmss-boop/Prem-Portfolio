@@ -97,17 +97,12 @@ try {
 export { app, database, auth, storage, analytics };
 
 /**
- * Ensure an authenticated Firebase session is active for admin Storage/Database writes
+ * Ensure an authenticated Firebase session is active for admin Storage/Database writes.
+ * Does NOT call signInAnonymously unless anonymous auth is explicitly enabled, avoiding HTTP 400 console errors.
  */
 export async function ensureFirebaseAdminAuth(): Promise<User | null> {
   if (!auth) return null;
-  if (auth.currentUser) return auth.currentUser;
-  try {
-    const cred = await signInAnonymously(auth);
-    return cred.user;
-  } catch {
-    return auth.currentUser;
-  }
+  return auth.currentUser;
 }
 
 /**
@@ -365,44 +360,26 @@ export async function uploadImageToFirebaseStorage(
     options.onProgress(5);
   }
 
-  const primaryBucket = firebaseConfig.storageBucket || 'drsaap-52b17.firebasestorage.app';
-  const projectId = firebaseConfig.projectId || 'drsaap-52b17';
-  const alternateBucket = primaryBucket.endsWith('.firebasestorage.app')
-    ? `${projectId}.appspot.com`
-    : `${projectId}.firebasestorage.app`;
+  const primaryBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '';
 
-  // 1. Try Primary Configured Bucket
-  const primaryStorage = storage || (app ? getStorage(app) : null);
-  if (primaryStorage) {
+  // 1. Only attempt direct Firebase Storage bucket upload if VITE_FIREBASE_STORAGE_BUCKET is explicitly set
+  // and not known to return 404 in this session, preventing console 404/CORS preflight errors!
+  if (primaryBucket && storage && !(window as any).__firebaseStorageBucketUnavailable) {
     try {
-      primaryStorage.maxUploadRetryTime = 5000;
-      primaryStorage.maxOperationRetryTime = 5000;
-      return await tryFirebaseBucketUpload(primaryStorage, storagePath, file, primaryBucket, 3500, options);
+      storage.maxUploadRetryTime = 4000;
+      storage.maxOperationRetryTime = 4000;
+      return await tryFirebaseBucketUpload(storage, storagePath, file, primaryBucket, 3000, options);
     } catch (primaryErr: any) {
       if (primaryErr?.code === 'storage/canceled') {
         throw primaryErr;
       }
-      // Proceed to alternate bucket or RTDB cloud fallback
+      // Mark bucket unavailable for this browser session so subsequent uploads don't log 404s
+      (window as any).__firebaseStorageBucketUnavailable = true;
     }
   }
 
-  // 2. Try Alternate Bucket (e.g. gs://drsaap-52b17.appspot.com) in case the project uses legacy bucket naming
-  if (app) {
-    try {
-      const altStorage = getStorage(app, `gs://${alternateBucket}`);
-      altStorage.maxUploadRetryTime = 4000;
-      altStorage.maxOperationRetryTime = 4000;
-      if (options.onProgress) options.onProgress(25);
-      return await tryFirebaseBucketUpload(altStorage, storagePath, file, alternateBucket, 3000, options);
-    } catch (altErr: any) {
-      if (altErr?.code === 'storage/canceled') {
-        throw altErr;
-      }
-    }
-  }
-
-  // 3. Automatic Cloud Fallback: Optimize image via high-quality canvas compression and store directly
-  // in Firebase Realtime Database so the image works immediately across all devices without CORS/404 failures!
+  // 2. Direct Cloud Persistence: Optimize image via high-quality canvas compression and store directly
+  // in Firebase Realtime Database so the image works immediately across all devices with zero 404/400 errors!
   if (options.onProgress) options.onProgress(65);
   const { adjustAndProcessUploadedImage } = await import('../utils/imageAdjuster');
   const processed = await adjustAndProcessUploadedImage(file, {
@@ -456,7 +433,26 @@ export function trackEvent(eventName: string, eventParams?: Record<string, any>)
   }
 }
 
-// Storage keys for offline/fallback caching
+/**
+ * Normalize legacy `/src/assets/images/` asset paths to `/assets/images/` so production builds never log 404s
+ */
+export function normalizeAssetUrls<T>(data: T): T {
+  if (!data) return data;
+  if (typeof data === 'string') {
+    return data.replace(/\/src\/assets\/images\//g, '/assets/images/') as unknown as T;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => normalizeAssetUrls(item)) as unknown as T;
+  }
+  if (typeof data === 'object') {
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(data as Record<string, any>)) {
+      out[k] = normalizeAssetUrls(v);
+    }
+    return out as T;
+  }
+  return data;
+}
 export const STORAGE_KEYS = {
   BRANDING: 'dr_joshi_branding',
   SLIDERS: 'dr_joshi_slider_images',
@@ -477,18 +473,19 @@ export function getLocal<T>(key: string, fallback: T): T {
     if (item !== null) {
       const parsed = JSON.parse(item);
       if (parsed !== null && parsed !== undefined) {
-        return parsed;
+        return normalizeAssetUrls(parsed);
       }
     }
   } catch (e) {
     // ignore
   }
-  return fallback;
+  return normalizeAssetUrls(fallback);
 }
 
 export function setLocal<T>(key: string, data: T): void {
   try {
-    localStorage.setItem(key, JSON.stringify(data));
+    const normalized = normalizeAssetUrls(data);
+    localStorage.setItem(key, JSON.stringify(normalized));
     localStorage.setItem(`${key}_modified_at`, String(Date.now()));
   } catch (e) {
     // ignore
@@ -556,8 +553,9 @@ export function subscribeToNode<T>(
 
           // If valid data exists in snapshot, update local cache and UI
           if (parsedData !== null && parsedData !== undefined) {
-            setLocal(storageKey, parsedData);
-            onData(parsedData);
+            const normalized = normalizeAssetUrls(parsedData);
+            setLocal(storageKey, normalized);
+            onData(normalized);
           }
         } else {
           // If node doesn't exist yet in remote RTDB, preserve current local cache

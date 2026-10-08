@@ -1,6 +1,8 @@
 import React from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { initialSocialLinks } from '../../data/initialData';
+import { SocialChannelItem } from '../../types';
+import { RichTextContent } from '../common/RichTextContent';
 import {
   Share2,
   ExternalLink,
@@ -14,71 +16,124 @@ import {
 
 interface SocialMediaSectionProps {
   socialLinks?: typeof initialSocialLinks;
+  socialChannels?: SocialChannelItem[];
 }
 
 export const SocialMediaSection: React.FC<SocialMediaSectionProps> = ({
-  socialLinks = initialSocialLinks
+  socialLinks = initialSocialLinks,
+  socialChannels
 }) => {
   const { language, t } = useLanguage();
 
-  const channels = [
+  const defaultChannels = [
     {
+      id: 'facebook',
+      platform: 'facebook' as const,
       name: 'Facebook Page',
       handle: '@drpremrajjoshi',
       icon: Facebook,
       url: socialLinks.facebook,
       color: 'hover:text-blue-600 hover:border-blue-300',
       descriptionEn: 'Daily health columns, live Q&A, and community medical advisories.',
-      descriptionNp: 'दैनिक स्वास्थ्य सल्लाह, लाइभ प्रश्नोत्तर तथा जनचेतनामूलक पोस्टहरू।'
+      descriptionNp: 'दैनिक स्वास्थ्य सल्लाह, लाइभ प्रश्नोत्तर तथा जनचेतनामूलक पोस्टहरू।',
+      active: Boolean(socialLinks.facebook && socialLinks.facebook.trim())
     },
     {
+      id: 'youtube',
+      platform: 'youtube' as const,
       name: 'YouTube Channel',
       handle: 'Dr. Prem Raj Joshi',
       icon: Youtube,
       url: socialLinks.youtube,
       color: 'hover:text-red-600 hover:border-red-300',
       descriptionEn: 'In-depth video lectures on Dinacharya, herbal medicines, and disease care.',
-      descriptionNp: 'रोग निदान, जडीबुटीको पहिचान र घरेलु उपचार सम्बन्धी भिडियोहरू।'
+      descriptionNp: 'रोग निदान, जडीबुटीको पहिचान र घरेलु उपचार सम्बन्धी भिडियोहरू।',
+      active: Boolean(socialLinks.youtube && socialLinks.youtube.trim())
     },
     {
+      id: 'instagram',
+      platform: 'instagram' as const,
       name: 'Instagram',
       handle: '@drpremrajjoshi',
       icon: Instagram,
       url: socialLinks.instagram,
       color: 'hover:text-pink-600 hover:border-pink-300',
       descriptionEn: 'Visual infographics on Ayurvedic diet, medicinal herbs, and lifestyle.',
-      descriptionNp: 'आयुर्वेदिक खानपान र जडीबुटी सम्बन्धी जानकारीमूलक फोटो र रिल्स।'
+      descriptionNp: 'आयुर्वेदिक खानपान र जडीबुटी सम्बन्धी जानकारीमूलक फोटो र रिल्स।',
+      active: Boolean(socialLinks.instagram && socialLinks.instagram.trim())
     },
     {
+      id: 'tiktok',
+      platform: 'tiktok' as const,
       name: 'TikTok',
       handle: '@drpremrajjoshi',
       icon: Music,
       url: socialLinks.tiktok,
       color: 'hover:text-neutral-900 hover:border-neutral-400',
       descriptionEn: 'Short 60-second health tips, myths vs. facts in Nepali language.',
-      descriptionNp: 'एक मिनेटका छरिता स्वास्थ्य टिप्स र भ्रम निवारण भिडियोहरू।'
+      descriptionNp: 'एक मिनेटका छरिता स्वास्थ्य टिप्स र भ्रम निवारण भिडियोहरू।',
+      active: Boolean(socialLinks.tiktok && socialLinks.tiktok.trim())
     },
     {
+      id: 'twitter',
+      platform: 'twitter' as const,
       name: 'X (Twitter)',
       handle: '@drpremrajjoshi',
       icon: Twitter,
       url: socialLinks.twitter,
       color: 'hover:text-sky-500 hover:border-sky-300',
       descriptionEn: 'Public health opinions, medical policy reflections, and research tweets.',
-      descriptionNp: 'जनस्वास्थ्य, चिकित्सा नीति र अनुसन्धान सम्बन्धी संक्षिप्त विचारहरू।'
+      descriptionNp: 'जनस्वास्थ्य, चिकित्सा नीति र अनुसन्धान सम्बन्धी संक्षिप्त विचारहरू।',
+      active: Boolean(socialLinks.twitter && socialLinks.twitter.trim())
     },
     {
+      id: 'whatsapp',
+      platform: 'whatsapp' as const,
       name: 'Direct WhatsApp',
       handle: '+977-9848721200',
       icon: MessageCircle,
       url: socialLinks.whatsapp,
       color: 'hover:text-emerald-600 hover:border-emerald-300',
       descriptionEn: 'Direct clinic desk for appointment verification and prescription coordination.',
-      descriptionNp: 'अपोइन्टमेन्ट तथा औषधि डेलिभरी समन्वयका लागि प्रत्यक्ष च्याट।'
+      descriptionNp: 'अपोइन्टमेन्ट तथा औषधि डेलिभरी समन्वयका लागि प्रत्यक्ष च्याट।',
+      active: Boolean(socialLinks.whatsapp && socialLinks.whatsapp.trim())
     }
   ];
 
-  const activeChannels = channels.filter((c) => Boolean(c.url && c.url.trim()));
+  const getIconAndColor = (platform: string) => {
+    switch (platform) {
+      case 'facebook':
+        return { icon: Facebook, color: 'hover:text-blue-600 hover:border-blue-300' };
+      case 'youtube':
+        return { icon: Youtube, color: 'hover:text-red-600 hover:border-red-300' };
+      case 'instagram':
+        return { icon: Instagram, color: 'hover:text-pink-600 hover:border-pink-300' };
+      case 'tiktok':
+        return { icon: Music, color: 'hover:text-neutral-900 hover:border-neutral-400' };
+      case 'twitter':
+        return { icon: Twitter, color: 'hover:text-sky-500 hover:border-sky-300' };
+      case 'whatsapp':
+        return { icon: MessageCircle, color: 'hover:text-emerald-600 hover:border-emerald-300' };
+      default:
+        return { icon: Share2, color: 'hover:text-emerald-600 hover:border-emerald-300' };
+    }
+  };
+
+  const resolvedChannels =
+    socialChannels && socialChannels.length > 0
+      ? socialChannels.map((c) => {
+          const meta = getIconAndColor(c.platform);
+          return {
+            ...c,
+            icon: meta.icon,
+            color: meta.color
+          };
+        })
+      : defaultChannels;
+
+  const activeChannels = resolvedChannels.filter(
+    (c) => c.active !== false && Boolean(c.url && c.url.trim())
+  );
 
   if (activeChannels.length === 0) {
     return null;
@@ -104,7 +159,7 @@ export const SocialMediaSection: React.FC<SocialMediaSectionProps> = ({
             const Icon = chan.icon;
             return (
               <a
-                key={chan.name}
+                key={chan.id || chan.name}
                 href={chan.url}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -128,9 +183,10 @@ export const SocialMediaSection: React.FC<SocialMediaSectionProps> = ({
                     {chan.handle}
                   </span>
 
-                  <p className="text-xs text-neutral-600 leading-relaxed font-nepali">
-                    {language === 'np' ? chan.descriptionNp : chan.descriptionEn}
-                  </p>
+                  <RichTextContent
+                    content={language === 'np' ? chan.descriptionNp : chan.descriptionEn}
+                    className="text-xs text-neutral-600 leading-relaxed font-nepali"
+                  />
                 </div>
 
                 <div className="pt-4 mt-4 border-t border-neutral-100 flex items-center justify-between text-xs font-semibold text-neutral-500 group-hover:text-neutral-900">
