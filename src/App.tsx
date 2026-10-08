@@ -156,8 +156,20 @@ export function AppContent() {
   // Clean Path Router with Backward Compatibility for Legacy Hashes and Dynamic Slugs
   useEffect(() => {
     const handleLocationChange = () => {
+      // 0. Detect 404.html redirect query parameter: ?p=/blog/slug
+      const urlParams = new URLSearchParams(window.location.search);
+      const pParam = urlParams.get('p');
       let rawHash = window.location.hash.toLowerCase();
       let rawPath = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+
+      if (pParam) {
+        const decoded = decodeURIComponent(pParam);
+        const hParam = urlParams.get('h');
+        const hashStr = hParam ? '#' + decodeURIComponent(hParam) : '';
+        window.history.replaceState(null, '', decoded + hashStr);
+        rawPath = decoded.toLowerCase().replace(/\/+$/, '') || '/';
+        if (hashStr) rawHash = hashStr.toLowerCase();
+      }
 
       // 1. Backward Compatibility: auto-redirect legacy hash paths to clean URLs
       if (rawHash.startsWith('#blog-')) {
@@ -331,6 +343,14 @@ export function AppContent() {
             const el = document.getElementById('experience');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
           }, 150);
+          return;
+        }
+
+        // Match direct article slug (e.g. /health-article-amit or /blog-...)
+        if (directSlug.startsWith('health-article-') || directSlug.startsWith('blog-') || directSlug.includes('article') || directSlug.includes('ayurveda')) {
+          window.history.replaceState(null, '', `/blog/${directSlug}`);
+          setCurrentView('main');
+          setActiveBlogSlug(directSlug);
           return;
         }
 

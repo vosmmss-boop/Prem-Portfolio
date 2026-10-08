@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { BlogArticle } from '../../types';
 import { CardsSkeleton } from '../common/SkeletonLoaders';
-import { Search, Calendar, Clock, ArrowRight, Share2, Check, X, Tag } from 'lucide-react';
+import { Search, Calendar, Clock, ArrowRight, Share2, Check, X, Tag, Maximize2 } from 'lucide-react';
 import { sanitizeSlug } from '../../utils/slugify';
+import { FullScreenImageViewer } from '../common/FullScreenImageViewer';
 
 interface BlogsSectionProps {
   blogs: BlogArticle[];
@@ -27,6 +28,7 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeBlog, setActiveBlog] = useState<BlogArticle | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [fullScreenImage, setFullScreenImage] = useState<{ url: string; title?: string; subtitle?: string } | null>(null);
 
   // Sync active blog with incoming activeBlogSlug (from deep link or route changes)
   useEffect(() => {
@@ -70,39 +72,6 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
     }
   }, [activeBlog, language]);
 
-  if (isLoading) {
-    return (
-      <section id="blogs" className="py-20 bg-neutral-50 border-b border-neutral-200">
-        <div className="max-w-7xl mx-auto px-6">
-          <CardsSkeleton count={3} />
-        </div>
-      </section>
-    );
-  }
-
-  // If user deleted all blog articles, cleanly hide section
-  if (!blogs || blogs.length === 0) {
-    return null;
-  }
-
-  // Filter categories
-  const categoriesEn = Array.from(new Set(blogs.map((b) => b.categoryEn)));
-
-  const filteredBlogs = blogs.filter((blog) => {
-    const title = language === 'np' ? blog.titleNp : blog.titleEn;
-    const excerpt = language === 'np' ? blog.excerptNp : blog.excerptEn;
-    const content = language === 'np' ? blog.contentNp : blog.contentEn;
-    const matchesSearch =
-      title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      content.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesCategory =
-      selectedCategory === 'all' || blog.categoryEn === selectedCategory;
-
-    return matchesSearch && matchesCategory;
-  });
-
   const handleOpenBlog = (blog: BlogArticle) => {
     const cleanSlug = sanitizeSlug(blog.slug);
     setActiveBlog(blog);
@@ -126,6 +95,24 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
   };
+
+  // Filter categories
+  const categoriesEn = Array.from(new Set(blogs.map((b) => b.categoryEn)));
+
+  const filteredBlogs = blogs.filter((blog) => {
+    const title = language === 'np' ? blog.titleNp : blog.titleEn;
+    const excerpt = language === 'np' ? blog.excerptNp : blog.excerptEn;
+    const content = language === 'np' ? blog.contentNp : blog.contentEn;
+    const matchesSearch =
+      title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      content.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesCategory =
+      selectedCategory === 'all' || blog.categoryEn === selectedCategory;
+
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <section id="blogs" className="py-20 md:py-28 bg-neutral-50 border-b border-neutral-200">
@@ -183,13 +170,15 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
           ))}
         </div>
 
-        {/* Blog Cards Grid */}
-        {filteredBlogs.length === 0 ? (
+        {/* Loading Skeletons when data is loading */}
+        {isLoading ? (
+          <CardsSkeleton count={3} />
+        ) : filteredBlogs.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl border border-neutral-200 p-8">
             <p className="text-sm text-neutral-500">No articles match your search query.</p>
             <button
               onClick={() => { setSearchQuery(''); setSelectedCategory('all'); }}
-              className="mt-3 text-xs font-semibold text-emerald-700 hover:underline"
+              className="mt-3 text-xs font-semibold text-emerald-700 hover:underline cursor-pointer"
             >
               Reset Search Filters
             </button>
@@ -202,16 +191,41 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                 className="bg-white border border-neutral-200/90 rounded-2xl overflow-hidden shadow-xs hover:shadow-lg hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between group"
               >
                 <div>
-                  <div className="relative aspect-16/9 overflow-hidden bg-neutral-100">
+                  {/* Auto-adjusting Blog Card Image with Full Screen Trigger */}
+                  <div className="relative aspect-16/9 overflow-hidden bg-neutral-900 group/img">
+                    {/* Blurred ambient background for non-standard ratios */}
+                    <div
+                      className="absolute inset-0 bg-cover bg-center blur-md opacity-25 scale-110"
+                      style={{ backgroundImage: `url(${blog.coverImage})` }}
+                    />
                     <img
                       src={blog.coverImage}
                       alt={language === 'np' ? blog.titleNp : blog.titleEn}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       referrerPolicy="no-referrer"
+                      loading="lazy"
                     />
-                    <div className="absolute top-3 left-3 bg-neutral-900/80 backdrop-blur-md text-emerald-300 text-[10px] font-mono px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                    <div className="absolute top-3 left-3 z-20 bg-neutral-900/80 backdrop-blur-md text-emerald-300 text-[10px] font-mono px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                       {language === 'np' ? blog.categoryNp : blog.categoryEn}
                     </div>
+
+                    {/* Quick Full Screen Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setFullScreenImage({
+                          url: blog.coverImage,
+                          title: language === 'np' ? blog.titleNp : blog.titleEn,
+                          subtitle: `${blog.categoryEn} · ${blog.publishDate}`
+                        });
+                      }}
+                      className="absolute top-3 right-3 z-20 p-1.5 bg-neutral-900/80 hover:bg-neutral-900 text-white rounded-xl backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity shadow-lg cursor-pointer"
+                      title="View Fullscreen"
+                    >
+                      <Maximize2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
 
                   <div className="p-6">
@@ -273,25 +287,27 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
         )}
       </div>
 
-      {/* Full Article Reading Modal */}
-      {activeBlog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-in fade-in">
+      {/* Article Reading Modal (Handles Direct Slug Deep-Linking, Loading & Not-Found states gracefully) */}
+      {(activeBlog || activeBlogSlug) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
           <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-neutral-200 overflow-hidden">
             {/* Modal Top Bar */}
-            <div className="bg-neutral-900 text-white px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-mono text-emerald-400">
-                <Tag className="w-3.5 h-3.5" />
-                <span>/blog/{sanitizeSlug(activeBlog.slug)}</span>
+            <div className="bg-neutral-900 text-white px-5 sm:px-6 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-mono text-emerald-400 truncate max-w-[65%]">
+                <Tag className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">/blog/{activeBlog ? sanitizeSlug(activeBlog.slug) : sanitizeSlug(activeBlogSlug || '')}</span>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleCopyShareLink(activeBlog.slug)}
-                  className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
-                  title="Copy share link with OG meta tags"
-                >
-                  {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
-                  <span>{copiedLink ? 'Link Copied' : 'Share'}</span>
-                </button>
+                {activeBlog && (
+                  <button
+                    onClick={() => handleCopyShareLink(activeBlog.slug)}
+                    className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="Copy share link with OG meta tags"
+                  >
+                    {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
+                    <span>{copiedLink ? 'Link Copied' : 'Share'}</span>
+                  </button>
+                )}
                 <button
                   onClick={handleCloseModal}
                   className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 cursor-pointer"
@@ -302,60 +318,154 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
               </div>
             </div>
 
-            {/* Modal Article Content */}
-            <div className="p-6 md:p-10 overflow-y-auto space-y-6">
-              <div className="aspect-16/9 w-full rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200">
-                <img
-                  src={activeBlog.coverImage}
-                  alt={language === 'np' ? activeBlog.titleNp : activeBlog.titleEn}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center gap-3 text-xs text-neutral-500 mb-2">
-                  <span className="font-semibold text-emerald-700">
-                    {language === 'np' ? activeBlog.categoryNp : activeBlog.categoryEn}
-                  </span>
-                  <span>·</span>
-                  <span>{activeBlog.publishDate}</span>
-                  <span>·</span>
-                  <span>{activeBlog.readTime}</span>
-                  <span>·</span>
-                  <span>By {language === 'np' ? activeBlog.authorNp : activeBlog.authorEn}</span>
-                </div>
-
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-neutral-950 font-editorial leading-tight">
-                  {language === 'np' ? activeBlog.titleNp : activeBlog.titleEn}
-                </h1>
-              </div>
-
-              {/* Formatted Article Body */}
-              <div className="text-base text-neutral-800 leading-relaxed font-nepali space-y-4 whitespace-pre-line border-t border-neutral-200 pt-6">
-                {language === 'np' ? activeBlog.contentNp : activeBlog.contentEn}
-              </div>
-
-              {/* Author signature footer - Synchronized profile picture */}
-              <div className="mt-8 pt-6 border-t border-neutral-200 bg-emerald-50/50 p-5 rounded-2xl flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-emerald-600 shrink-0 bg-white shadow-xs">
-                  <img
-                    src={doctorImage || "/src/assets/images/doctor_portrait_1791392878397.jpg"}
-                    alt="Dr. Prem Raj Joshi"
-                    className="w-full h-full object-cover"
+            {/* Modal Content */}
+            {activeBlog ? (
+              <div className="p-5 sm:p-8 md:p-10 overflow-y-auto space-y-6">
+                {/* Auto-Adjusting Cover Image with Full Screen Trigger */}
+                <div
+                  className="relative rounded-2xl overflow-hidden bg-neutral-950 border border-neutral-200 group cursor-pointer shadow-md min-h-[240px] max-h-[500px] flex items-center justify-center"
+                  onClick={() =>
+                    setFullScreenImage({
+                      url: activeBlog.coverImage,
+                      title: language === 'np' ? activeBlog.titleNp : activeBlog.titleEn,
+                      subtitle: `${activeBlog.categoryEn} · ${activeBlog.publishDate}`
+                    })
+                  }
+                >
+                  {/* Blurred backdrop automatically filling empty space for any aspect ratio */}
+                  <div
+                    className="absolute inset-0 bg-cover bg-center blur-2xl opacity-35 scale-110"
+                    style={{ backgroundImage: `url(${activeBlog.coverImage})` }}
                   />
+
+                  {/* Clean uncropped auto-adjusted image */}
+                  <img
+                    src={activeBlog.coverImage}
+                    alt={language === 'np' ? activeBlog.titleNp : activeBlog.titleEn}
+                    className="relative z-10 max-h-[480px] w-auto max-w-full object-contain mx-auto shadow-md rounded-xl transition-transform duration-300 group-hover:scale-[1.01]"
+                  />
+
+                  {/* Full Screen Badge Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFullScreenImage({
+                        url: activeBlog.coverImage,
+                        title: language === 'np' ? activeBlog.titleNp : activeBlog.titleEn,
+                        subtitle: `${activeBlog.categoryEn} · ${activeBlog.publishDate}`
+                      });
+                    }}
+                    className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900/80 hover:bg-neutral-900 backdrop-blur-md text-white text-xs font-semibold rounded-xl border border-neutral-700/60 shadow-lg transition-transform hover:scale-105 cursor-pointer"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>View Full Screen</span>
+                  </button>
                 </div>
+
                 <div>
-                  <h4 className="font-bold text-neutral-900 text-sm font-editorial">
-                    Dr. Prem Raj Joshi (BAMS, IOM, TU)
-                  </h4>
-                  <p className="text-xs text-neutral-600">
-                    Ayurvedic Physician · NMC Reg. 1824 · Consultations available at Kathmandu Clinic and online tele-health.
+                  <div className="flex items-center gap-3 text-xs text-neutral-500 mb-2">
+                    <span className="font-semibold text-emerald-700">
+                      {language === 'np' ? activeBlog.categoryNp : activeBlog.categoryEn}
+                    </span>
+                    <span>·</span>
+                    <span>{activeBlog.publishDate}</span>
+                    <span>·</span>
+                    <span>{activeBlog.readTime}</span>
+                    <span>·</span>
+                    <span>By {language === 'np' ? activeBlog.authorNp : activeBlog.authorEn}</span>
+                  </div>
+
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-neutral-950 font-editorial leading-tight">
+                    {language === 'np' ? activeBlog.titleNp : activeBlog.titleEn}
+                  </h1>
+                </div>
+
+                {/* Formatted Article Body */}
+                <div className="text-base text-neutral-800 leading-relaxed font-nepali space-y-4 whitespace-pre-line border-t border-neutral-200 pt-6">
+                  {language === 'np' ? activeBlog.contentNp : activeBlog.contentEn}
+                </div>
+
+                {/* Author signature footer - Synchronized profile picture */}
+                <div className="mt-8 pt-6 border-t border-neutral-200 bg-emerald-50/50 p-5 rounded-2xl flex items-center gap-4">
+                  <div
+                    className="w-14 h-14 rounded-full overflow-hidden border-2 border-emerald-600 shrink-0 bg-white shadow-xs cursor-pointer group/doc"
+                    onClick={() =>
+                      setFullScreenImage({
+                        url: doctorImage || "/src/assets/images/doctor_portrait_1791392878397.jpg",
+                        title: "Dr. Prem Raj Joshi (BAMS, IOM, TU)",
+                        subtitle: "NMC Reg. 1824 · Ayurvedic Physician"
+                      })
+                    }
+                    title="Click to view portrait in full screen"
+                  >
+                    <img
+                      src={doctorImage || "/src/assets/images/doctor_portrait_1791392878397.jpg"}
+                      alt="Dr. Prem Raj Joshi"
+                      className="w-full h-full object-cover group-hover/doc:scale-110 transition-transform"
+                    />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-neutral-900 text-sm font-editorial">
+                      Dr. Prem Raj Joshi (BAMS, IOM, TU)
+                    </h4>
+                    <p className="text-xs text-neutral-600">
+                      Ayurvedic Physician · NMC Reg. 1824 · Consultations available at Kathmandu Clinic and online tele-health.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : isLoading ? (
+              /* Loading Article Skeleton */
+              <div className="p-8 space-y-6">
+                <div className="h-64 bg-neutral-200 animate-pulse rounded-2xl w-full" />
+                <div className="h-8 bg-neutral-200 animate-pulse rounded-md w-3/4" />
+                <div className="space-y-3 pt-4">
+                  <div className="h-4 bg-neutral-200 animate-pulse rounded w-full" />
+                  <div className="h-4 bg-neutral-200 animate-pulse rounded w-5/6" />
+                  <div className="h-4 bg-neutral-200 animate-pulse rounded w-4/6" />
+                </div>
+                <p className="text-xs text-center text-neutral-500 font-mono">
+                  Loading medical article from database...
+                </p>
+              </div>
+            ) : (
+              /* Article Not Found */
+              <div className="p-8 md:p-12 text-center space-y-5">
+                <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+                  <Tag className="w-8 h-8" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-bold text-neutral-900 font-editorial">
+                    Article Not Found or Moved
+                  </h3>
+                  <p className="text-xs text-neutral-600 max-w-md mx-auto">
+                    The requested blog article with slug <code className="text-emerald-700 font-bold bg-neutral-100 px-1.5 py-0.5 rounded font-mono">/blog/{activeBlogSlug}</code> could not be located. Browse available verified articles below.
                   </p>
                 </div>
+                <div className="pt-2 flex justify-center gap-3">
+                  <button
+                    onClick={handleCloseModal}
+                    className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    Browse All Health Articles
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
+      )}
+
+      {/* Global High-Resolution Full-Screen Image Lightbox */}
+      {fullScreenImage && (
+        <FullScreenImageViewer
+          isOpen={true}
+          imageUrl={fullScreenImage.url}
+          title={fullScreenImage.title}
+          subtitle={fullScreenImage.subtitle}
+          onClose={() => setFullScreenImage(null)}
+        />
       )}
     </section>
   );

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { HeroSlide } from '../../types';
 import { HeroSliderSkeleton } from '../common/SkeletonLoaders';
-import { ChevronLeft, ChevronRight, Stethoscope, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Stethoscope, Sparkles, Maximize2 } from 'lucide-react';
+import { FullScreenImageViewer } from '../common/FullScreenImageViewer';
 
 interface HeroSliderProps {
   slides: HeroSlide[];
@@ -18,6 +19,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
   const { language } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [fullScreenImage, setFullScreenImage] = useState<{ url: string; title?: string; subtitle?: string } | null>(null);
 
   // Auto-slide every 6 seconds if not paused
   useEffect(() => {
@@ -137,8 +139,33 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
           >
             <ChevronRight className="w-5 h-5" />
           </button>
+
+          <button
+            onClick={() =>
+              setFullScreenImage({
+                url: currentSlide.imageUrl,
+                title: language === 'np' ? currentSlide.titleNp : currentSlide.titleEn,
+                subtitle: language === 'np' ? currentSlide.subtitleNp : currentSlide.subtitleEn
+              })
+            }
+            className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 text-white border border-white/20 flex items-center justify-center transition-colors backdrop-blur-xs cursor-pointer ml-1"
+            title="View Fullscreen"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
         </div>
       </div>
+
+      {/* High-Resolution Full-Screen Lightbox */}
+      {fullScreenImage && (
+        <FullScreenImageViewer
+          isOpen={true}
+          imageUrl={fullScreenImage.url}
+          title={fullScreenImage.title}
+          subtitle={fullScreenImage.subtitle}
+          onClose={() => setFullScreenImage(null)}
+        />
+      )}
     </section>
   );
 };

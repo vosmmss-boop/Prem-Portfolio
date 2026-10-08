@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
     <title>Dr. Prem Raj Joshi - BAMS, IOM, TU | Official Medical Portal</title>
     <meta name="description" content="Official medical portal and Ayurvedic healthcare practice of Dr. Prem Raj Joshi (BAMS, IOM, TU). Integrative consultations, health blogs, patient inquiries, and holistic medicine in Nepal." />
     <meta name="keywords" content="Dr. Prem Raj Joshi, BAMS Doctor Nepal, Ayurvedic Physician Kathmandu, IOM TU Doctor, NMC 1824, Amlapitta treatment, Panchakarma Nepal, Ayurvedic consultation Kathmandu Dhangadhi" />
@@ -23,9 +24,8 @@
           if (q.p !== undefined) {
             var restored = decodeURIComponent(q.p);
             var hash = q.h ? '#' + decodeURIComponent(q.h) : '';
-            window.history.replaceState(null, null,
-              l.pathname.slice(0, -1) + (restored.charAt(0) === '/' ? restored : '/' + restored) + hash
-            );
+            var targetUrl = (restored.charAt(0) === '/' ? restored : '/' + restored) + hash;
+            window.history.replaceState(null, null, targetUrl);
           }
         }
       }(window.location));

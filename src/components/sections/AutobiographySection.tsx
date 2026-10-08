@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { Autobiography, Branding } from '../../types';
 import { BioSkeleton } from '../common/SkeletonLoaders';
-import { Award, BookOpen, CheckCircle, Quote, Sparkles, X, Stethoscope } from 'lucide-react';
+import { Award, BookOpen, CheckCircle, Quote, Sparkles, X, Stethoscope, Maximize2 } from 'lucide-react';
+import { FullScreenImageViewer } from '../common/FullScreenImageViewer';
 
 interface AutobiographySectionProps {
   autobiography: Autobiography;
@@ -19,6 +20,7 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
 }) => {
   const { language, t } = useLanguage();
   const [showFullBioModal, setShowFullBioModal] = useState(false);
+  const [fullScreenImage, setFullScreenImage] = useState<{ url: string; title?: string; subtitle?: string } | null>(null);
 
   if (isLoading) {
     return (
@@ -30,6 +32,9 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
     );
   }
 
+  const doctorPhoto = branding.logoUrl || autobiography.avatarUrl || "/src/assets/images/doctor_portrait_1791392878397.jpg";
+  const doctorName = language === 'np' ? branding.doctorName.np : branding.doctorName.en;
+
   const specialties = language === 'np'
     ? autobiography.specialties.np
     : autobiography.specialties.en;
@@ -40,21 +45,47 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           {/* Left Column: Doctor Portrait & Trust Badge */}
           <div className="lg:col-span-5 flex flex-col items-center">
-            <div className="relative w-full max-w-md aspect-square rounded-3xl overflow-hidden shadow-xl border-4 border-white ring-1 ring-neutral-200 bg-neutral-100 group">
+            <div
+              className="relative w-full max-w-md aspect-square rounded-3xl overflow-hidden shadow-xl border-4 border-white ring-1 ring-neutral-200 bg-neutral-100 group cursor-pointer"
+              onClick={() =>
+                setFullScreenImage({
+                  url: doctorPhoto,
+                  title: doctorName,
+                  subtitle: "BAMS · IOM, TU · NMC Reg. 1824"
+                })
+              }
+            >
               <img
-                src={branding.logoUrl || autobiography.avatarUrl}
-                alt={language === 'np' ? branding.doctorName.np : branding.doctorName.en}
+                src={doctorPhoto}
+                alt={doctorName}
                 className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
                 referrerPolicy="no-referrer"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
+
+              {/* Fullscreen Button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFullScreenImage({
+                    url: doctorPhoto,
+                    title: doctorName,
+                    subtitle: "BAMS · IOM, TU · NMC Reg. 1824"
+                  });
+                }}
+                className="absolute top-4 right-4 z-20 p-2 bg-neutral-900/80 hover:bg-neutral-900 text-white rounded-xl backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity shadow-lg cursor-pointer"
+                title="View Fullscreen Portrait"
+              >
+                <Maximize2 className="w-4 h-4" />
+              </button>
 
               {/* Bottom badge overlay */}
               <div className="absolute bottom-4 left-4 right-4 p-3.5 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg border border-neutral-100">
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-bold text-neutral-950 text-sm font-editorial">
-                      {language === 'np' ? branding.doctorName.np : branding.doctorName.en}
+                      {doctorName}
                     </h4>
                     <p className="text-[11px] text-emerald-800 font-medium">
                       BAMS · Maharajgunj Medical Campus, IOM, TU
@@ -219,6 +250,16 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {/* High-Resolution Full-Screen Image Lightbox */}
+      {fullScreenImage && (
+        <FullScreenImageViewer
+          isOpen={true}
+          imageUrl={fullScreenImage.url}
+          title={fullScreenImage.title}
+          subtitle={fullScreenImage.subtitle}
+          onClose={() => setFullScreenImage(null)}
+        />
       )}
     </section>
   );

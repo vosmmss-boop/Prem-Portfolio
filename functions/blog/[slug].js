@@ -16,17 +16,25 @@ export async function onRequest(context) {
 
   // If regular user browser, forward request to standard SPA index page
   if (!isCrawler) {
-    return context.next();
+    if (env && env.ASSETS) {
+      return env.ASSETS.fetch(new Request(new URL('/', request.url), request));
+    }
+    try {
+      return await fetch(new Request(new URL('/', request.url), request));
+    } catch {
+      return context.next();
+    }
   }
 
   // Firebase Realtime Database endpoint
   // Using user project id: drsaap-52b17 (asia-southeast1 region)
   const firebaseRestUrl = `https://drsaap-52b17-default-rtdb.asia-southeast1.firebasedatabase.app/blogs.json`;
+  const origin = new URL(request.url).origin;
 
   let blogData = {
     titleEn: 'Dr. Prem Raj Joshi - Health Article',
     excerptEn: 'Ayurvedic Medical Article by Dr. Prem Raj Joshi (BAMS, IOM, TU).',
-    coverImage: 'https://drpremrajjoshi.com.np/src/assets/images/doctor_portrait_1791392878397.jpg'
+    coverImage: `${origin}/assets/images/doctor_portrait_1791392878397.jpg`
   };
 
   try {
@@ -47,12 +55,17 @@ export async function onRequest(context) {
   }
 
   // Fetch the base HTML response
-  const response = await context.next();
+  let response;
+  if (env && env.ASSETS) {
+    response = await env.ASSETS.fetch(new Request(new URL('/', request.url), request));
+  } else {
+    response = await context.next();
+  }
 
   const title = blogData.titleEn || 'Dr. Prem Raj Joshi - Ayurvedic Physician';
   const description = blogData.excerptEn || 'Integrative Ayurvedic medicine and consultations.';
-  const image = blogData.coverImage || 'https://drpremrajjoshi.com.np/src/assets/images/doctor_portrait_1791392878397.jpg';
-  const url = `https://drpremrajjoshi.com.np/blog/${slug}`;
+  const image = blogData.coverImage || `${origin}/assets/images/doctor_portrait_1791392878397.jpg`;
+  const url = `${origin}/blog/${slug}`;
 
   // HTMLRewriter dynamic head injection
   return new HTMLRewriter()

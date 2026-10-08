@@ -3,6 +3,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { GalleryItem, Branding } from '../../types';
 import { CardsSkeleton } from '../common/SkeletonLoaders';
 import { Image, Play, X, Calendar, Maximize2 } from 'lucide-react';
+import { FullScreenImageViewer } from '../common/FullScreenImageViewer';
 
 interface GallerySectionProps {
   gallery: GalleryItem[];
@@ -127,35 +128,15 @@ export const GallerySection: React.FC<GallerySectionProps> = ({
         </div>
       </div>
 
-      {/* Lightbox Photo Modal */}
+      {/* High-Resolution Full-Screen Lightbox */}
       {selectedPhoto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in">
-          <div className="max-w-4xl w-full bg-neutral-950 rounded-2xl overflow-hidden shadow-2xl border border-neutral-800 relative">
-            <button
-              onClick={() => setSelectedPhoto(null)}
-              className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-
-            <div className="max-h-[70vh] flex items-center justify-center bg-black">
-              <img
-                src={selectedPhoto.mediaUrl}
-                alt={language === 'np' ? selectedPhoto.titleNp : selectedPhoto.titleEn}
-                className="max-h-[70vh] max-w-full object-contain"
-              />
-            </div>
-
-            <div className="p-6 bg-neutral-900 text-white">
-              <h3 className="text-lg font-bold font-editorial">
-                {language === 'np' ? selectedPhoto.titleNp : selectedPhoto.titleEn}
-              </h3>
-              <p className="text-xs text-neutral-400 mt-1 font-nepali">
-                {language === 'np' ? (selectedPhoto.captionNp || selectedPhoto.captionEn) : selectedPhoto.captionEn}
-              </p>
-            </div>
-          </div>
-        </div>
+        <FullScreenImageViewer
+          isOpen={true}
+          imageUrl={selectedPhoto.mediaUrl}
+          title={language === 'np' ? selectedPhoto.titleNp : selectedPhoto.titleEn}
+          subtitle={language === 'np' ? (selectedPhoto.captionNp || selectedPhoto.captionEn) : selectedPhoto.captionEn}
+          onClose={() => setSelectedPhoto(null)}
+        />
       )}
     </section>
   );

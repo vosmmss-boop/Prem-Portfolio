@@ -49,8 +49,11 @@ import {
   ExternalLink,
   Database,
   X,
-  DownloadCloud
+  DownloadCloud,
+  Maximize2
 } from 'lucide-react';
+import { adjustAndProcessUploadedImage } from '../../utils/imageAdjuster';
+import { FullScreenImageViewer } from '../common/FullScreenImageViewer';
 
 interface AdminPortalProps {
   branding: Branding;
@@ -76,21 +79,43 @@ interface AdminPortalProps {
   onBackToSite: () => void;
 }
 
-// Device file reader helper
+// Device file reader & automatic image adjuster helper
 function readFileAsDataUrl(
   file: File,
   callback: (url: string, name: string, size: string) => void
 ) {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const url = e.target?.result as string;
-    const size =
-      file.size > 1024 * 1024
-        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
-        : `${Math.round(file.size / 1024)} KB`;
-    callback(url, file.name, size);
-  };
-  reader.readAsDataURL(file);
+  // If file is an image, auto-adjust dimensions and optimize
+  if (file.type.startsWith('image/')) {
+    adjustAndProcessUploadedImage(file)
+      .then((res) => {
+        callback(res.dataUrl, res.name, res.size);
+      })
+      .catch(() => {
+        // Fallback to standard reader if image canvas processing fails
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const url = e.target?.result as string;
+          const size =
+            file.size > 1024 * 1024
+              ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+              : `${Math.round(file.size / 1024)} KB`;
+          callback(url, file.name, size);
+        };
+        reader.readAsDataURL(file);
+      });
+  } else {
+    // Non-image files (e.g. PDF downloads)
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const url = e.target?.result as string;
+      const size =
+        file.size > 1024 * 1024
+          ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+          : `${Math.round(file.size / 1024)} KB`;
+      callback(url, file.name, size);
+    };
+    reader.readAsDataURL(file);
+  }
 }
 
 export const AdminPortal: React.FC<AdminPortalProps> = ({
@@ -1826,6 +1851,7 @@ const BlogsManager: React.FC<{
   const [items, setItems] = useState<BlogArticle[]>(blogs);
   const [editingBlog, setEditingBlog] = useState<BlogArticle | null>(null);
   const [slugError, setSlugError] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ url: string; title?: string } | null>(null);
 
   React.useEffect(() => {
     setItems(blogs);
@@ -1943,16 +1969,31 @@ const BlogsManager: React.FC<{
               {slugError && <p className="text-[10px] text-rose-600 font-bold mt-1">{slugError}</p>}
             </div>
 
-            {/* Direct Cover Image Upload */}
-            <div className="md:col-span-2 flex items-center gap-4 bg-neutral-50 p-3 rounded-xl border">
-              <div className="w-20 h-14 rounded-lg overflow-hidden bg-neutral-200 shrink-0">
-                <img src={editingBlog.coverImage} alt="cover" className="w-full h-full object-cover" />
+            {/* Direct Cover Image Upload with Auto-Adjust and Fullscreen Preview */}
+            <div className="md:col-span-2 flex flex-col sm:flex-row sm:items-center gap-4 bg-neutral-50 p-3.5 rounded-xl border border-neutral-200">
+              <div
+                className="w-24 h-16 rounded-xl overflow-hidden bg-neutral-900 shrink-0 relative group cursor-pointer border border-neutral-300 shadow-2xs"
+                onClick={() => setPreviewImage({ url: editingBlog.coverImage, title: editingBlog.titleEn })}
+                title="Click to view full screen"
+              >
+                <img src={editingBlog.coverImage} alt="cover" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                  <Maximize2 className="w-4 h-4" />
+                </div>
               </div>
-              <div className="flex-1">
-                <span className="text-xs font-bold text-neutral-800 block">Article Cover Photo:</span>
-                <span className="text-[10px] text-neutral-400 font-mono truncate block">{editingBlog.coverImage}</span>
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-bold text-neutral-800 block">Article Cover Photo (Auto-Adjusted):</span>
+                <span className="text-[10px] text-neutral-500 font-mono truncate block">{editingBlog.coverImage}</span>
+                <button
+                  type="button"
+                  onClick={() => setPreviewImage({ url: editingBlog.coverImage, title: editingBlog.titleEn })}
+                  className="mt-1 text-[11px] text-emerald-700 font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                  <span>Preview Full Screen</span>
+                </button>
               </div>
-              <label className="px-3 py-1.5 bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-100 rounded-lg text-xs font-bold cursor-pointer shrink-0 flex items-center gap-1.5">
+              <label className="px-3 py-1.5 bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-100 rounded-lg text-xs font-bold cursor-pointer shrink-0 flex items-center gap-1.5 transition-colors shadow-2xs">
                 <Upload className="w-3.5 h-3.5 text-emerald-700" />
                 <span>Upload Device Cover</span>
                 <input
@@ -1979,10 +2020,10 @@ const BlogsManager: React.FC<{
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <button onClick={() => setEditingBlog(null)} className="px-4 py-2 bg-neutral-100 rounded-lg text-xs">
+            <button onClick={() => setEditingBlog(null)} className="px-4 py-2 bg-neutral-100 rounded-lg text-xs cursor-pointer">
               Cancel
             </button>
-            <button onClick={handleSaveItem} className="px-5 py-2 bg-emerald-700 text-white rounded-lg text-xs font-bold">
+            <button onClick={handleSaveItem} className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold cursor-pointer">
               Confirm Article
             </button>
           </div>
@@ -1994,8 +2035,15 @@ const BlogsManager: React.FC<{
         {items.map((b) => (
           <div key={b.id} className="bg-white p-4 rounded-xl border flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg overflow-hidden bg-neutral-100 shrink-0">
-                <img src={b.coverImage} alt={b.titleEn} className="w-full h-full object-cover" />
+              <div
+                className="w-12 h-12 rounded-lg overflow-hidden bg-neutral-900 shrink-0 relative group cursor-pointer"
+                onClick={() => setPreviewImage({ url: b.coverImage, title: b.titleEn })}
+                title="Click to view full screen"
+              >
+                <img src={b.coverImage} alt={b.titleEn} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </div>
               </div>
               <div>
                 <h4 className="font-bold text-xs md:text-sm text-neutral-900">{b.titleEn}</h4>
@@ -2003,16 +2051,35 @@ const BlogsManager: React.FC<{
               </div>
             </div>
             <div className="flex items-center gap-1.5">
-              <button onClick={() => setEditingBlog(b)} className="p-1.5 rounded-lg bg-neutral-100 text-neutral-700 hover:bg-emerald-100">
+              <button
+                type="button"
+                onClick={() => setPreviewImage({ url: b.coverImage, title: b.titleEn })}
+                className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 cursor-pointer"
+                title="Preview Cover Fullscreen"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => setEditingBlog(b)} className="p-1.5 rounded-lg bg-neutral-100 text-neutral-700 hover:bg-emerald-100 cursor-pointer">
                 <Edit className="w-3.5 h-3.5" />
               </button>
-              <button onClick={() => setItems(items.filter((x) => x.id !== b.id))} className="p-1.5 rounded-lg bg-neutral-100 text-rose-600 hover:bg-rose-100">
+              <button onClick={() => setItems(items.filter((x) => x.id !== b.id))} className="p-1.5 rounded-lg bg-neutral-100 text-rose-600 hover:bg-rose-100 cursor-pointer">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Fullscreen Lightbox for Admin Image Preview */}
+      {previewImage && (
+        <FullScreenImageViewer
+          isOpen={true}
+          imageUrl={previewImage.url}
+          title={previewImage.title || 'Image Preview'}
+          subtitle="Admin CMS Preview"
+          onClose={() => setPreviewImage(null)}
+        />
+      )}
     </div>
   );
 };
