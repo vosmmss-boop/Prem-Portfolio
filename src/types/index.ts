@@ -129,6 +129,7 @@ export interface BlogArticle {
   publishDate: string;
   readTime: string;
   coverImage: string;
+  cover_image?: string;
   metaKeywords?: string;
   metaDescriptionEn?: string;
   metaDescriptionNp?: string;

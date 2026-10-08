@@ -13,7 +13,8 @@ import {
   DownloadItem,
   GalleryItem
 } from '../../types';
-import { saveNodeData, checkSlugUniqueness, checkFirebaseConnection, pushAllContentToFirebase } from '../../services/firebase';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { app, saveNodeData, checkSlugUniqueness, checkFirebaseConnection, pushAllContentToFirebase } from '../../services/firebase';
 import { generateSlug } from '../../utils/slugify';
 import {
   Shield,
@@ -767,6 +768,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               blogs={blogs}
               onSaveLocal={(newBlogs) => saveEntityWithGlobalSync('blogs', 'dr_joshi_blogs', newBlogs, onUpdateBlogs, 'Blog Articles')}
               onSaveLive={(newBlogs) => saveEntityWithGlobalSync('blogs', 'dr_joshi_blogs', newBlogs, onUpdateBlogs, 'Blog Articles')}
+              onNotify={showToast}
             />
           )}
 
@@ -1841,16 +1843,19 @@ const ExperienceManager: React.FC<{
 };
 
 // ==========================================
-// 6. BLOGS & SLUGS (With Cover Image Upload)
+// 6. BLOGS & SLUGS (With Firebase Storage Cover Image Upload)
 // ==========================================
 const BlogsManager: React.FC<{
   blogs: BlogArticle[];
   onSaveLocal: (b: BlogArticle[]) => void;
   onSaveLive: (b: BlogArticle[]) => void;
-}> = ({ blogs, onSaveLocal, onSaveLive }) => {
+  onNotify?: (msg: string, type?: 'success' | 'warning' | 'error') => void;
+}> = ({ blogs, onSaveLocal, onSaveLive, onNotify }) => {
   const [items, setItems] = useState<BlogArticle[]>(blogs);
   const [editingBlog, setEditingBlog] = useState<BlogArticle | null>(null);
   const [slugError, setSlugError] = useState<string | null>(null);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<{ url: string; title?: string } | null>(null);
 
   React.useEffect(() => {
@@ -1858,6 +1863,7 @@ const BlogsManager: React.FC<{
   }, [blogs]);
 
   const handleCreateNew = () => {
+    const defaultCover = '/src/assets/images/hero_ayurveda_clinic_1791392890876.jpg';
     const newBlog: BlogArticle = {
       id: `blog-${Date.now()}`,
       slug: `health-article-${Date.now().toString(36)}`,
@@ -1873,31 +1879,77 @@ const BlogsManager: React.FC<{
       authorNp: 'डा. प्रेम राज जोशी (BAMS)',
       publishDate: new Date().toISOString().slice(0, 10),
       readTime: '4 min read',
-      coverImage: '/src/assets/images/hero_ayurveda_clinic_1791392890876.jpg'
+      coverImage: defaultCover,
+      cover_image: defaultCover
     };
     setEditingBlog(newBlog);
     setSlugError(null);
+    setUploadError(null);
   };
 
-  const handleUploadCover = (file: File) => {
+  const handleUploadCover = async (file: File) => {
     if (!editingBlog) return;
-    readFileAsDataUrl(file, (dataUrl) => {
-      setEditingBlog({ ...editingBlog, coverImage: dataUrl });
-    });
+    setIsUploadingCover(true);
+    setUploadError(null);
+
+    try {
+      const storage = app ? getStorage(app) : getStorage();
+      const storagePath = `blog_covers/${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, storagePath);
+
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      setEditingBlog((prev) =>
+        prev
+          ? {
+              ...prev,
+              cover_image: downloadURL,
+              coverImage: downloadURL
+            }
+          : null
+      );
+      if (onNotify) {
+        onNotify('✓ Cover image uploaded to Firebase Storage successfully!', 'success');
+      }
+    } catch (err: any) {
+      const errMessage = err?.message || 'Unable to upload image to Firebase Storage.';
+      console.error('Firebase Storage cover upload failed:', err);
+      const cleanAlertMsg = `Failed to upload cover image to Firebase Storage: ${errMessage}`;
+      setUploadError(cleanAlertMsg);
+      if (onNotify) {
+        onNotify(`⚠️ ${cleanAlertMsg}`, 'error');
+      }
+    } finally {
+      setIsUploadingCover(false);
+    }
   };
 
   const handleSaveItem = () => {
-    if (!editingBlog) return;
+    if (!editingBlog || isUploadingCover) return;
     const isUnique = checkSlugUniqueness(editingBlog.slug, items, editingBlog.id);
     if (!isUnique) {
-      alert(`Slug "${editingBlog.slug}" is already in use!`);
+      const duplicateMsg = `Slug "${editingBlog.slug}" is already in use! Please choose a unique slug.`;
+      setSlugError(duplicateMsg);
+      if (onNotify) onNotify(`⚠️ ${duplicateMsg}`, 'error');
       return;
     }
-    const updated = items.some((b) => b.id === editingBlog.id)
-      ? items.map((b) => (b.id === editingBlog.id ? editingBlog : b))
-      : [editingBlog, ...items];
+
+    const finalCoverUrl = editingBlog.cover_image || editingBlog.coverImage;
+    const normalizedBlog: BlogArticle = {
+      ...editingBlog,
+      cover_image: finalCoverUrl,
+      coverImage: finalCoverUrl
+    };
+
+    const updated = items.some((b) => b.id === normalizedBlog.id)
+      ? items.map((b) => (b.id === normalizedBlog.id ? normalizedBlog : b))
+      : [normalizedBlog, ...items];
+
     setItems(updated);
+    onSaveLive(updated);
     setEditingBlog(null);
+    setUploadError(null);
   };
 
   return (
@@ -1908,7 +1960,7 @@ const BlogsManager: React.FC<{
             Health Blogs & Unique Slugs
           </h2>
           <p className="text-xs text-neutral-500">
-            Publish articles, upload device cover photos, and auto-verify unique slug keys.
+            Publish articles, upload PC cover photos directly to Firebase Storage, and auto-verify unique slug keys.
           </p>
         </div>
 
@@ -1921,13 +1973,29 @@ const BlogsManager: React.FC<{
             <span>New Article</span>
           </button>
           <button
-            onClick={() => onSaveLocal(items)}
+            onClick={() =>
+              onSaveLocal(
+                items.map((b) => ({
+                  ...b,
+                  cover_image: b.cover_image || b.coverImage,
+                  coverImage: b.cover_image || b.coverImage
+                }))
+              )
+            }
             className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 text-xs font-bold rounded-xl"
           >
             Save Draft
           </button>
           <button
-            onClick={() => onSaveLive(items)}
+            onClick={() =>
+              onSaveLive(
+                items.map((b) => ({
+                  ...b,
+                  cover_image: b.cover_image || b.coverImage,
+                  coverImage: b.cover_image || b.coverImage
+                }))
+              )
+            }
             className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs"
           >
             Global Live Push
@@ -1969,43 +2037,117 @@ const BlogsManager: React.FC<{
               {slugError && <p className="text-[10px] text-rose-600 font-bold mt-1">{slugError}</p>}
             </div>
 
-            {/* Direct Cover Image Upload with Auto-Adjust and Fullscreen Preview */}
-            <div className="md:col-span-2 flex flex-col sm:flex-row sm:items-center gap-4 bg-neutral-50 p-3.5 rounded-xl border border-neutral-200">
-              <div
-                className="w-24 h-16 rounded-xl overflow-hidden bg-neutral-900 shrink-0 relative group cursor-pointer border border-neutral-300 shadow-2xs"
-                onClick={() => setPreviewImage({ url: editingBlog.coverImage, title: editingBlog.titleEn })}
-                title="Click to view full screen"
-              >
-                <img src={editingBlog.coverImage} alt="cover" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                  <Maximize2 className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-xs font-bold text-neutral-800 block">Article Cover Photo (Auto-Adjusted):</span>
-                <span className="text-[10px] text-neutral-500 font-mono truncate block">{editingBlog.coverImage}</span>
-                <button
-                  type="button"
-                  onClick={() => setPreviewImage({ url: editingBlog.coverImage, title: editingBlog.titleEn })}
-                  className="mt-1 text-[11px] text-emerald-700 font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
+            {/* Direct PC Cover Image Upload via Firebase Storage with Loading Indicator & Error Alert */}
+            <div className="md:col-span-2 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-neutral-50 p-3.5 rounded-xl border border-neutral-200">
+                <div
+                  className="w-24 h-16 rounded-xl overflow-hidden bg-neutral-900 shrink-0 relative group cursor-pointer border border-neutral-300 shadow-2xs"
+                  onClick={() =>
+                    !isUploadingCover &&
+                    setPreviewImage({
+                      url: editingBlog.cover_image || editingBlog.coverImage,
+                      title: editingBlog.titleEn
+                    })
+                  }
+                  title="Click to view full screen"
                 >
-                  <Maximize2 className="w-3 h-3" />
-                  <span>Preview Full Screen</span>
-                </button>
+                  <img
+                    src={editingBlog.cover_image || editingBlog.coverImage}
+                    alt="cover"
+                    className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${
+                      isUploadingCover ? 'opacity-40' : ''
+                    }`}
+                  />
+                  {isUploadingCover ? (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white">
+                      <RefreshCw className="w-5 h-5 animate-spin text-emerald-400" />
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                      <Maximize2 className="w-4 h-4" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-bold text-neutral-800 block">
+                    Article Cover Photo (Firebase Storage `cover_image`):
+                  </span>
+                  {isUploadingCover ? (
+                    <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1.5 mt-0.5">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Uploading image to Firebase Storage (`blog_covers/...`)...</span>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-neutral-500 font-mono truncate block">
+                      {editingBlog.cover_image || editingBlog.coverImage}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    disabled={isUploadingCover}
+                    onClick={() =>
+                      setPreviewImage({
+                        url: editingBlog.cover_image || editingBlog.coverImage,
+                        title: editingBlog.titleEn
+                      })
+                    }
+                    className="mt-1 text-[11px] text-emerald-700 font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                  >
+                    <Maximize2 className="w-3 h-3" />
+                    <span>Preview Full Screen</span>
+                  </button>
+                </div>
+                <label
+                  className={`px-3 py-1.5 bg-white border border-neutral-300 text-neutral-700 rounded-lg text-xs font-bold shrink-0 flex items-center gap-1.5 transition-colors shadow-2xs ${
+                    isUploadingCover
+                      ? 'opacity-60 cursor-not-allowed'
+                      : 'hover:bg-neutral-100 cursor-pointer'
+                  }`}
+                >
+                  {isUploadingCover ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 text-emerald-700 animate-spin" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Upload PC Cover</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={isUploadingCover}
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleUploadCover(f);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
               </div>
-              <label className="px-3 py-1.5 bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-100 rounded-lg text-xs font-bold cursor-pointer shrink-0 flex items-center gap-1.5 transition-colors shadow-2xs">
-                <Upload className="w-3.5 h-3.5 text-emerald-700" />
-                <span>Upload Device Cover</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (f) handleUploadCover(f);
-                  }}
-                />
-              </label>
+
+              {uploadError && (
+                <div
+                  role="alert"
+                  className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-start justify-between gap-2"
+                >
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span>{uploadError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setUploadError(null)}
+                    className="text-rose-500 hover:text-rose-800 p-0.5"
+                    aria-label="Dismiss upload error"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="md:col-span-2">
@@ -2020,11 +2162,22 @@ const BlogsManager: React.FC<{
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <button onClick={() => setEditingBlog(null)} className="px-4 py-2 bg-neutral-100 rounded-lg text-xs cursor-pointer">
+            <button
+              onClick={() => {
+                setEditingBlog(null);
+                setUploadError(null);
+              }}
+              className="px-4 py-2 bg-neutral-100 rounded-lg text-xs cursor-pointer"
+            >
               Cancel
             </button>
-            <button onClick={handleSaveItem} className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold cursor-pointer">
-              Confirm Article
+            <button
+              onClick={handleSaveItem}
+              disabled={isUploadingCover}
+              className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5"
+            >
+              {isUploadingCover && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+              <span>{isUploadingCover ? 'Uploading Cover...' : 'Confirm Article'}</span>
             </button>
           </div>
         </div>
@@ -2032,42 +2185,55 @@ const BlogsManager: React.FC<{
 
       {/* Blog list */}
       <div className="space-y-3">
-        {items.map((b) => (
-          <div key={b.id} className="bg-white p-4 rounded-xl border flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-12 h-12 rounded-lg overflow-hidden bg-neutral-900 shrink-0 relative group cursor-pointer"
-                onClick={() => setPreviewImage({ url: b.coverImage, title: b.titleEn })}
-                title="Click to view full screen"
-              >
-                <img src={b.coverImage} alt={b.titleEn} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                  <Maximize2 className="w-3.5 h-3.5" />
+        {items.map((b) => {
+          const itemCover = b.cover_image || b.coverImage;
+          return (
+            <div key={b.id} className="bg-white p-4 rounded-xl border flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-12 h-12 rounded-lg overflow-hidden bg-neutral-900 shrink-0 relative group cursor-pointer"
+                  onClick={() => setPreviewImage({ url: itemCover, title: b.titleEn })}
+                  title="Click to view full screen"
+                >
+                  <img src={itemCover} alt={b.titleEn} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-bold text-xs md:text-sm text-neutral-900">{b.titleEn}</h4>
+                  <span className="text-[11px] text-emerald-800 font-mono font-semibold">/blog/{b.slug}</span>
                 </div>
               </div>
-              <div>
-                <h4 className="font-bold text-xs md:text-sm text-neutral-900">{b.titleEn}</h4>
-                <span className="text-[11px] text-emerald-800 font-mono font-semibold">/blog/{b.slug}</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setPreviewImage({ url: itemCover, title: b.titleEn })}
+                  className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 cursor-pointer"
+                  title="Preview Cover Fullscreen"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingBlog({
+                      ...b,
+                      cover_image: itemCover,
+                      coverImage: itemCover
+                    });
+                    setUploadError(null);
+                  }}
+                  className="p-1.5 rounded-lg bg-neutral-100 text-neutral-700 hover:bg-emerald-100 cursor-pointer"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => setItems(items.filter((x) => x.id !== b.id))} className="p-1.5 rounded-lg bg-neutral-100 text-rose-600 hover:bg-rose-100 cursor-pointer">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setPreviewImage({ url: b.coverImage, title: b.titleEn })}
-                className="p-1.5 rounded-lg bg-neutral-100 text-neutral-600 hover:bg-neutral-200 cursor-pointer"
-                title="Preview Cover Fullscreen"
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
-              </button>
-              <button onClick={() => setEditingBlog(b)} className="p-1.5 rounded-lg bg-neutral-100 text-neutral-700 hover:bg-emerald-100 cursor-pointer">
-                <Edit className="w-3.5 h-3.5" />
-              </button>
-              <button onClick={() => setItems(items.filter((x) => x.id !== b.id))} className="p-1.5 rounded-lg bg-neutral-100 text-rose-600 hover:bg-rose-100 cursor-pointer">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Fullscreen Lightbox for Admin Image Preview */}

@@ -45,7 +45,7 @@ import {
   initialPatientInquiries
 } from '../data/initialData';
 
-// Firebase Configuration (supports environment variables with defaults)
+// Firebase Configuration (supports environment variables with project defaults)
 export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAfK8VMNB_GyRlfvqVjIihPN0X97qDfrK0",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "drsaap-52b17.firebaseapp.com",
@@ -282,9 +282,12 @@ export async function checkFirebaseConnection(): Promise<{
   error?: string;
   isPermissionDenied?: boolean;
 }> {
+  if (!firebaseConfig.databaseURL) {
+    return { connected: false, error: 'Firebase Database URL not configured' };
+  }
   try {
     const res = await fetch(
-      'https://drsaap-52b17-default-rtdb.asia-southeast1.firebasedatabase.app/.json?shallow=true'
+      `${firebaseConfig.databaseURL.replace(/\/+$/, '')}/.json?shallow=true`
     );
     if (res.ok) {
       return { connected: true };

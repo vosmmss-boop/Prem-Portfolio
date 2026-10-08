@@ -196,10 +196,10 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                     {/* Blurred ambient background for non-standard ratios */}
                     <div
                       className="absolute inset-0 bg-cover bg-center blur-md opacity-25 scale-110"
-                      style={{ backgroundImage: `url(${blog.coverImage})` }}
+                      style={{ backgroundImage: `url(${blog.cover_image || blog.coverImage})` }}
                     />
                     <img
-                      src={blog.coverImage}
+                      src={blog.cover_image || blog.coverImage}
                       alt={language === 'np' ? blog.titleNp : blog.titleEn}
                       className="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       referrerPolicy="no-referrer"
@@ -216,7 +216,7 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                         e.preventDefault();
                         e.stopPropagation();
                         setFullScreenImage({
-                          url: blog.coverImage,
+                          url: blog.cover_image || blog.coverImage,
                           title: language === 'np' ? blog.titleNp : blog.titleEn,
                           subtitle: `${blog.categoryEn} · ${blog.publishDate}`
                         });
@@ -326,7 +326,7 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                   className="relative rounded-2xl overflow-hidden bg-neutral-950 border border-neutral-200 group cursor-pointer shadow-md min-h-[240px] max-h-[500px] flex items-center justify-center"
                   onClick={() =>
                     setFullScreenImage({
-                      url: activeBlog.coverImage,
+                      url: activeBlog.cover_image || activeBlog.coverImage,
                       title: language === 'np' ? activeBlog.titleNp : activeBlog.titleEn,
                       subtitle: `${activeBlog.categoryEn} · ${activeBlog.publishDate}`
                     })
@@ -335,12 +335,12 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                   {/* Blurred backdrop automatically filling empty space for any aspect ratio */}
                   <div
                     className="absolute inset-0 bg-cover bg-center blur-2xl opacity-35 scale-110"
-                    style={{ backgroundImage: `url(${activeBlog.coverImage})` }}
+                    style={{ backgroundImage: `url(${activeBlog.cover_image || activeBlog.coverImage})` }}
                   />
 
                   {/* Clean uncropped auto-adjusted image */}
                   <img
-                    src={activeBlog.coverImage}
+                    src={activeBlog.cover_image || activeBlog.coverImage}
                     alt={language === 'np' ? activeBlog.titleNp : activeBlog.titleEn}
                     className="relative z-10 max-h-[480px] w-auto max-w-full object-contain mx-auto shadow-md rounded-xl transition-transform duration-300 group-hover:scale-[1.01]"
                   />
@@ -351,7 +351,7 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       setFullScreenImage({
-                        url: activeBlog.coverImage,
+                        url: activeBlog.cover_image || activeBlog.coverImage,
                         title: language === 'np' ? activeBlog.titleNp : activeBlog.titleEn,
                         subtitle: `${activeBlog.categoryEn} · ${activeBlog.publishDate}`
                       });
