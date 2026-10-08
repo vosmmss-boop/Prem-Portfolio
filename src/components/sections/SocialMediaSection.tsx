@@ -78,6 +78,12 @@ export const SocialMediaSection: React.FC<SocialMediaSectionProps> = ({
     }
   ];
 
+  const activeChannels = channels.filter((c) => Boolean(c.url && c.url.trim()));
+
+  if (activeChannels.length === 0) {
+    return null;
+  }
+
   return (
     <section id="socialmedia" className="py-20 md:py-28 bg-neutral-50 border-b border-neutral-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -94,7 +100,7 @@ export const SocialMediaSection: React.FC<SocialMediaSectionProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {channels.map((chan) => {
+          {activeChannels.map((chan) => {
             const Icon = chan.icon;
             return (
               <a

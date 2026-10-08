@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
-import { ExperienceEntry } from '../../types';
+import { ExperienceEntry, Branding } from '../../types';
 import { CardsSkeleton } from '../common/SkeletonLoaders';
 import { Briefcase, MapPin, CheckCircle, ArrowRight, X, Building2, Stethoscope, HeartPulse, Award } from 'lucide-react';
 
 interface ExperienceSectionProps {
   experience: ExperienceEntry[];
+  branding?: Branding;
   isLoading: boolean;
   onSelectExperience?: (entry: ExperienceEntry) => void;
 }
 
 export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
   experience,
+  branding,
   isLoading,
   onSelectExperience
 }) => {
@@ -28,11 +30,22 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
     );
   }
 
+  // If user deleted all work experience, cleanly hide section
+  if (!experience || experience.length === 0) {
+    return null;
+  }
+
   const handleOpenEntry = (entry: ExperienceEntry) => {
     setActiveItem(entry);
     window.location.hash = `#experience-${entry.slug}`;
     if (onSelectExperience) onSelectExperience(entry);
   };
+
+  const hasStats = Boolean(
+    branding?.stats?.stat1Value ||
+    branding?.stats?.stat2Value ||
+    branding?.stats?.stat3Value
+  );
 
   return (
     <section id="experience" className="py-20 md:py-28 bg-white border-b border-neutral-200">
@@ -54,20 +67,40 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
             </p>
           </div>
 
-          <div className="hidden lg:flex items-center gap-4 bg-emerald-50/60 border border-emerald-200/60 p-4 rounded-2xl">
-            <div className="text-center px-3 border-r border-emerald-200/80">
-              <span className="block text-2xl font-black text-emerald-900 font-mono">5.5+</span>
-              <span className="text-[10px] uppercase font-semibold text-emerald-700">Medical Degree</span>
+          {hasStats && (
+            <div className="hidden lg:flex items-center gap-4 bg-emerald-50/60 border border-emerald-200/60 p-4 rounded-2xl">
+              {branding?.stats?.stat1Value && (
+                <div className="text-center px-3 border-r border-emerald-200/80">
+                  <span className="block text-2xl font-black text-emerald-900 font-mono">
+                    {branding.stats.stat1Value}
+                  </span>
+                  <span className="text-[10px] uppercase font-semibold text-emerald-700">
+                    {language === 'np' ? (branding.stats.stat1LabelNp || 'Medical Degree') : (branding.stats.stat1LabelEn || 'Medical Degree')}
+                  </span>
+                </div>
+              )}
+              {branding?.stats?.stat2Value && (
+                <div className="text-center px-3 border-r border-emerald-200/80">
+                  <span className="block text-2xl font-black text-emerald-900 font-mono">
+                    {branding.stats.stat2Value}
+                  </span>
+                  <span className="text-[10px] uppercase font-semibold text-emerald-700">
+                    {language === 'np' ? (branding.stats.stat2LabelNp || 'Treated') : (branding.stats.stat2LabelEn || 'Treated')}
+                  </span>
+                </div>
+              )}
+              {branding?.stats?.stat3Value && (
+                <div className="text-center px-3">
+                  <span className="block text-2xl font-black text-emerald-900 font-mono">
+                    {branding.stats.stat3Value}
+                  </span>
+                  <span className="text-[10px] uppercase font-semibold text-emerald-700">
+                    {language === 'np' ? (branding.stats.stat3LabelNp || 'Rural Camps') : (branding.stats.stat3LabelEn || 'Rural Camps')}
+                  </span>
+                </div>
+              )}
             </div>
-            <div className="text-center px-3 border-r border-emerald-200/80">
-              <span className="block text-2xl font-black text-emerald-900 font-mono">4,500+</span>
-              <span className="text-[10px] uppercase font-semibold text-emerald-700">Treated</span>
-            </div>
-            <div className="text-center px-3">
-              <span className="block text-2xl font-black text-emerald-900 font-mono">18+</span>
-              <span className="text-[10px] uppercase font-semibold text-emerald-700">Rural Camps</span>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* 3-Column Asymmetric Clinical Engagement Cards */}

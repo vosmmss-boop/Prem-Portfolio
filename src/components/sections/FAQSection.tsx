@@ -14,6 +14,11 @@ export const FAQSection: React.FC<FAQSectionProps> = ({ faqs, isLoading }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
+  // If user deleted all FAQs, cleanly hide section
+  if (!faqs || faqs.length === 0) {
+    return null;
+  }
+
   const categories = Array.from(new Set(faqs.map((f) => f.categoryEn)));
 
   const filteredFaqs = faqs.filter((faq) => {

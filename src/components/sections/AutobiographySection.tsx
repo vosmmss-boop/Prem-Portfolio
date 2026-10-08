@@ -67,33 +67,41 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
               </div>
             </div>
 
-            {/* Quick trust metrics (Fully manageable from CMS) */}
-            <div className="grid grid-cols-3 gap-3 w-full max-w-md mt-6 text-center">
-              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80">
-                <span className="block text-xl font-bold text-emerald-800 font-mono">
-                  {branding.stats?.stat1Value || '5.5+'}
-                </span>
-                <span className="text-[11px] text-neutral-600 leading-tight block mt-0.5">
-                  {language === 'np' ? (branding.stats?.stat1LabelNp || 'वर्षे चिकित्सा अध्ययन') : (branding.stats?.stat1LabelEn || 'Years Medical Degree')}
-                </span>
+            {/* Quick trust metrics (Fully manageable from CMS, hides when cleared) */}
+            {(branding.stats?.stat1Value || branding.stats?.stat2Value || branding.stats?.stat3Value) && (
+              <div className="grid grid-cols-3 gap-3 w-full max-w-md mt-6 text-center">
+                {branding.stats?.stat1Value && (
+                  <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80">
+                    <span className="block text-xl font-bold text-emerald-800 font-mono">
+                      {branding.stats.stat1Value}
+                    </span>
+                    <span className="text-[11px] text-neutral-600 leading-tight block mt-0.5">
+                      {language === 'np' ? (branding.stats?.stat1LabelNp || '') : (branding.stats?.stat1LabelEn || '')}
+                    </span>
+                  </div>
+                )}
+                {branding.stats?.stat2Value && (
+                  <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80">
+                    <span className="block text-xl font-bold text-emerald-800 font-mono">
+                      {branding.stats.stat2Value}
+                    </span>
+                    <span className="text-[11px] text-neutral-600 leading-tight block mt-0.5">
+                      {language === 'np' ? (branding.stats?.stat2LabelNp || '') : (branding.stats?.stat2LabelEn || '')}
+                    </span>
+                  </div>
+                )}
+                {branding.stats?.stat3Value && (
+                  <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80">
+                    <span className="block text-xl font-bold text-emerald-800 font-mono">
+                      {branding.stats.stat3Value}
+                    </span>
+                    <span className="text-[11px] text-neutral-600 leading-tight block mt-0.5">
+                      {language === 'np' ? (branding.stats?.stat3LabelNp || '') : (branding.stats?.stat3LabelEn || '')}
+                    </span>
+                  </div>
+                )}
               </div>
-              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80">
-                <span className="block text-xl font-bold text-emerald-800 font-mono">
-                  {branding.stats?.stat2Value || '4,500+'}
-                </span>
-                <span className="text-[11px] text-neutral-600 leading-tight block mt-0.5">
-                  {language === 'np' ? (branding.stats?.stat2LabelNp || 'बिरामीहरूको उपचार') : (branding.stats?.stat2LabelEn || 'Patients Treated')}
-                </span>
-              </div>
-              <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80">
-                <span className="block text-xl font-bold text-emerald-800 font-mono">
-                  {branding.stats?.stat3Value || '18+'}
-                </span>
-                <span className="text-[11px] text-neutral-600 leading-tight block mt-0.5">
-                  {language === 'np' ? (branding.stats?.stat3LabelNp || 'ग्रामीण स्वास्थ्य शिविर') : (branding.stats?.stat3LabelEn || 'Rural Camps')}
-                </span>
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Right Column: Narrative & Focus Areas */}

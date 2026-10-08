@@ -421,18 +421,19 @@ export function AppContent() {
             {/* Section 4: Clinical Work Experience (#experience) */}
             <ExperienceSection
               experience={experience}
+              branding={branding}
               isLoading={isDataLoading}
             />
 
             {/* Section 5: Official Social Media Handles (#socialmedia) */}
             <SocialMediaSection
               socialLinks={{
-                facebook: branding.socialLinks?.facebook || initialSocialLinks.facebook,
-                instagram: branding.socialLinks?.instagram || initialSocialLinks.instagram,
-                tiktok: branding.socialLinks?.tiktok || initialSocialLinks.tiktok,
-                twitter: branding.socialLinks?.twitter || initialSocialLinks.twitter,
-                youtube: branding.socialLinks?.youtube || initialSocialLinks.youtube,
-                whatsapp: branding.socialLinks?.whatsapp || initialSocialLinks.whatsapp
+                facebook: branding.socialLinks?.facebook !== undefined ? branding.socialLinks.facebook : initialSocialLinks.facebook,
+                instagram: branding.socialLinks?.instagram !== undefined ? branding.socialLinks.instagram : initialSocialLinks.instagram,
+                tiktok: branding.socialLinks?.tiktok !== undefined ? branding.socialLinks.tiktok : initialSocialLinks.tiktok,
+                twitter: branding.socialLinks?.twitter !== undefined ? branding.socialLinks.twitter : initialSocialLinks.twitter,
+                youtube: branding.socialLinks?.youtube !== undefined ? branding.socialLinks.youtube : initialSocialLinks.youtube,
+                whatsapp: branding.socialLinks?.whatsapp !== undefined ? branding.socialLinks.whatsapp : initialSocialLinks.whatsapp
               }}
             />
 

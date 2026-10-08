@@ -28,6 +28,11 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
     );
   }
 
+  // If user deleted all education milestones, cleanly hide section
+  if (!education || education.length === 0) {
+    return null;
+  }
+
   const handleOpenMilestone = (item: EducationMilestone) => {
     setActiveModalItem(item);
     window.location.hash = `#journey-${item.slug}`;

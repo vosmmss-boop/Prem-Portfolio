@@ -89,7 +89,7 @@ export const STORAGE_KEYS = {
 export function getLocal<T>(key: string, fallback: T): T {
   try {
     const item = localStorage.getItem(key);
-    if (item) {
+    if (item !== null) {
       const parsed = JSON.parse(item);
       if (parsed !== null && parsed !== undefined) {
         return parsed;
@@ -155,7 +155,10 @@ export function subscribeToNode<T>(
           const val = snapshot.val();
           let parsedData: any = val;
 
-          if (Array.isArray(initialFallback)) {
+          // If empty list sentinel was stored in Firebase
+          if (val && typeof val === 'object' && val._emptyList) {
+            parsedData = [];
+          } else if (Array.isArray(initialFallback)) {
             if (Array.isArray(val)) {
               parsedData = val;
             } else if (typeof val === 'object' && val !== null) {
@@ -172,8 +175,9 @@ export function subscribeToNode<T>(
             onData(parsedData);
           }
         } else {
-          // If node doesn't exist yet in remote RTDB, keep user's local/cached data
-          onData(cachedData);
+          // If node doesn't exist yet in remote RTDB, preserve current local cache
+          const currentLocal = getLocal<T>(storageKey, initialFallback);
+          onData(currentLocal);
         }
       },
       (error) => {
@@ -183,7 +187,9 @@ export function subscribeToNode<T>(
           clearTimeout(timer);
           onLoaded();
         }
-        onData(cachedData);
+        // Never overwrite with stale initialFallback on permission error; preserve local modifications
+        const currentLocal = getLocal<T>(storageKey, initialFallback);
+        onData(currentLocal);
       }
     );
 
@@ -220,7 +226,9 @@ export async function saveNodeData<T>(
   if (database) {
     try {
       const nodeRef = ref(database, nodePath);
-      await set(nodeRef, data);
+      // Firebase RTDB deletes nodes on empty arrays []; persist sentinel to prevent wiping
+      const dataToPersist = Array.isArray(data) && data.length === 0 ? { _emptyList: true } : data;
+      await set(nodeRef, dataToPersist);
       return { success: true, savedLocally: true, syncedToFirebase: true };
     } catch (err: any) {
       const msg = err?.message || String(err);

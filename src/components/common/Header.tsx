@@ -54,19 +54,28 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
     { label: language === 'np' ? 'प्राय सोधिने प्रश्न' : 'FAQ', href: '#faq' }
   ];
 
+  const rawSocial = branding.socialLinks;
   const activeSocialLinks = {
-    facebook: branding.socialLinks?.facebook || initialSocialLinks.facebook,
-    instagram: branding.socialLinks?.instagram || initialSocialLinks.instagram,
-    tiktok: branding.socialLinks?.tiktok || initialSocialLinks.tiktok,
-    twitter: branding.socialLinks?.twitter || initialSocialLinks.twitter,
-    youtube: branding.socialLinks?.youtube || initialSocialLinks.youtube
+    facebook: rawSocial?.facebook !== undefined ? rawSocial.facebook : initialSocialLinks.facebook,
+    instagram: rawSocial?.instagram !== undefined ? rawSocial.instagram : initialSocialLinks.instagram,
+    tiktok: rawSocial?.tiktok !== undefined ? rawSocial.tiktok : initialSocialLinks.tiktok,
+    twitter: rawSocial?.twitter !== undefined ? rawSocial.twitter : initialSocialLinks.twitter,
+    youtube: rawSocial?.youtube !== undefined ? rawSocial.youtube : initialSocialLinks.youtube
   };
+
+  const hasAnySocial = Boolean(
+    (activeSocialLinks.facebook && activeSocialLinks.facebook.trim()) ||
+    (activeSocialLinks.tiktok && activeSocialLinks.tiktok.trim()) ||
+    (activeSocialLinks.instagram && activeSocialLinks.instagram.trim()) ||
+    (activeSocialLinks.twitter && activeSocialLinks.twitter.trim()) ||
+    (activeSocialLinks.youtube && activeSocialLinks.youtube.trim())
+  );
 
   return (
     <header className="sticky top-0 z-40 bg-white/98 backdrop-blur-md border-b border-neutral-200 shadow-2xs transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 md:py-3">
         <div className="flex items-center justify-between gap-4">
-          {/* Brand Identity: Bold DR. PREM RAJ JOSHI & Flickering BAMS IOM TU AYURVEDIC PHYSICIAN */}
+          {/* Brand Identity: Bold Doctor Name & Flickering Degree Title */}
           <div className="flex items-center gap-3.5">
             <a
               href="#home"
@@ -81,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
               <div className="relative w-12 h-12 md:w-14 md:h-14 rounded-full overflow-hidden border-2 border-emerald-600 shadow-sm shrink-0">
                 <img
                   src={branding.logoUrl}
-                  alt="Dr. Prem Raj Joshi"
+                  alt={language === 'np' ? (branding.doctorName?.np || 'डा. प्रेम राज जोशी') : (branding.doctorName?.en || 'Dr. Prem Raj Joshi')}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   referrerPolicy="no-referrer"
                 />
@@ -89,10 +98,10 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
 
               <div>
                 <h1 className="text-lg sm:text-xl md:text-2xl font-black tracking-tight text-neutral-950 font-editorial uppercase leading-tight">
-                  DR. PREM RAJ JOSHI
+                  {language === 'np' ? (branding.doctorName?.np || 'डा. प्रेम राज जोशी') : (branding.doctorName?.en || 'DR. PREM RAJ JOSHI')}
                 </h1>
                 <div className="text-[11px] sm:text-xs font-extrabold tracking-wide uppercase font-mono animate-flicker text-emerald-800 leading-tight mt-0.5">
-                  BAMS, IOM, TU · AYURVEDIC PHYSICIAN
+                  {language === 'np' ? (branding.degreeTitle?.np || 'बीएएमएस, आइओएम, टियु · आयुर्वेदिक चिकित्सक') : (branding.degreeTitle?.en || 'BAMS, IOM, TU · AYURVEDIC PHYSICIAN')}
                 </div>
               </div>
             </a>
@@ -100,54 +109,66 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
 
           {/* Center-Right on Desktop/PC: Social Media Icons with Bold Nepali Date & 12HRS Time Below */}
           <div className="hidden lg:flex flex-col items-center justify-center gap-1 px-3.5 py-1.5 bg-neutral-50/90 rounded-xl border border-neutral-200 shadow-2xs">
-            {/* Social Media Icons: Facebook, TikTok, Instagram, X, YouTube */}
-            <div className="flex items-center gap-2">
-              <a
-                href={activeSocialLinks.facebook}
-                target="_blank"
-                rel="noreferrer"
-                className="w-6 h-6 rounded-md bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
-                title="Facebook"
-              >
-                <Facebook className="w-3.5 h-3.5" />
-              </a>
-              <a
-                href={activeSocialLinks.tiktok}
-                target="_blank"
-                rel="noreferrer"
-                className="w-6 h-6 rounded-md bg-neutral-100 hover:bg-neutral-900 text-neutral-800 hover:text-white flex items-center justify-center transition-all shadow-2xs"
-                title="TikTok"
-              >
-                <Music className="w-3.5 h-3.5" />
-              </a>
-              <a
-                href={activeSocialLinks.instagram}
-                target="_blank"
-                rel="noreferrer"
-                className="w-6 h-6 rounded-md bg-pink-50 hover:bg-pink-600 text-pink-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
-                title="Instagram"
-              >
-                <Instagram className="w-3.5 h-3.5" />
-              </a>
-              <a
-                href={activeSocialLinks.twitter}
-                target="_blank"
-                rel="noreferrer"
-                className="w-6 h-6 rounded-md bg-sky-50 hover:bg-sky-500 text-sky-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
-                title="X (Twitter)"
-              >
-                <Twitter className="w-3.5 h-3.5" />
-              </a>
-              <a
-                href={activeSocialLinks.youtube}
-                target="_blank"
-                rel="noreferrer"
-                className="w-6 h-6 rounded-md bg-red-50 hover:bg-red-600 text-red-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
-                title="YouTube"
-              >
-                <Youtube className="w-3.5 h-3.5" />
-              </a>
-            </div>
+            {/* Social Media Icons: Only rendered if active non-empty URLs exist */}
+            {hasAnySocial && (
+              <div className="flex items-center gap-2">
+                {activeSocialLinks.facebook && activeSocialLinks.facebook.trim() && (
+                  <a
+                    href={activeSocialLinks.facebook}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-6 h-6 rounded-md bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
+                    title="Facebook"
+                  >
+                    <Facebook className="w-3.5 h-3.5" />
+                  </a>
+                )}
+                {activeSocialLinks.tiktok && activeSocialLinks.tiktok.trim() && (
+                  <a
+                    href={activeSocialLinks.tiktok}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-6 h-6 rounded-md bg-neutral-100 hover:bg-neutral-900 text-neutral-800 hover:text-white flex items-center justify-center transition-all shadow-2xs"
+                    title="TikTok"
+                  >
+                    <Music className="w-3.5 h-3.5" />
+                  </a>
+                )}
+                {activeSocialLinks.instagram && activeSocialLinks.instagram.trim() && (
+                  <a
+                    href={activeSocialLinks.instagram}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-6 h-6 rounded-md bg-pink-50 hover:bg-pink-600 text-pink-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
+                    title="Instagram"
+                  >
+                    <Instagram className="w-3.5 h-3.5" />
+                  </a>
+                )}
+                {activeSocialLinks.twitter && activeSocialLinks.twitter.trim() && (
+                  <a
+                    href={activeSocialLinks.twitter}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-6 h-6 rounded-md bg-sky-50 hover:bg-sky-500 text-sky-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
+                    title="X (Twitter)"
+                  >
+                    <Twitter className="w-3.5 h-3.5" />
+                  </a>
+                )}
+                {activeSocialLinks.youtube && activeSocialLinks.youtube.trim() && (
+                  <a
+                    href={activeSocialLinks.youtube}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-6 h-6 rounded-md bg-red-50 hover:bg-red-600 text-red-700 hover:text-white flex items-center justify-center transition-all shadow-2xs"
+                    title="YouTube"
+                  >
+                    <Youtube className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
+            )}
 
             {/* Nepali Date & Time in BOLD: 22 Asoj 2083 and 12-Hour Time */}
             <div className="flex items-center gap-1.5 text-[11px] font-mono leading-none tracking-tight">

@@ -31,6 +31,11 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
     );
   }
 
+  // If user deleted all blog articles, cleanly hide section
+  if (!blogs || blogs.length === 0) {
+    return null;
+  }
+
   // Filter categories
   const categoriesEn = Array.from(new Set(blogs.map((b) => b.categoryEn)));
 

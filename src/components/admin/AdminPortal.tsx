@@ -765,6 +765,11 @@ const ProfileLocationStatsManager: React.FC<{
   const [bData, setBData] = useState<Branding>(branding);
   const [aData, setAData] = useState<Autobiography>(autobiography);
 
+  React.useEffect(() => {
+    setBData(branding);
+    setAData(autobiography);
+  }, [branding, autobiography]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -905,10 +910,10 @@ const ProfileLocationStatsManager: React.FC<{
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-neutral-50 p-4 rounded-xl border border-neutral-200">
             {/* Stat 1 */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-neutral-800">Stat #1 (Medical Degree)</label>
+              <label className="block text-xs font-bold text-neutral-800">Stat #1</label>
               <input
                 type="text"
-                value={bData.stats?.stat1Value || '5.5+'}
+                value={bData.stats?.stat1Value ?? ''}
                 onChange={(e) => setBData({
                   ...bData,
                   stats: { ...(bData.stats || {} as any), stat1Value: e.target.value }
@@ -918,7 +923,7 @@ const ProfileLocationStatsManager: React.FC<{
               />
               <input
                 type="text"
-                value={bData.stats?.stat1LabelEn || 'Years Medical Degree'}
+                value={bData.stats?.stat1LabelEn ?? ''}
                 onChange={(e) => setBData({
                   ...bData,
                   stats: { ...(bData.stats || {} as any), stat1LabelEn: e.target.value }
@@ -928,7 +933,7 @@ const ProfileLocationStatsManager: React.FC<{
               />
               <input
                 type="text"
-                value={bData.stats?.stat1LabelNp || 'वर्षे चिकित्सा अध्ययन'}
+                value={bData.stats?.stat1LabelNp ?? ''}
                 onChange={(e) => setBData({
                   ...bData,
                   stats: { ...(bData.stats || {} as any), stat1LabelNp: e.target.value }
@@ -940,10 +945,10 @@ const ProfileLocationStatsManager: React.FC<{
 
             {/* Stat 2 */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-neutral-800">Stat #2 (Patients Treated)</label>
+              <label className="block text-xs font-bold text-neutral-800">Stat #2</label>
               <input
                 type="text"
-                value={bData.stats?.stat2Value || '4,500+'}
+                value={bData.stats?.stat2Value ?? ''}
                 onChange={(e) => setBData({
                   ...bData,
                   stats: { ...(bData.stats || {} as any), stat2Value: e.target.value }
@@ -953,7 +958,7 @@ const ProfileLocationStatsManager: React.FC<{
               />
               <input
                 type="text"
-                value={bData.stats?.stat2LabelEn || 'Patients Treated'}
+                value={bData.stats?.stat2LabelEn ?? ''}
                 onChange={(e) => setBData({
                   ...bData,
                   stats: { ...(bData.stats || {} as any), stat2LabelEn: e.target.value }
@@ -963,7 +968,7 @@ const ProfileLocationStatsManager: React.FC<{
               />
               <input
                 type="text"
-                value={bData.stats?.stat2LabelNp || 'बिरामीहरूको उपचार'}
+                value={bData.stats?.stat2LabelNp ?? ''}
                 onChange={(e) => setBData({
                   ...bData,
                   stats: { ...(bData.stats || {} as any), stat2LabelNp: e.target.value }
@@ -975,10 +980,10 @@ const ProfileLocationStatsManager: React.FC<{
 
             {/* Stat 3 */}
             <div className="space-y-2">
-              <label className="block text-xs font-bold text-neutral-800">Stat #3 (Rural Camps)</label>
+              <label className="block text-xs font-bold text-neutral-800">Stat #3</label>
               <input
                 type="text"
-                value={bData.stats?.stat3Value || '18+'}
+                value={bData.stats?.stat3Value ?? ''}
                 onChange={(e) => setBData({
                   ...bData,
                   stats: { ...(bData.stats || {} as any), stat3Value: e.target.value }
@@ -988,7 +993,7 @@ const ProfileLocationStatsManager: React.FC<{
               />
               <input
                 type="text"
-                value={bData.stats?.stat3LabelEn || 'Rural Camps'}
+                value={bData.stats?.stat3LabelEn ?? ''}
                 onChange={(e) => setBData({
                   ...bData,
                   stats: { ...(bData.stats || {} as any), stat3LabelEn: e.target.value }
@@ -998,7 +1003,7 @@ const ProfileLocationStatsManager: React.FC<{
               />
               <input
                 type="text"
-                value={bData.stats?.stat3LabelNp || 'ग्रामीण स्वास्थ्य शिविर'}
+                value={bData.stats?.stat3LabelNp ?? ''}
                 onChange={(e) => setBData({
                   ...bData,
                   stats: { ...(bData.stats || {} as any), stat3LabelNp: e.target.value }
@@ -1020,7 +1025,7 @@ const ProfileLocationStatsManager: React.FC<{
               <label className="block text-xs font-semibold text-neutral-700 mb-1">Kicker Label (English)</label>
               <input
                 type="text"
-                value={aData.kickerEn || 'About Me'}
+                value={aData.kickerEn ?? ''}
                 onChange={(e) => setAData({ ...aData, kickerEn: e.target.value })}
                 className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg"
               />
@@ -1029,7 +1034,7 @@ const ProfileLocationStatsManager: React.FC<{
               <label className="block text-xs font-semibold text-neutral-700 mb-1">Kicker Label (Nepali Unicode)</label>
               <input
                 type="text"
-                value={aData.kickerNp || 'मेरो बारेमा'}
+                value={aData.kickerNp ?? ''}
                 onChange={(e) => setAData({ ...aData, kickerNp: e.target.value })}
                 className="w-full px-3 py-2 text-xs border border-neutral-300 rounded-lg font-nepali"
               />
@@ -1051,13 +1056,17 @@ const SocialMediaLinksManager: React.FC<{
 }> = ({ branding, onSaveLocal, onSaveLive }) => {
   const [bData, setBData] = useState<Branding>(branding);
 
+  React.useEffect(() => {
+    setBData(branding);
+  }, [branding]);
+
   const socialLinks = {
-    facebook: bData.socialLinks?.facebook ?? 'https://facebook.com/drpremrajjoshi',
-    instagram: bData.socialLinks?.instagram ?? 'https://instagram.com/drpremrajjoshi',
-    tiktok: bData.socialLinks?.tiktok ?? 'https://tiktok.com/@drpremrajjoshi',
-    twitter: bData.socialLinks?.twitter ?? 'https://twitter.com/drpremrajjoshi',
-    youtube: bData.socialLinks?.youtube ?? 'https://youtube.com/@drpremrajjoshi',
-    whatsapp: bData.socialLinks?.whatsapp ?? 'https://wa.me/9779848721200'
+    facebook: bData.socialLinks ? (bData.socialLinks.facebook ?? '') : 'https://facebook.com/drpremrajjoshi',
+    instagram: bData.socialLinks ? (bData.socialLinks.instagram ?? '') : 'https://instagram.com/drpremrajjoshi',
+    tiktok: bData.socialLinks ? (bData.socialLinks.tiktok ?? '') : 'https://tiktok.com/@drpremrajjoshi',
+    twitter: bData.socialLinks ? (bData.socialLinks.twitter ?? '') : 'https://twitter.com/drpremrajjoshi',
+    youtube: bData.socialLinks ? (bData.socialLinks.youtube ?? '') : 'https://youtube.com/@drpremrajjoshi',
+    whatsapp: bData.socialLinks ? (bData.socialLinks.whatsapp ?? '') : 'https://wa.me/9779848721200'
   };
 
   const updateLink = (key: keyof typeof socialLinks, value: string) => {
@@ -1186,6 +1195,10 @@ const SlidersManager: React.FC<{
   onSaveLive: (s: HeroSlide[]) => void;
 }> = ({ slides, onSaveLocal, onSaveLive }) => {
   const [items, setItems] = useState<HeroSlide[]>(slides);
+
+  React.useEffect(() => {
+    setItems(slides);
+  }, [slides]);
 
   const handleAddSlide = () => {
     const newSlide: HeroSlide = {
@@ -1350,6 +1363,10 @@ const AutobiographyManager: React.FC<{
 }> = ({ autobiography, onSaveLocal, onSaveLive }) => {
   const [data, setData] = useState<Autobiography>(autobiography);
 
+  React.useEffect(() => {
+    setData(autobiography);
+  }, [autobiography]);
+
   const handleAvatarUpload = (file: File) => {
     readFileAsDataUrl(file, (dataUrl) => {
       setData({ ...data, avatarUrl: dataUrl });
@@ -1463,6 +1480,10 @@ const EducationManager: React.FC<{
   onSaveLive: (e: EducationMilestone[]) => void;
 }> = ({ education, onSaveLocal, onSaveLive }) => {
   const [items, setItems] = useState<EducationMilestone[]>(education);
+
+  React.useEffect(() => {
+    setItems(education);
+  }, [education]);
 
   const handleAdd = () => {
     const newM: EducationMilestone = {
@@ -1609,6 +1630,10 @@ const ExperienceManager: React.FC<{
   onSaveLive: (e: ExperienceEntry[]) => void;
 }> = ({ experience, onSaveLocal, onSaveLive }) => {
   const [items, setItems] = useState<ExperienceEntry[]>(experience);
+
+  React.useEffect(() => {
+    setItems(experience);
+  }, [experience]);
 
   const handleAdd = () => {
     const newE: ExperienceEntry = {
@@ -1759,6 +1784,10 @@ const BlogsManager: React.FC<{
   const [items, setItems] = useState<BlogArticle[]>(blogs);
   const [editingBlog, setEditingBlog] = useState<BlogArticle | null>(null);
   const [slugError, setSlugError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    setItems(blogs);
+  }, [blogs]);
 
   const handleCreateNew = () => {
     const newBlog: BlogArticle = {
@@ -1956,6 +1985,10 @@ const FAQManager: React.FC<{
 }> = ({ faqs, onSaveLocal, onSaveLive }) => {
   const [items, setItems] = useState<FAQItem[]>(faqs);
 
+  React.useEffect(() => {
+    setItems(faqs);
+  }, [faqs]);
+
   const handleAdd = () => {
     const newF: FAQItem = {
       id: `faq-${Date.now()}`,
@@ -2027,6 +2060,10 @@ const LinksManager: React.FC<{
 }> = ({ links, onSaveLocal, onSaveLive }) => {
   const [items, setItems] = useState<UsefulLink[]>(links);
 
+  React.useEffect(() => {
+    setItems(links);
+  }, [links]);
+
   const handleAdd = () => {
     const newL: UsefulLink = {
       id: `link-${Date.now()}`,
@@ -2084,6 +2121,10 @@ const DownloadsManager: React.FC<{
   onSaveLive: (d: DownloadItem[]) => void;
 }> = ({ downloads, onSaveLocal, onSaveLive }) => {
   const [items, setItems] = useState<DownloadItem[]>(downloads);
+
+  React.useEffect(() => {
+    setItems(downloads);
+  }, [downloads]);
 
   const handleAdd = () => {
     const newD: DownloadItem = {
@@ -2207,6 +2248,10 @@ const LogoFlagManager: React.FC<{
 }> = ({ branding, onSaveLocal, onSaveLive }) => {
   const [data, setData] = useState<Branding>(branding);
 
+  React.useEffect(() => {
+    setData(branding);
+  }, [branding]);
+
   const handleUploadLogo = (file: File) => {
     readFileAsDataUrl(file, (dataUrl) => {
       setData({ ...data, logoUrl: dataUrl });
@@ -2305,6 +2350,10 @@ const GalleryManager: React.FC<{
   onSaveLive: (g: GalleryItem[]) => void;
 }> = ({ gallery, onSaveLocal, onSaveLive }) => {
   const [items, setItems] = useState<GalleryItem[]>(gallery);
+
+  React.useEffect(() => {
+    setItems(gallery);
+  }, [gallery]);
 
   const handleAdd = () => {
     const newG: GalleryItem = {

@@ -28,6 +28,11 @@ export const GallerySection: React.FC<GallerySectionProps> = ({
     );
   }
 
+  // If user deleted all gallery photos and there is no YouTube video, cleanly hide section
+  if ((!gallery || gallery.length === 0) && !branding.youtubeEmbedUrl) {
+    return null;
+  }
+
   return (
     <section id="gallery" className="py-20 md:py-28 bg-white border-b border-neutral-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -51,6 +51,10 @@ Consult Dr. Prem Raj Joshi:
     URL.revokeObjectURL(url);
   };
 
+  if (!downloads || downloads.length === 0) {
+    return null;
+  }
+
   return (
     <section className="py-20 md:py-24 bg-neutral-50 border-b border-neutral-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
