@@ -1,25 +1,74 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { BlogArticle } from '../../types';
 import { CardsSkeleton } from '../common/SkeletonLoaders';
 import { Search, Calendar, Clock, ArrowRight, Share2, Check, X, Tag } from 'lucide-react';
+import { sanitizeSlug } from '../../utils/slugify';
 
 interface BlogsSectionProps {
   blogs: BlogArticle[];
   isLoading: boolean;
   onSelectBlog?: (blog: BlogArticle) => void;
+  activeBlogSlug?: string | null;
+  onCloseBlog?: () => void;
+  doctorImage?: string;
 }
 
 export const BlogsSection: React.FC<BlogsSectionProps> = ({
   blogs,
   isLoading,
-  onSelectBlog
+  onSelectBlog,
+  activeBlogSlug,
+  onCloseBlog,
+  doctorImage
 }) => {
   const { language, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeBlog, setActiveBlog] = useState<BlogArticle | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Sync active blog with incoming activeBlogSlug (from deep link or route changes)
+  useEffect(() => {
+    if (activeBlogSlug && blogs && blogs.length > 0) {
+      const cleanTarget = sanitizeSlug(activeBlogSlug);
+      const matched = blogs.find(
+        (b) => sanitizeSlug(b.slug) === cleanTarget || sanitizeSlug(b.titleEn) === cleanTarget
+      );
+      if (matched) {
+        setActiveBlog(matched);
+      }
+    } else if (!activeBlogSlug) {
+      setActiveBlog(null);
+    }
+  }, [activeBlogSlug, blogs]);
+
+  // Update dynamic document title and canonical meta tags when article is active
+  useEffect(() => {
+    if (activeBlog) {
+      const originalTitle = document.title;
+      const cleanSlug = sanitizeSlug(activeBlog.slug);
+      const articleTitle = language === 'np' ? activeBlog.titleNp : activeBlog.titleEn;
+      document.title = `${articleTitle} | Dr. Prem Raj Joshi - BAMS (IOM, TU)`;
+
+      // Update Canonical link
+      let canonicalLink = document.querySelector("link[rel='canonical']") as HTMLLinkElement | null;
+      const originalCanonical = canonicalLink ? canonicalLink.href : 'https://drpremrajjoshi.com.np/';
+      if (canonicalLink) {
+        canonicalLink.href = `${window.location.origin}/blog/${cleanSlug}`;
+      }
+
+      // Update Open Graph URL
+      const ogUrl = document.querySelector("meta[property='og:url']") as HTMLMetaElement | null;
+      if (ogUrl) ogUrl.content = `${window.location.origin}/blog/${cleanSlug}`;
+
+      return () => {
+        document.title = originalTitle;
+        if (canonicalLink) canonicalLink.href = originalCanonical;
+        if (ogUrl) ogUrl.content = originalCanonical;
+      };
+    }
+  }, [activeBlog, language]);
 
   if (isLoading) {
     return (
@@ -55,13 +104,24 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
   });
 
   const handleOpenBlog = (blog: BlogArticle) => {
+    const cleanSlug = sanitizeSlug(blog.slug);
     setActiveBlog(blog);
-    window.location.hash = `#blog-${blog.slug}`;
+    window.history.pushState(null, '', `/blog/${cleanSlug}`);
     if (onSelectBlog) onSelectBlog(blog);
   };
 
+  const handleCloseModal = () => {
+    setActiveBlog(null);
+    if (onCloseBlog) {
+      onCloseBlog();
+    } else {
+      window.history.pushState(null, '', '/#blogs');
+    }
+  };
+
   const handleCopyShareLink = (slug: string) => {
-    const shareUrl = `${window.location.origin}/#/blog/${slug}`;
+    const cleanSlug = sanitizeSlug(slug);
+    const shareUrl = `${window.location.origin}/blog/${cleanSlug}`;
     navigator.clipboard.writeText(shareUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2500);
@@ -166,7 +226,15 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                     </div>
 
                     <h3 className="text-xl font-bold text-neutral-900 group-hover:text-emerald-800 transition-colors font-editorial leading-snug mb-3">
-                      {language === 'np' ? blog.titleNp : blog.titleEn}
+                      <a
+                        href={`/blog/${sanitizeSlug(blog.slug)}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleOpenBlog(blog);
+                        }}
+                      >
+                        {language === 'np' ? blog.titleNp : blog.titleEn}
+                      </a>
                     </h3>
 
                     <p className="text-xs text-neutral-600 line-clamp-3 leading-relaxed font-nepali">
@@ -176,17 +244,28 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                 </div>
 
                 <div className="px-6 pb-6 pt-2 border-t border-neutral-100 flex items-center justify-between">
-                  <span className="text-[11px] font-mono text-neutral-400">
-                    /blog/{blog.slug}
-                  </span>
+                  <a
+                    href={`/blog/${sanitizeSlug(blog.slug)}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleOpenBlog(blog);
+                    }}
+                    className="text-[11px] font-mono text-neutral-400 hover:text-emerald-700 transition-colors"
+                  >
+                    /blog/{sanitizeSlug(blog.slug)}
+                  </a>
 
-                  <button
-                    onClick={() => handleOpenBlog(blog)}
-                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
+                  <a
+                    href={`/blog/${sanitizeSlug(blog.slug)}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleOpenBlog(blog);
+                    }}
+                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform cursor-pointer"
                   >
                     <span>{t('sec_blogs_read_more')}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  </a>
                 </div>
               </article>
             ))}
@@ -202,20 +281,21 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
             <div className="bg-neutral-900 text-white px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-mono text-emerald-400">
                 <Tag className="w-3.5 h-3.5" />
-                <span>/blog/{activeBlog.slug}</span>
+                <span>/blog/{sanitizeSlug(activeBlog.slug)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleCopyShareLink(activeBlog.slug)}
-                  className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs rounded-lg transition-colors flex items-center gap-1.5"
+                  className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                   title="Copy share link with OG meta tags"
                 >
                   {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
                   <span>{copiedLink ? 'Link Copied' : 'Share'}</span>
                 </button>
                 <button
-                  onClick={() => setActiveBlog(null)}
-                  className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800"
+                  onClick={handleCloseModal}
+                  className="p-1 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 cursor-pointer"
+                  aria-label="Close article"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -255,10 +335,14 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                 {language === 'np' ? activeBlog.contentNp : activeBlog.contentEn}
               </div>
 
-              {/* Author signature footer */}
+              {/* Author signature footer - Synchronized profile picture */}
               <div className="mt-8 pt-6 border-t border-neutral-200 bg-emerald-50/50 p-5 rounded-2xl flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-600 shrink-0">
-                  <img src="/src/assets/images/doctor_portrait_1791392878397.jpg" alt="Dr. Joshi" className="w-full h-full object-cover" />
+                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-emerald-600 shrink-0 bg-white shadow-xs">
+                  <img
+                    src={doctorImage || "/src/assets/images/doctor_portrait_1791392878397.jpg"}
+                    alt="Dr. Prem Raj Joshi"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div>
                   <h4 className="font-bold text-neutral-900 text-sm font-editorial">

@@ -42,7 +42,7 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
           <div className="lg:col-span-5 flex flex-col items-center">
             <div className="relative w-full max-w-md aspect-square rounded-3xl overflow-hidden shadow-xl border-4 border-white ring-1 ring-neutral-200 bg-neutral-100 group">
               <img
-                src={autobiography.avatarUrl || branding.logoUrl}
+                src={branding.logoUrl || autobiography.avatarUrl}
                 alt={language === 'np' ? branding.doctorName.np : branding.doctorName.en}
                 className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
                 referrerPolicy="no-referrer"
@@ -176,8 +176,8 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
           <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden border border-neutral-200 max-h-[90vh] flex flex-col">
             <div className="bg-neutral-900 text-white px-6 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full overflow-hidden border border-emerald-400">
-                  <img src={autobiography.avatarUrl || branding.logoUrl} alt="Dr. Prem Raj Joshi" className="w-full h-full object-cover" />
+                <div className="w-10 h-10 rounded-full overflow-hidden border border-emerald-400 bg-white">
+                  <img src={branding.logoUrl || autobiography.avatarUrl} alt="Dr. Prem Raj Joshi" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold font-editorial">

@@ -574,6 +574,7 @@ export const initialGallery: GalleryItem[] = [
 export const initialPatientInquiries: PatientInquiry[] = [
   {
     id: 'inq-101',
+    trackingId: 'PRJ-10248',
     createdAt: '2026-10-06T14:20:00Z',
     fullName: 'Ramesh Bahadur Thapa',
     age: '42',
@@ -590,10 +591,25 @@ export const initialPatientInquiries: PatientInquiry[] = [
     preferredDate: '2026-10-10, Morning 10:00 AM',
     status: 'In Review',
     doctorNotes: 'Classic symptoms of Amlapitta with Pitta-Kapha aggravation. Advised to bring previous endoscopy reports.',
-    prescribedAdvice: 'Amalaki Churna with warm water before meals. Avoid sour fruits and oily spicy dishes.'
+    prescribedAdvice: 'Amalaki Churna with warm water before meals. Avoid sour fruits and oily spicy dishes.',
+    messages: [
+      {
+        id: 'msg-1',
+        sender: 'doctor',
+        senderName: "Dr. Prem Raj Joshi's Clinical Team",
+        message: 'Namaste Ramesh ji. Your symptoms indicate chronic Amlapitta. Please avoid citrus and fermented items until your appointment.',
+        timestamp: '2026-10-06T16:30:00Z'
+      }
+    ],
+    patientReview: {
+      rating: 5,
+      comment: 'Very polite clinic staff and quick guidance on preliminary diet.',
+      createdAt: '2026-10-07T08:00:00Z'
+    }
   },
   {
     id: 'inq-102',
+    trackingId: 'PRJ-10249',
     createdAt: '2026-10-05T09:15:00Z',
     fullName: 'Sita Devi Sharma',
     age: '56',
@@ -609,10 +625,20 @@ export const initialPatientInquiries: PatientInquiry[] = [
     problemDetails: 'Knee joint pain (Sandhivata), morning stiffness for 30 minutes, difficulty climbing stairs. Looking for herbal oils and medicine couriered to Pokhara.',
     status: 'Confirmed',
     doctorNotes: 'Mild osteoarthritic changes. Recommended mild Janu Basti or warm Mahanarayan oil massage.',
-    prescribedAdvice: 'Mahanarayan Taila local application twice daily followed by mild fomentation. Yogaraj Guggulu 1 tab BD after meals.'
+    prescribedAdvice: 'Mahanarayan Taila local application twice daily followed by mild fomentation. Yogaraj Guggulu 1 tab BD after meals.',
+    messages: [
+      {
+        id: 'msg-2',
+        sender: 'doctor',
+        senderName: "Dr. Prem Raj Joshi's Clinical Team",
+        message: 'Prescription confirmed and herbal medicine parcel dispatched via courier to Pokhara branch.',
+        timestamp: '2026-10-05T12:00:00Z'
+      }
+    ]
   },
   {
     id: 'inq-103',
+    trackingId: 'PRJ-10250',
     createdAt: '2026-10-04T18:40:00Z',
     fullName: 'Bikash Kumar Chaudhary',
     age: '29',
@@ -628,6 +654,11 @@ export const initialPatientInquiries: PatientInquiry[] = [
     problemDetails: 'Completed 1 month of prescribed medication for irregular digestion and low energy. Digestion has improved significantly, need next month routine.',
     status: 'Completed',
     doctorNotes: 'Agni is normalizing. Bowel frequency regularized to once daily without straining.',
-    prescribedAdvice: 'Continue Trikatu Churna with honey in morning. Maintain regular 8:00 PM dinner.'
+    prescribedAdvice: 'Continue Trikatu Churna with honey in morning. Maintain regular 8:00 PM dinner.',
+    patientReview: {
+      rating: 5,
+      comment: 'My chronic digestive distress was resolved within 3 weeks of natural regimen. Grateful to Dr. Joshi!',
+      createdAt: '2026-10-05T10:00:00Z'
+    }
   }
 ];

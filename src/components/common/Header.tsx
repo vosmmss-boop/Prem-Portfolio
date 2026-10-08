@@ -12,7 +12,8 @@ import {
   Instagram,
   Twitter,
   Youtube,
-  Music
+  Music,
+  Search
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -215,17 +216,27 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
             </button>
 
             <a
-              href="#appointment"
+              href="/track"
               onClick={(e) => {
-                if (currentView !== 'main') {
-                  e.preventDefault();
-                  onNavigate('main');
-                  setTimeout(() => {
-                    window.location.hash = '#appointment';
-                  }, 100);
-                }
+                e.preventDefault();
+                window.history.pushState(null, '', '/track');
+                window.dispatchEvent(new PopStateEvent('popstate'));
               }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition-colors shadow-xs whitespace-nowrap"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors shadow-2xs whitespace-nowrap cursor-pointer"
+              title="Track your appointment status with Tracking ID or Phone"
+            >
+              <Search className="w-3.5 h-3.5 text-emerald-700" />
+              <span>{language === 'np' ? 'ट्र्याक गर्नुहोस्' : 'Track Status'}</span>
+            </a>
+
+            <a
+              href="/appointment"
+              onClick={(e) => {
+                e.preventDefault();
+                window.history.pushState(null, '', '/appointment');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition-colors shadow-xs whitespace-nowrap cursor-pointer"
             >
               <Stethoscope className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{language === 'np' ? 'परामर्श लिनुहोस्' : 'Appointment'}</span>
@@ -284,6 +295,19 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
                 {link.label}
               </a>
             ))}
+            <a
+              href="/track"
+              onClick={(e) => {
+                e.preventDefault();
+                setMobileMenuOpen(false);
+                window.history.pushState(null, '', '/track');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              className="py-2 px-3 rounded-lg text-emerald-800 bg-emerald-50 hover:bg-emerald-100 font-bold transition-colors flex items-center gap-1.5"
+            >
+              <Search className="w-3.5 h-3.5 text-emerald-700" />
+              <span>{language === 'np' ? 'ट्र्याक गर्नुहोस्' : 'Track Status'}</span>
+            </a>
           </div>
         </div>
       )}

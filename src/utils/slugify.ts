@@ -30,3 +30,16 @@ export function isSlugUnique(slug: string, existingSlugs: string[], currentId?: 
   const duplicates = existingSlugs.filter((s) => s.toLowerCase() === normalized);
   return duplicates.length === 0;
 }
+
+/**
+ * Sanitize incoming slug parameter to match storage keys
+ */
+export function sanitizeSlug(slug: string): string {
+  if (!slug) return '';
+  return slug
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}

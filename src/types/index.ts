@@ -199,8 +199,23 @@ export interface InquiryAttachment {
   type?: string;
 }
 
+export interface InquiryMessage {
+  id: string;
+  sender: 'doctor' | 'patient';
+  senderName: string;
+  message: string;
+  timestamp: string;
+}
+
+export interface PatientReview {
+  rating: number; // 1 - 5
+  comment: string;
+  createdAt: string;
+}
+
 export interface PatientInquiry {
   id: string;
+  trackingId?: string; // e.g. "PRJ-842109"
   createdAt: string;
   fullName: string;
   age: string;
@@ -219,6 +234,8 @@ export interface PatientInquiry {
   doctorNotes?: string;
   prescribedAdvice?: string;
   attachment?: InquiryAttachment;
+  messages?: InquiryMessage[];
+  patientReview?: PatientReview;
 }
 
 export interface AccessibilitySettings {

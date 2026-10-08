@@ -197,6 +197,48 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     }
   };
 
+  // Synchronized Branding & Logo handler (keeps Autobiography avatar in sync everywhere)
+  const saveBrandingWithPhotoSync = async (newB: Branding) => {
+    onUpdateBranding(newB);
+    const resB = await saveNodeData('branding', 'dr_joshi_branding', newB);
+    if (newB.logoUrl && newB.logoUrl !== autobiography.avatarUrl) {
+      const updatedBio = { ...autobiography, avatarUrl: newB.logoUrl };
+      onUpdateAutobiography(updatedBio);
+      await saveNodeData('autobiography', 'dr_joshi_autobiography', updatedBio);
+    }
+    if (resB.syncedToFirebase) {
+      setFirebaseStatus('connected');
+      showToast('✓ Doctor logo & profile picture synced everywhere across the website & Firebase!', 'success');
+    } else if (resB.isPermissionDenied) {
+      setFirebaseStatus('permission_denied');
+      showToast('⚠️ Logo saved locally, but Firebase write was denied. Update Firebase Rules.', 'warning');
+      setShowRulesModal(true);
+    } else {
+      showToast('✓ Doctor logo & profile picture updated locally across the site.', 'success');
+    }
+  };
+
+  // Synchronized Autobiography handler (keeps Branding logo in sync everywhere)
+  const saveAutobiographyWithPhotoSync = async (newBio: Autobiography) => {
+    onUpdateAutobiography(newBio);
+    const resA = await saveNodeData('autobiography', 'dr_joshi_autobiography', newBio);
+    if (newBio.avatarUrl && newBio.avatarUrl !== branding.logoUrl) {
+      const updatedBranding = { ...branding, logoUrl: newBio.avatarUrl };
+      onUpdateBranding(updatedBranding);
+      await saveNodeData('branding', 'dr_joshi_branding', updatedBranding);
+    }
+    if (resA.syncedToFirebase) {
+      setFirebaseStatus('connected');
+      showToast('✓ Doctor portrait synced everywhere across the website & Firebase!', 'success');
+    } else if (resA.isPermissionDenied) {
+      setFirebaseStatus('permission_denied');
+      showToast('⚠️ Portrait saved locally, but Firebase write was denied. Update Firebase Rules.', 'warning');
+      setShowRulesModal(true);
+    } else {
+      showToast('✓ Doctor portrait updated locally across the site.', 'success');
+    }
+  };
+
   // Push all 10 modules simultaneously to Firebase
   const handleSyncAllToFirebase = async () => {
     setIsSyncingAll(true);
@@ -671,8 +713,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {activeTab === 'autobiography' && (
             <AutobiographyManager
               autobiography={autobiography}
-              onSaveLocal={(newBio) => saveEntityWithGlobalSync('autobiography', 'dr_joshi_autobiography', newBio, onUpdateAutobiography, 'Autobiography')}
-              onSaveLive={(newBio) => saveEntityWithGlobalSync('autobiography', 'dr_joshi_autobiography', newBio, onUpdateAutobiography, 'Autobiography')}
+              onSaveLocal={saveAutobiographyWithPhotoSync}
+              onSaveLive={saveAutobiographyWithPhotoSync}
             />
           )}
 
@@ -734,8 +776,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           {activeTab === 'logo_flag' && (
             <LogoFlagManager
               branding={branding}
-              onSaveLocal={(newB) => saveEntityWithGlobalSync('branding', 'dr_joshi_branding', newB, onUpdateBranding, 'Branding & Video')}
-              onSaveLive={(newB) => saveEntityWithGlobalSync('branding', 'dr_joshi_branding', newB, onUpdateBranding, 'Branding & Video')}
+              onSaveLocal={saveBrandingWithPhotoSync}
+              onSaveLive={saveBrandingWithPhotoSync}
             />
           )}
 

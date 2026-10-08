@@ -1,4 +1,5 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getAnalytics, isSupported, logEvent, Analytics } from 'firebase/analytics';
 import {
   getDatabase,
   ref,
@@ -44,32 +45,54 @@ import {
   initialPatientInquiries
 } from '../data/initialData';
 
-// User-provided Firebase Configuration
+// Firebase Configuration (supports environment variables with defaults)
 export const firebaseConfig = {
-  apiKey: "AIzaSyAfK8VMNB_GyRlfvqVjIihPN0X97qDfrK0",
-  authDomain: "drsaap-52b17.firebaseapp.com",
-  projectId: "drsaap-52b17",
-  storageBucket: "drsaap-52b17.firebasestorage.app",
-  messagingSenderId: "355298760720",
-  appId: "1:355298760720:web:0ad7aefac7edbfb6a89295",
-  measurementId: "G-YH1KBCS635",
-  databaseURL: "https://drsaap-52b17-default-rtdb.asia-southeast1.firebasedatabase.app"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyAfK8VMNB_GyRlfvqVjIihPN0X97qDfrK0",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "drsaap-52b17.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "drsaap-52b17",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "drsaap-52b17.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "355298760720",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:355298760720:web:0ad7aefac7edbfb6a89295",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-YH1KBCS635",
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://drsaap-52b17-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 // Initialize Firebase App
-let app;
+let app: FirebaseApp | undefined;
 let database: Database | null = null;
 let auth: Auth | null = null;
+let analytics: Analytics | null = null;
 
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   database = getDatabase(app);
   auth = getAuth(app);
+
+  if (typeof window !== 'undefined') {
+    isSupported().then((supported) => {
+      if (supported && app) {
+        analytics = getAnalytics(app);
+      }
+    }).catch(() => {});
+  }
 } catch (err) {
   console.warn("Firebase initialization warning (falling back to local cache):", err);
 }
 
-export { database, auth };
+export { app, database, auth, analytics };
+
+/**
+ * Safe analytics event logger
+ */
+export function trackEvent(eventName: string, eventParams?: Record<string, any>): void {
+  if (analytics) {
+    try {
+      logEvent(analytics, eventName, eventParams);
+    } catch {
+      // Ignore in non-supported environments
+    }
+  }
+}
 
 // Storage keys for offline/fallback caching
 export const STORAGE_KEYS = {
@@ -327,6 +350,11 @@ export async function submitPatientInquiry(inquiry: PatientInquiry): Promise<boo
   const updated = [inquiry, ...current.filter((i) => i.id !== inquiry.id)];
   setLocal(STORAGE_KEYS.INQUIRIES, updated);
 
+  trackEvent('patient_inquiry_submitted', {
+    inquiry_id: inquiry.id,
+    request_type: inquiry.requestType
+  });
+
   if (database) {
     try {
       const inquiriesRef = ref(database, `patient_inquiries/${inquiry.id}`);
@@ -334,6 +362,27 @@ export async function submitPatientInquiry(inquiry: PatientInquiry): Promise<boo
       return true;
     } catch (err) {
       console.warn("Firebase inquiry submission fallback to local storage:", err);
+      return true;
+    }
+  }
+  return true;
+}
+
+/**
+ * Update an existing Patient Inquiry (status, notes, doctor message, patient review)
+ */
+export async function updatePatientInquiry(inquiry: PatientInquiry): Promise<boolean> {
+  const current = getLocal<PatientInquiry[]>(STORAGE_KEYS.INQUIRIES, initialPatientInquiries);
+  const updated = current.map((item) => (item.id === inquiry.id ? inquiry : item));
+  setLocal(STORAGE_KEYS.INQUIRIES, updated);
+
+  if (database) {
+    try {
+      const inquiriesRef = ref(database, `patient_inquiries/${inquiry.id}`);
+      await set(inquiriesRef, inquiry);
+      return true;
+    } catch (err) {
+      console.warn("Firebase inquiry update fallback to local storage:", err);
       return true;
     }
   }

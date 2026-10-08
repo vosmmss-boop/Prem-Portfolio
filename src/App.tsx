@@ -30,6 +30,7 @@ import {
   initialSocialLinks
 } from './data/initialData';
 import { subscribeToNode, getLocal, STORAGE_KEYS } from './services/firebase';
+import { sanitizeSlug } from './utils/slugify';
 
 import { Header } from './components/common/Header';
 import { Footer } from './components/common/Footer';
@@ -54,6 +55,13 @@ export function AppContent() {
   // Navigation / View State ('main' | 'admin' | 'inquiries' | '404')
   const [currentView, setCurrentView] = useState<'main' | 'admin' | 'inquiries' | '404'>('main');
 
+  // Active blog slug for direct route access (/blog/:slug)
+  const [activeBlogSlug, setActiveBlogSlug] = useState<string | null>(null);
+
+  // Appointment & Track Appointment modal states
+  const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
+  const [appointmentDefaultTab, setAppointmentDefaultTab] = useState<'book' | 'track'>('book');
+
   // Loading state with 3-second maximum fallback
   const [isDataLoading, setIsDataLoading] = useState(true);
 
@@ -70,8 +78,10 @@ export function AppContent() {
   const [gallery, setGallery] = useState<GalleryItem[]>(() => getLocal(STORAGE_KEYS.GALLERY, initialGallery));
   const [inquiries, setInquiries] = useState<PatientInquiry[]>(() => getLocal(STORAGE_KEYS.INQUIRIES, initialPatientInquiries));
 
+  // Synchronized doctor profile photo across the entire site
+  const syncedDoctorPhoto = branding.logoUrl || autobiography.avatarUrl;
 
-  // Dynamic SEO JSON-LD injection
+  // Dynamic SEO JSON-LD & Open Graph Meta synchronization with uploaded logo image
   useEffect(() => {
     let script = document.getElementById('json-ld-doctor') as HTMLScriptElement | null;
     if (!script) {
@@ -96,7 +106,7 @@ export function AppContent() {
       "url": "https://drpremrajjoshi.com.np",
       "telephone": branding.phone,
       "email": branding.email,
-      "image": "https://drpremrajjoshi.com.np/src/assets/images/doctor_portrait_1791392878397.jpg",
+      "image": syncedDoctorPhoto || "https://drpremrajjoshi.com.np/src/assets/images/doctor_portrait_1791392878397.jpg",
       "hasCredential": {
         "@type": "EducationalOccupationalCredential",
         "credentialCategory": "degree",
@@ -131,29 +141,100 @@ export function AppContent() {
       ]
     };
     script.text = JSON.stringify(schema);
-  }, [branding]);
 
-  // Handle URL hash and route changes (Secret slugs: /webadminprem and /inq-prem)
+    // Sync dynamic favicon and social meta tags with uploaded logo image
+    if (syncedDoctorPhoto) {
+      const fav = document.getElementById('dynamic-favicon') as HTMLLinkElement | null;
+      if (fav) fav.href = syncedDoctorPhoto;
+      const ogImg = document.querySelector('meta[property="og:image"]') as HTMLMetaElement | null;
+      if (ogImg) ogImg.content = syncedDoctorPhoto;
+      const twImg = document.querySelector('meta[name="twitter:image"]') as HTMLMetaElement | null;
+      if (twImg) twImg.content = syncedDoctorPhoto;
+    }
+  }, [branding, autobiography, syncedDoctorPhoto]);
+
+  // Clean Path Router with Backward Compatibility for Legacy Hashes and Dynamic Slugs
   useEffect(() => {
-    const handleHashChange = () => {
-      const rawHash = window.location.hash.toLowerCase();
-      const rawPath = window.location.pathname.toLowerCase();
+    const handleLocationChange = () => {
+      let rawHash = window.location.hash.toLowerCase();
+      let rawPath = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
 
-      // Check for Admin CMS slug /webadminprem
-      if (rawHash === '#webadminprem' || rawHash === '#admin' || rawPath === '/webadminprem') {
+      // 1. Backward Compatibility: auto-redirect legacy hash paths to clean URLs
+      if (rawHash.startsWith('#blog-')) {
+        const slug = sanitizeSlug(rawHash.slice(6));
+        window.history.replaceState(null, '', `/blog/${slug}`);
+        rawPath = `/blog/${slug}`;
+        rawHash = '';
+      } else if (rawHash.startsWith('#/blog/')) {
+        const slug = sanitizeSlug(rawHash.slice(7));
+        window.history.replaceState(null, '', `/blog/${slug}`);
+        rawPath = `/blog/${slug}`;
+        rawHash = '';
+      } else if (rawHash.startsWith('#journey-')) {
+        const slug = sanitizeSlug(rawHash.slice(9));
+        window.history.replaceState(null, '', `/journey/${slug}`);
+        rawPath = `/journey/${slug}`;
+        rawHash = '';
+      } else if (rawHash.startsWith('#experience-')) {
+        const slug = sanitizeSlug(rawHash.slice(12));
+        window.history.replaceState(null, '', `/experience/${slug}`);
+        rawPath = `/experience/${slug}`;
+        rawHash = '';
+      } else if (rawHash === '#track' || rawHash === '#track-appointment') {
+        window.history.replaceState(null, '', '/track');
+        rawPath = '/track';
+        rawHash = '';
+      } else if (rawHash === '#appointment') {
+        window.history.replaceState(null, '', '/appointment');
+        rawPath = '/appointment';
+        rawHash = '';
+      } else if (rawHash === '#webadminprem' || rawHash === '#admin') {
+        window.history.replaceState(null, '', '/webadminprem');
+        rawPath = '/webadminprem';
+        rawHash = '';
+      } else if (rawHash === '#inq-prem' || rawHash === '#inquiries') {
+        window.history.replaceState(null, '', '/inq-prem');
+        rawPath = '/inq-prem';
+        rawHash = '';
+      }
+
+      // 2. Secret slugs: Admin CMS (/webadminprem) & Inquiries Portal (/inq-prem)
+      if (rawPath === '/webadminprem' || rawPath === '/admin') {
         setCurrentView('admin');
+        setActiveBlogSlug(null);
+        setIsAppointmentModalOpen(false);
         return;
       }
 
-      // Check for Inquiries Portal slug /inq-prem
-      if (rawHash === '#inq-prem' || rawHash === '#inquiries' || rawPath === '/inq-prem') {
+      if (rawPath === '/inq-prem' || rawPath === '/inquiries') {
         setCurrentView('inquiries');
+        setActiveBlogSlug(null);
+        setIsAppointmentModalOpen(false);
         return;
       }
 
-      // Check for /gallery slug or #gallery
+      // 3. Track Appointment Status (/track)
+      if (rawPath === '/track' || rawPath === '/track-appointment') {
+        setCurrentView('main');
+        setActiveBlogSlug(null);
+        setIsAppointmentModalOpen(true);
+        setAppointmentDefaultTab('track');
+        return;
+      }
+
+      // 4. Appointment Booking (/appointment)
+      if (rawPath === '/appointment') {
+        setCurrentView('main');
+        setActiveBlogSlug(null);
+        setIsAppointmentModalOpen(true);
+        setAppointmentDefaultTab('book');
+        return;
+      }
+
+      // 5. Gallery Route (/gallery)
       if (rawPath === '/gallery') {
         setCurrentView('main');
+        setActiveBlogSlug(null);
         setTimeout(() => {
           const el = document.getElementById('gallery');
           if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -161,45 +242,130 @@ export function AppContent() {
         return;
       }
 
-      // If user typed an invalid path like /wrong-slug, render custom 404 page
-      const isRootPath = rawPath === '/' || rawPath === '' || rawPath === '/index.html';
-      if (!isRootPath) {
+      // 6. Clean Blog Article Route: /blog/:slug
+      if (rawPath.startsWith('/blog/')) {
+        const slug = sanitizeSlug(rawPath.slice(6));
+        setCurrentView('main');
+        setActiveBlogSlug(slug);
+        setTimeout(() => {
+          const el = document.getElementById('blogs');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }, 150);
+        return;
+      }
+
+      // 7. Clean Journey Route: /journey/:slug
+      if (rawPath.startsWith('/journey/')) {
+        setCurrentView('main');
+        setActiveBlogSlug(null);
+        setTimeout(() => {
+          const el = document.getElementById('journey');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }, 150);
+        return;
+      }
+
+      // 8. Clean Experience Route: /experience/:slug
+      if (rawPath.startsWith('/experience/')) {
+        setCurrentView('main');
+        setActiveBlogSlug(null);
+        setTimeout(() => {
+          const el = document.getElementById('experience');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }, 150);
+        return;
+      }
+
+      // 9. Root / Base Path: / or /index.html
+      const isRoot = rawPath === '/' || rawPath === '' || rawPath === '/index.html';
+      if (isRoot) {
+        setCurrentView('main');
+        setActiveBlogSlug(null);
+        // If there's an anchor hash like #about or #journey, scroll to it
+        if (rawHash && rawHash !== '#' && rawHash !== '#home') {
+          const targetId = rawHash.replace('#', '');
+          setTimeout(() => {
+            const el = document.getElementById(targetId);
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }, 150);
+        }
+        return;
+      }
+
+      // 10. Direct slug matching: /:slug (e.g. /health-article-amit or /bams-iom-tu)
+      const directSlug = sanitizeSlug(rawPath.slice(1));
+      if (directSlug) {
+        // Match against blogs
+        const matchedBlog = blogs.find(
+          (b) => sanitizeSlug(b.slug) === directSlug || sanitizeSlug(b.titleEn) === directSlug
+        );
+        if (matchedBlog) {
+          window.history.replaceState(null, '', `/blog/${sanitizeSlug(matchedBlog.slug)}`);
+          setCurrentView('main');
+          setActiveBlogSlug(sanitizeSlug(matchedBlog.slug));
+          return;
+        }
+
+        // Match against education milestones
+        const matchedEdu = education.find(
+          (e) => sanitizeSlug(e.slug) === directSlug
+        );
+        if (matchedEdu) {
+          window.history.replaceState(null, '', `/journey/${directSlug}`);
+          setCurrentView('main');
+          setTimeout(() => {
+            const el = document.getElementById('journey');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }, 150);
+          return;
+        }
+
+        // Match against experience
+        const matchedExp = experience.find(
+          (e) => sanitizeSlug(e.slug) === directSlug
+        );
+        if (matchedExp) {
+          window.history.replaceState(null, '', `/experience/${directSlug}`);
+          setCurrentView('main');
+          setTimeout(() => {
+            const el = document.getElementById('experience');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }, 150);
+          return;
+        }
+
+        // Match section anchors
+        if (['about', 'home', 'journey', 'experience', 'socialmedia', 'gallery', 'blogs', 'faq', 'downloads'].includes(directSlug)) {
+          setCurrentView('main');
+          setTimeout(() => {
+            const el = document.getElementById(directSlug);
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }, 150);
+          return;
+        }
+
+        // While Firebase is loading, do not prematurely display 404
+        if (isDataLoading) {
+          setCurrentView('main');
+          return;
+        }
+
+        // Unmatched path
         setCurrentView('404');
         return;
       }
 
-      // Check standard anchors
-      if (
-        rawHash === '' ||
-        rawHash === '#' ||
-        rawHash === '#home' ||
-        rawHash === '#about' ||
-        rawHash === '#journey' ||
-        rawHash === '#experience' ||
-        rawHash === '#socialmedia' ||
-        rawHash === '#gallery' ||
-        rawHash === '#blogs' ||
-        rawHash === '#faq' ||
-        rawHash === '#downloads' ||
-        rawHash === '#appointment' ||
-        rawHash.startsWith('#blog-') ||
-        rawHash.startsWith('#journey-') ||
-        rawHash.startsWith('#experience-')
-      ) {
-        setCurrentView('main');
-        if (rawHash === '#appointment') {
-          const namasteBtn = document.querySelector('button[aria-label*="Namaste"]') as HTMLButtonElement | null;
-          if (namasteBtn) namasteBtn.click();
-        }
-      } else {
-        setCurrentView('404');
-      }
+      setCurrentView('404');
     };
 
-    handleHashChange();
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+    handleLocationChange();
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
+  }, [blogs, education, experience, isDataLoading]);
 
   // Firebase Realtime Database WebSocket listeners with 3-second Max Timeout fallback
   useEffect(() => {
@@ -322,15 +488,15 @@ export function AppContent() {
   }, []);
 
   const handleNavigate = (view: string) => {
-    window.location.hash = '#home';
+    window.history.pushState(null, '', '/');
     setCurrentView('main');
+    setActiveBlogSlug(null);
+    setIsAppointmentModalOpen(false);
   };
 
   const handleOpenAppointmentModal = () => {
-    const namasteBtn = document.querySelector('button[aria-label*="Namaste"]') as HTMLButtonElement | null;
-    if (namasteBtn) {
-      namasteBtn.click();
-    }
+    setIsAppointmentModalOpen(true);
+    setAppointmentDefaultTab('book');
   };
 
   return (
@@ -366,6 +532,7 @@ export function AppContent() {
           inquiries={inquiries}
           onUpdateInquiries={setInquiries}
           onBackToSite={() => handleNavigate('main')}
+          branding={branding}
         />
       ) : currentView === '404' ? (
         /* 3. Custom 404 View */
@@ -404,7 +571,7 @@ export function AppContent() {
               onOpenAppointment={handleOpenAppointmentModal}
             />
 
-            {/* Section 2: Autobiography (#about) */}
+            {/* Section 2: Autobiography (#about) - Synced Doctor Portrait */}
             <AutobiographySection
               autobiography={autobiography}
               branding={branding}
@@ -444,10 +611,16 @@ export function AppContent() {
               isLoading={isDataLoading}
             />
 
-            {/* Section 7: Dynamic Health Blogs (#blogs) */}
+            {/* Section 7: Dynamic Health Blogs (/blog/:slug) - Synced Doctor Photo & Clean Path Routing */}
             <BlogsSection
               blogs={blogs}
               isLoading={isDataLoading}
+              activeBlogSlug={activeBlogSlug}
+              onCloseBlog={() => {
+                setActiveBlogSlug(null);
+                window.history.pushState(null, '', '/#blogs');
+              }}
+              doctorImage={syncedDoctorPhoto}
             />
 
             {/* Section 8: Frequently Asked Questions (#faq) */}
@@ -467,11 +640,27 @@ export function AppContent() {
             usefulLinks={usefulLinks}
           />
 
-          {/* Sticky Namaste Appointment & Prescription Widget */}
+          {/* Sticky Namaste Appointment, Status Tracking & Prescription Widget */}
           <NamasteWidget
             doctorPhone={branding.phone}
+            doctorImage={syncedDoctorPhoto}
+            inquiries={inquiries}
+            isOpenExternal={isAppointmentModalOpen}
+            defaultTab={appointmentDefaultTab}
+            onCloseExternal={() => {
+              setIsAppointmentModalOpen(false);
+              const p = window.location.pathname;
+              if (p === '/track' || p === '/appointment') {
+                window.history.pushState(null, '', '/');
+              }
+            }}
             onInquirySubmitted={(newInquiry) => {
-              setInquiries((prev) => [newInquiry, ...prev]);
+              setInquiries((prev) => [newInquiry, ...prev.filter((i) => i.id !== newInquiry.id)]);
+            }}
+            onInquiryUpdated={(updatedInquiry) => {
+              setInquiries((prev) =>
+                prev.map((i) => (i.id === updatedInquiry.id ? updatedInquiry : i))
+              );
             }}
           />
 

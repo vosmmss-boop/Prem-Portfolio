@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Dr. Prem Raj Joshi - BAMS, IOM, TU | Official Medical Portal</title>
+    <script type="text/javascript">
+      // Single Page Apps for GitHub Pages
+      // MIT License - https://github.com/rafgraph/spa-github-pages
+      // This script takes the current url and converts the path and query
+      // into a query parameter (e.g. ?p=/blog/slug), then redirects to index.html
+      var pathSegmentsToKeep = (window.location.hostname.indexOf('github.io') > -1 && window.location.pathname.split('/').filter(Boolean).length > 0) ? 1 : 0;
+      var l = window.location;
+      var pathSegments = l.pathname.slice(1).split('/');
+      var basePath = pathSegmentsToKeep > 0 ? '/' + pathSegments.slice(0, pathSegmentsToKeep).join('/') : '';
+      var routePath = '/' + pathSegments.slice(pathSegmentsToKeep).join('/');
+
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        basePath + '/?p=' + encodeURIComponent(routePath + (l.search ? '&' + l.search.slice(1) : '')) +
+        (l.hash ? '&h=' + encodeURIComponent(l.hash.slice(1)) : '')
+      );
+    </script>
+  </head>
+  <body>
+    <div style="font-family: system-ui, sans-serif; text-align: center; padding: 50px 20px;">
+      <h2>Connecting to Dr. Prem Raj Joshi Official Portal...</h2>
+      <p>Redirecting to requested medical resource...</p>
+    </div>
+  </body>
+</html>

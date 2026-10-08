@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { PatientInquiry, InquiryStatus } from '../../types';
+import { PatientInquiry, InquiryStatus, Branding, InquiryMessage } from '../../types';
 import { saveNodeData } from '../../services/firebase';
 import {
   Inbox,
@@ -23,25 +23,32 @@ import {
   Shield,
   FileText,
   Paperclip,
-  Download
+  Download,
+  Star,
+  Send,
+  MessageCircle,
+  Copy,
+  Check,
+  Stethoscope
 } from 'lucide-react';
-
 
 interface InquiriesPortalProps {
   inquiries: PatientInquiry[];
   onUpdateInquiries: (inqs: PatientInquiry[]) => void;
   onBackToSite: () => void;
+  branding?: Branding;
 }
 
 export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
   inquiries,
   onUpdateInquiries,
-  onBackToSite
+  onBackToSite,
+  branding
 }) => {
   const { isAdmin, login, logout } = useAuth();
   const { language } = useLanguage();
 
-  // Login form state if unauthenticated (empty defaults)
+  // Login form state if unauthenticated
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -56,11 +63,14 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
   const [doctorNotes, setDoctorNotes] = useState('');
   const [prescribedAdvice, setPrescribedAdvice] = useState('');
   const [editStatus, setEditStatus] = useState<InquiryStatus>('Pending');
+  const [doctorMessageInput, setDoctorMessageInput] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 3000);
+    setTimeout(() => setToastMsg(null), 3500);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -74,83 +84,13 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
     }
   };
 
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-neutral-900 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl border border-neutral-200">
-          <div className="text-center mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto mb-3">
-              <Inbox className="w-8 h-8" />
-            </div>
-            <h2 className="text-2xl font-bold text-neutral-900 font-editorial">
-              Patient Inquiries Portal
-            </h2>
-            <p className="text-xs text-neutral-500 mt-1 font-mono">
-              Direct Doctor Access (/inq-prem)
-            </p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                Doctor / Desk ID
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="Enter doctor or admin username"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                Security Password
-              </label>
-              <input
-                type="password"
-                required
-                placeholder="Enter password"
-                value={loginPass}
-                onChange={(e) => setLoginPass(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:outline-none"
-              />
-            </div>
-
-            {loginError && (
-              <div className="p-3 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs">
-                {loginError}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoggingIn}
-              className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-sm font-semibold transition-colors shadow-xs"
-            >
-              {isLoggingIn ? 'Authenticating...' : 'Access Inquiries'}
-            </button>
-
-            <button
-              type="button"
-              onClick={onBackToSite}
-              className="w-full py-2 text-xs text-neutral-500 hover:text-neutral-800 transition-colors"
-            >
-              ← Return to Main Website
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
+  // Filter inquiries
   const filteredInquiries = inquiries.filter((inq) => {
     const matchesStatus = statusFilter === 'all' || inq.status === statusFilter;
     const matchesSearch =
       inq.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inq.phone.includes(searchTerm) ||
+      (inq.trackingId && inq.trackingId.toLowerCase().includes(searchTerm.toLowerCase())) ||
       inq.district.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inq.problemDetails.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesStatus && matchesSearch;
@@ -161,34 +101,67 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
     setDoctorNotes(inq.doctorNotes || '');
     setPrescribedAdvice(inq.prescribedAdvice || '');
     setEditStatus(inq.status);
+    setDoctorMessageInput('');
   };
 
   const handleSaveModal = async () => {
     if (!selectedCard) return;
-    const updated = inquiries.map((item) =>
-      item.id === selectedCard.id
-        ? {
-            ...item,
-            doctorNotes,
-            prescribedAdvice,
-            status: editStatus
-          }
-        : item
-    );
-    onUpdateInquiries(updated);
-    const result = await saveNodeData('patient_inquiries', 'dr_joshi_patient_inquiries', updated);
-    setSelectedCard({
+    const updatedCard: PatientInquiry = {
       ...selectedCard,
       doctorNotes,
       prescribedAdvice,
       status: editStatus
-    });
+    };
+    const updated = inquiries.map((item) =>
+      item.id === selectedCard.id ? updatedCard : item
+    );
+    onUpdateInquiries(updated);
+    const result = await saveNodeData('patient_inquiries', 'dr_joshi_patient_inquiries', updated);
+    setSelectedCard(updatedCard);
     if (result.syncedToFirebase) {
-      showToast('✓ Patient record saved and updated globally in Firebase!');
+      showToast('✓ Patient record saved & synced globally to Firebase!');
     } else if (result.isPermissionDenied) {
-      showToast('⚠️ Saved in local browser, but Firebase rejected global write (Permission Denied). Update Firebase Rules.');
+      showToast('⚠️ Saved locally, but Firebase rejected write (Permission Denied). Update Firebase Rules.');
     } else {
       showToast('Patient record saved locally.');
+    }
+  };
+
+  // Doctor sends message directly to the patient's tracker
+  const handleSendDoctorMessage = async () => {
+    if (!selectedCard || !doctorMessageInput.trim()) return;
+
+    setIsSendingMessage(true);
+    const newMsg: InquiryMessage = {
+      id: `msg-${Date.now()}`,
+      sender: 'doctor',
+      senderName: "Dr. Prem Raj Joshi's Clinical Team",
+      message: doctorMessageInput.trim(),
+      timestamp: new Date().toISOString()
+    };
+
+    const updatedCard: PatientInquiry = {
+      ...selectedCard,
+      doctorNotes,
+      prescribedAdvice,
+      status: editStatus,
+      messages: [...(selectedCard.messages || []), newMsg]
+    };
+
+    const updated = inquiries.map((item) =>
+      item.id === selectedCard.id ? updatedCard : item
+    );
+
+    onUpdateInquiries(updated);
+    const result = await saveNodeData('patient_inquiries', 'dr_joshi_patient_inquiries', updated);
+    setSelectedCard(updatedCard);
+    setDoctorMessageInput('');
+    setIsSendingMessage(false);
+
+    if (result.syncedToFirebase) {
+      showToast('✓ Message sent to patient and updated live in Firebase!');
+    } else {
+      showToast('Message sent and saved locally.');
     }
   };
 
@@ -206,32 +179,123 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
     }
   };
 
+  const handleCopyId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    setCopiedId(true);
+    setTimeout(() => setCopiedId(false), 2000);
+  };
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-neutral-900 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl border border-neutral-200">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-emerald-600 bg-white mx-auto mb-3 shadow-xs">
+              <img
+                src={branding?.logoUrl || '/src/assets/images/doctor_portrait_1791392878397.jpg'}
+                alt="Dr. Prem Raj Joshi"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <h2 className="text-2xl font-bold text-neutral-900 font-editorial">
+              Patient Inquiries Portal
+            </h2>
+            <p className="text-xs text-neutral-500 mt-1 font-mono">
+              Direct Doctor Access (/inq-prem)
+            </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                Doctor / Desk ID
+              </label>
+              <input
+                type="text"
+                required
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                placeholder="doctor or admin@premrajjoshi.com.np"
+                className="w-full px-3.5 py-2.5 text-xs border border-neutral-300 rounded-xl focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                Password
+              </label>
+              <input
+                type="password"
+                required
+                value={loginPass}
+                onChange={(e) => setLoginPass(e.target.value)}
+                placeholder="••••••••"
+                className="w-full px-3.5 py-2.5 text-xs border border-neutral-300 rounded-xl focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+              />
+            </div>
+
+            {loginError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoggingIn}
+              className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
+            >
+              {isLoggingIn ? 'Signing In...' : 'Access Inquiries Portal'}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <button
+              onClick={onBackToSite}
+              className="text-xs text-neutral-500 hover:text-neutral-900 font-semibold"
+            >
+              ← Return to Public Website
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const doctorPhoto = branding?.logoUrl || '/src/assets/images/doctor_portrait_1791392878397.jpg';
+
   return (
     <div className="min-h-screen bg-neutral-100 flex flex-col">
-      {/* Header */}
+      {/* Header with synchronized avatar */}
       <header className="bg-neutral-900 text-white px-6 py-4 flex items-center justify-between border-b border-neutral-800">
         <div className="flex items-center gap-3">
           <button
             onClick={onBackToSite}
-            className="p-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-semibold"
+            className="p-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Public Site</span>
           </button>
           <div className="h-5 w-px bg-neutral-700" />
-          <div>
-            <h1 className="text-base font-bold tracking-tight font-editorial">
-              Patient Inquiries & Consultation Cards
-            </h1>
-            <p className="text-[10px] text-emerald-400 font-mono">
-              Live Connected · inquires.drpremrajjoshi.com.np (/inq-prem)
-            </p>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-emerald-400 bg-white shrink-0">
+              <img src={doctorPhoto} alt="Dr. Joshi" className="w-full h-full object-cover" />
+            </div>
+            <div>
+              <h1 className="text-sm sm:text-base font-bold tracking-tight font-editorial leading-tight">
+                Patient Inquiries & Consultation Desk
+              </h1>
+              <p className="text-[10px] text-emerald-400 font-mono">
+                Live Connected · /inq-prem
+              </p>
+            </div>
           </div>
         </div>
 
         <button
           onClick={logout}
-          className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold rounded-lg flex items-center gap-1.5"
+          className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>Exit</span>
@@ -239,80 +303,91 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
       </header>
 
       {/* Main Workspace */}
-      <div className="max-w-7xl mx-auto w-full p-6 md:p-8 space-y-6 flex-1">
+      <div className="max-w-7xl mx-auto w-full p-4 sm:p-6 md:p-8 space-y-6 flex-1">
         {toastMsg && (
-          <div className="p-3 bg-emerald-800 text-white rounded-xl text-xs font-semibold flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+          <div className="p-3.5 bg-emerald-800 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm animate-in fade-in">
+            <CheckCircle2 className="w-4 h-4 text-emerald-300 shrink-0" />
             <span>{toastMsg}</span>
           </div>
         )}
 
         {/* Filter and Search Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-neutral-200 shadow-2xs">
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3" />
+        <div className="bg-white p-4 rounded-2xl border border-neutral-200/90 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
+            {['all', 'Pending', 'In Review', 'Confirmed', 'Completed', 'Cancelled'].map((st) => (
+              <button
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                  statusFilter === st
+                    ? 'bg-emerald-800 text-white'
+                    : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                }`}
+              >
+                {st === 'all' ? `All (${inquiries.length})` : st}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative w-full md:w-80">
+            <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-2.5" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by patient name, symptoms, phone, district..."
-              className="w-full pl-10 pr-4 py-2 text-xs border border-neutral-300 rounded-xl focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+              placeholder="Search by Tracking ID, Name, Phone..."
+              className="w-full pl-9 pr-3 py-1.5 text-xs border border-neutral-300 rounded-xl focus:ring-2 focus:ring-emerald-600 focus:outline-none"
             />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-neutral-500" />
-            <span className="text-xs font-semibold text-neutral-700">Filter Status:</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 text-xs border border-neutral-300 rounded-xl bg-white font-semibold text-neutral-800"
-            >
-              <option value="all">All Inquiries ({inquiries.length})</option>
-              <option value="Pending">Pending ({inquiries.filter(i => i.status === 'Pending').length})</option>
-              <option value="In Review">In Review</option>
-              <option value="Confirmed">Confirmed</option>
-              <option value="Completed">Completed</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
           </div>
         </div>
 
-        {/* Card Form Grid */}
+        {/* Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredInquiries.length === 0 ? (
-            <div className="col-span-full py-16 text-center bg-white rounded-2xl border border-neutral-200">
-              <Inbox className="w-12 h-12 text-neutral-400 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-neutral-600">No patient inquiries match your search.</p>
+            <div className="col-span-full py-16 text-center bg-white rounded-3xl border border-neutral-200 p-8">
+              <Inbox className="w-10 h-10 text-neutral-300 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-neutral-600">No patient inquiries match your filters.</p>
+              <button
+                onClick={() => { setStatusFilter('all'); setSearchTerm(''); }}
+                className="mt-3 text-xs text-emerald-700 font-bold hover:underline cursor-pointer"
+              >
+                Clear all filters
+              </button>
             </div>
           ) : (
             filteredInquiries.map((inq) => (
               <div
                 key={inq.id}
                 onClick={() => handleOpenCard(inq)}
-                className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-2xs hover:shadow-lg hover:border-emerald-600/40 cursor-pointer transition-all duration-200 flex flex-col justify-between group"
+                className="bg-white rounded-2xl border border-neutral-200 p-5 shadow-2xs hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between group"
               >
                 <div className="space-y-3">
-                  {/* Top Status & Date */}
-                  <div className="flex items-center justify-between text-xs font-mono">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                      inq.status === 'Pending' ? 'bg-amber-100 text-amber-900 border border-amber-300' :
-                      inq.status === 'In Review' ? 'bg-blue-100 text-blue-900 border border-blue-300' :
-                      inq.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' :
-                      inq.status === 'Completed' ? 'bg-neutral-200 text-neutral-800' :
-                      'bg-rose-100 text-rose-800'
-                    }`}>
-                      {inq.status}
+                  {/* Top Bar: Tracking ID & Status */}
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[11px] font-black text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      {inq.trackingId || inq.id}
                     </span>
 
-                    <span className="text-neutral-400 text-[11px]">
-                      {inq.createdAt?.slice(0, 10)}
+                    <span
+                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                        inq.status === 'Pending'
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                          : inq.status === 'In Review'
+                          ? 'bg-blue-100 text-blue-900 border border-blue-300'
+                          : inq.status === 'Confirmed'
+                          ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                          : inq.status === 'Completed'
+                          ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                          : 'bg-rose-100 text-rose-800'
+                      }`}
+                    >
+                      {inq.status}
                     </span>
                   </div>
 
                   {/* Patient Name */}
                   <div>
-                    <h3 className="font-bold text-lg text-neutral-900 group-hover:text-emerald-800 transition-colors font-editorial">
+                    <h3 className="font-bold text-lg text-neutral-900 group-hover:text-emerald-800 transition-colors font-editorial leading-snug">
                       {inq.fullName}
                     </h3>
                     <div className="text-xs text-neutral-500 font-medium">
@@ -321,39 +396,51 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
                   </div>
 
                   {/* Contact & Location Badges */}
-                  <div className="space-y-1.5 text-xs text-neutral-600 font-mono">
-                    <p className="flex items-center gap-2">
+                  <div className="space-y-1 text-xs text-neutral-600 font-mono">
+                    <p className="flex items-center gap-1.5">
                       <Phone className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                       <span>{inq.phone}</span>
                     </p>
-                    <p className="flex items-center gap-2 text-neutral-500">
+                    <p className="flex items-center gap-1.5 text-neutral-500">
                       <MapPin className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                       <span className="truncate">{inq.district || 'Nepal'}, {inq.province}</span>
                     </p>
                   </div>
 
-                  {/* Request Type & Attachment Badge */}
-                  <div className="pt-1 flex items-center gap-2 flex-wrap">
-                    <span className="inline-block px-2 py-0.5 bg-emerald-50 text-emerald-800 text-[11px] font-bold rounded border border-emerald-200/60">
+                  {/* Request Type & Tags */}
+                  <div className="pt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="inline-block px-2 py-0.5 bg-emerald-50 text-emerald-800 text-[10px] font-bold rounded border border-emerald-200/60">
                       {inq.requestType}
                     </span>
                     {inq.attachment && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-800 text-[10px] font-bold rounded border border-amber-200">
                         <Paperclip className="w-3 h-3 text-amber-600" />
-                        <span>Prescription / File Attached</span>
+                        <span>Attached</span>
+                      </span>
+                    )}
+                    {(inq.messages || []).length > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-sky-50 text-sky-800 text-[10px] font-bold rounded border border-sky-200">
+                        <MessageCircle className="w-3 h-3 text-sky-600" />
+                        <span>{(inq.messages || []).length} msg</span>
+                      </span>
+                    )}
+                    {inq.patientReview && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-800 text-[10px] font-bold rounded border border-amber-200">
+                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                        <span>{inq.patientReview.rating}★ Review</span>
                       </span>
                     )}
                   </div>
 
                   {/* Symptoms Snippet */}
-                  <div className="p-3 bg-neutral-50 rounded-xl text-xs text-neutral-700 line-clamp-3 leading-relaxed border border-neutral-100">
+                  <div className="p-3 bg-neutral-50 rounded-xl text-xs text-neutral-700 line-clamp-2 leading-relaxed border border-neutral-100 font-nepali">
                     {inq.problemDetails}
                   </div>
                 </div>
 
                 {/* Footer action hint */}
-                <div className="pt-4 mt-4 border-t border-neutral-100 flex items-center justify-between text-xs font-semibold text-emerald-700 group-hover:text-emerald-900">
-                  <span>Click to view all patient details</span>
+                <div className="pt-3 mt-3 border-t border-neutral-100 flex items-center justify-between text-xs font-semibold text-emerald-700 group-hover:text-emerald-900">
+                  <span>View & Respond</span>
                   <span>→</span>
                 </div>
               </div>
@@ -362,32 +449,42 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
         </div>
       </div>
 
-      {/* Full Patient Detail Modal */}
+      {/* Full Patient Detail Modal with Doctor Communication */}
       {selectedCard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-neutral-200 overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[94vh] flex flex-col shadow-2xl border border-neutral-200 overflow-hidden">
             {/* Modal Top */}
             <div className="bg-neutral-900 text-white px-6 py-4 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-bold font-editorial">
-                  Patient Card: {selectedCard.fullName}
-                </h3>
-                <span className="text-xs text-emerald-400 font-mono">
-                  Ref: {selectedCard.id} · Received {selectedCard.createdAt?.slice(0, 10)}
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold font-editorial">
+                    Patient: {selectedCard.fullName}
+                  </h3>
+                  <button
+                    onClick={() => handleCopyId(selectedCard.trackingId || selectedCard.id)}
+                    className="px-2 py-0.5 bg-neutral-800 hover:bg-neutral-700 text-emerald-300 font-mono text-[11px] rounded border border-neutral-700 flex items-center gap-1 cursor-pointer"
+                    title="Copy unique tracking ID"
+                  >
+                    <span>{selectedCard.trackingId || selectedCard.id}</span>
+                    {copiedId ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                </div>
+                <span className="text-[11px] text-neutral-400 font-mono">
+                  Submitted {new Date(selectedCard.createdAt).toLocaleString()}
                 </span>
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs rounded-lg flex items-center gap-1.5"
+                  className="px-3 py-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs rounded-lg flex items-center gap-1.5 cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  <span>Print Record</span>
+                  <span>Print</span>
                 </button>
                 <button
                   onClick={() => setSelectedCard(null)}
-                  className="p-1 rounded-lg text-neutral-400 hover:text-white"
+                  className="p-1 rounded-lg text-neutral-400 hover:text-white cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -395,9 +492,9 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 md:p-8 overflow-y-auto space-y-6 text-xs text-neutral-800">
+            <div className="p-6 md:p-8 overflow-y-auto space-y-6 text-xs text-neutral-800 flex-1">
               {/* Patient Basic Info */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-neutral-50 p-4 rounded-xl border border-neutral-200">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-neutral-50 p-4 rounded-2xl border border-neutral-200">
                 <div>
                   <span className="text-[10px] text-neutral-500 uppercase font-mono block">Patient Name</span>
                   <strong className="text-sm text-neutral-900">{selectedCard.fullName}</strong>
@@ -423,7 +520,7 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
                   <span>{selectedCard.preferredDate || 'Flexible'}</span>
                 </div>
                 <div className="col-span-2 sm:col-span-3">
-                  <span className="text-[10px] text-neutral-500 uppercase font-mono block">Complete Nepal Address</span>
+                  <span className="text-[10px] text-neutral-500 uppercase font-mono block">Nepal Address</span>
                   <span className="font-medium text-neutral-800">
                     {selectedCard.toleName ? `Tole: ${selectedCard.toleName}, ` : ''}
                     {selectedCard.wardNo ? `Ward No: ${selectedCard.wardNo}, ` : ''}
@@ -435,7 +532,7 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
               {/* Symptoms */}
               <div>
                 <span className="font-bold text-neutral-900 block mb-1">Health Symptoms & Chief Complaints:</span>
-                <div className="p-4 bg-emerald-50/40 border border-emerald-200/60 rounded-xl leading-relaxed whitespace-pre-line text-neutral-800 text-sm">
+                <div className="p-4 bg-emerald-50/40 border border-emerald-200/60 rounded-xl leading-relaxed whitespace-pre-line text-neutral-800 text-xs font-nepali">
                   {selectedCard.problemDetails}
                 </div>
               </div>
@@ -453,22 +550,23 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
                     </span>
                   </div>
 
-                  {selectedCard.attachment.url && (selectedCard.attachment.type?.includes('image') || selectedCard.attachment.url.startsWith('data:image/')) ? (
+                  {selectedCard.attachment.url &&
+                  (selectedCard.attachment.type?.includes('image') || selectedCard.attachment.url.startsWith('data:image/')) ? (
                     <div className="space-y-3">
-                      <div className="max-h-80 overflow-hidden rounded-xl border border-neutral-200 bg-white flex items-center justify-center p-2 shadow-2xs">
+                      <div className="max-h-72 overflow-hidden rounded-xl border border-neutral-200 bg-white flex items-center justify-center p-2 shadow-2xs">
                         <img
                           src={selectedCard.attachment.url}
                           alt="Patient uploaded prescription"
-                          className="max-h-72 object-contain rounded-lg"
+                          className="max-h-64 object-contain rounded-lg"
                         />
                       </div>
                       <a
                         href={selectedCard.attachment.url}
                         download={selectedCard.attachment.name || 'prescription_image.jpg'}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold shadow-2xs"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold shadow-2xs cursor-pointer"
                       >
                         <Download className="w-3.5 h-3.5" />
-                        <span>Download Full Resolution File ({selectedCard.attachment.name})</span>
+                        <span>Download Full File ({selectedCard.attachment.name})</span>
                       </a>
                     </div>
                   ) : (
@@ -483,7 +581,7 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
                       <a
                         href={selectedCard.attachment.url}
                         download={selectedCard.attachment.name || 'patient_record.pdf'}
-                        className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs"
+                        className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs cursor-pointer"
                       >
                         <Download className="w-3.5 h-3.5" />
                         <span>Download Document</span>
@@ -493,12 +591,12 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
                 </div>
               )}
 
-              {/* Doctor Clinical Notes & Prescription Editor */}
+              {/* Doctor Clinical Notes & Status Editor */}
               <div className="space-y-4 pt-2 border-t border-neutral-200">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-bold text-neutral-900">Doctor Clinical Notes & Diagnosis:</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-neutral-600 font-semibold">Change Status:</span>
+                    <span className="text-xs text-neutral-600 font-semibold">Status:</span>
                     <select
                       value={editStatus}
                       onChange={(e) => setEditStatus(e.target.value as InquiryStatus)}
@@ -514,7 +612,7 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
                 </div>
 
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={doctorNotes}
                   onChange={(e) => setDoctorNotes(e.target.value)}
                   placeholder="Enter medical evaluation notes, Prakriti analysis, diagnosis..."
@@ -523,29 +621,124 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
 
                 <span className="font-bold text-neutral-900 block">Prescribed Ayurvedic Herbs / Diet Advice:</span>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={prescribedAdvice}
                   onChange={(e) => setPrescribedAdvice(e.target.value)}
-                  placeholder="e.g. Amalaki Churna with warm water, avoid sour food items..."
+                  placeholder="e.g. Amalaki Churna with warm water before meals, avoid spicy dishes..."
                   className="w-full p-3 text-xs border border-neutral-300 rounded-xl focus:ring-2 focus:ring-emerald-600 focus:outline-none"
                 />
+              </div>
 
-                <div className="flex items-center justify-between pt-3">
-                  <button
-                    onClick={() => handleDelete(selectedCard.id)}
-                    className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold flex items-center gap-1.5"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Record</span>
-                  </button>
+              {/* Messages / Communication with Patient */}
+              <div className="space-y-3 pt-2 border-t border-neutral-200">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-neutral-900 flex items-center gap-1.5">
+                    <MessageCircle className="w-4 h-4 text-emerald-700" />
+                    <span>Direct Communication with Patient (Shown in Patient Tracking):</span>
+                  </span>
+                  <span className="text-[10px] text-neutral-400 font-mono">
+                    {(selectedCard.messages || []).length} messages
+                  </span>
+                </div>
 
+                <div className="bg-neutral-50 rounded-2xl p-3 border border-neutral-200 space-y-2.5 max-h-48 overflow-y-auto">
+                  {(selectedCard.messages || []).length === 0 ? (
+                    <p className="text-xs text-neutral-400 italic text-center py-1">
+                      No message history yet. Send an update or confirmation below.
+                    </p>
+                  ) : (
+                    (selectedCard.messages || []).map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex flex-col ${
+                          msg.sender === 'doctor' ? 'items-end' : 'items-start'
+                        }`}
+                      >
+                        <div
+                          className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs shadow-2xs ${
+                            msg.sender === 'doctor'
+                              ? 'bg-emerald-800 text-white rounded-br-xs'
+                              : 'bg-white text-neutral-900 border border-neutral-200 rounded-bl-xs'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className={`text-[10px] font-bold ${msg.sender === 'doctor' ? 'text-emerald-200' : 'text-emerald-700'}`}>
+                              {msg.senderName}
+                            </span>
+                            <span className={`text-[9px] ${msg.sender === 'doctor' ? 'text-emerald-300' : 'text-neutral-400'}`}>
+                              {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <p className="font-nepali whitespace-pre-wrap">{msg.message}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Send Doctor Message to Patient */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={doctorMessageInput}
+                    onChange={(e) => setDoctorMessageInput(e.target.value)}
+                    placeholder="Type appointment time, prescription details or advice for patient..."
+                    className="flex-1 px-3 py-2 text-xs border border-neutral-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSendDoctorMessage();
+                      }
+                    }}
+                  />
                   <button
-                    onClick={handleSaveModal}
-                    className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs"
+                    type="button"
+                    onClick={handleSendDoctorMessage}
+                    disabled={isSendingMessage || !doctorMessageInput.trim()}
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shrink-0"
                   >
-                    Save Changes & Update
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Send</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Patient Review & Rating (if submitted) */}
+              {selectedCard.patientReview && (
+                <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-neutral-900 flex items-center gap-1 text-xs">
+                      <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                      <span>Patient Feedback Review:</span>
+                    </span>
+                    <div className="flex items-center gap-0.5 text-amber-500">
+                      {Array.from({ length: selectedCard.patientReview.rating }).map((_, i) => (
+                        <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-xs text-neutral-700 font-nepali italic">
+                    "{selectedCard.patientReview.comment}"
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-4 border-t border-neutral-200">
+                <button
+                  onClick={() => handleDelete(selectedCard.id)}
+                  className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Record</span>
+                </button>
+
+                <button
+                  onClick={handleSaveModal}
+                  className="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
+                >
+                  Save Notes & Status
+                </button>
               </div>
             </div>
           </div>
