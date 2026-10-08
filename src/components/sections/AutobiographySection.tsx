@@ -4,6 +4,7 @@ import { Autobiography, Branding } from '../../types';
 import { BioSkeleton } from '../common/SkeletonLoaders';
 import { Award, BookOpen, CheckCircle, Quote, Sparkles, X, Stethoscope, Maximize2 } from 'lucide-react';
 import { FullScreenImageViewer } from '../common/FullScreenImageViewer';
+import { RichTextContent } from '../common/RichTextContent';
 
 interface AutobiographySectionProps {
   autobiography: Autobiography;
@@ -148,9 +149,10 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
               </h2>
             </div>
 
-            <p className="text-base sm:text-lg text-neutral-700 leading-relaxed font-nepali">
-              {language === 'np' ? autobiography.summaryNp : autobiography.summaryEn}
-            </p>
+            <RichTextContent
+              content={language === 'np' ? autobiography.summaryNp : autobiography.summaryEn}
+              className="text-base sm:text-lg text-neutral-700 leading-relaxed font-nepali"
+            />
 
             {/* Philosophy Callout Quote */}
             <div className="bg-emerald-50/70 border-l-4 border-emerald-600 p-5 rounded-r-2xl space-y-2">
@@ -158,9 +160,10 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
                 <Quote className="w-4 h-4 text-emerald-600" />
                 <span>Medical Philosophy</span>
               </div>
-              <p className="text-sm italic text-neutral-800 leading-relaxed">
-                "{language === 'np' ? autobiography.philosophyNp : autobiography.philosophyEn}"
-              </p>
+              <RichTextContent
+                content={language === 'np' ? autobiography.philosophyNp : autobiography.philosophyEn}
+                className="text-sm italic text-neutral-800 leading-relaxed"
+              />
             </div>
 
             {/* Specialties Checklist */}
@@ -235,9 +238,17 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
                 <p>• Clinical Training: Ayurveda Teaching Hospital, Kirtipur, Kathmandu</p>
               </div>
 
-              <div className="whitespace-pre-line text-neutral-800 text-base leading-relaxed">
-                {language === 'np' ? autobiography.fullBioNp : autobiography.fullBioEn}
-              </div>
+              <RichTextContent
+                content={language === 'np' ? autobiography.fullBioNp : autobiography.fullBioEn}
+                className="text-neutral-800 text-base leading-relaxed"
+                onImageClick={(url, alt) =>
+                  setFullScreenImage({
+                    url,
+                    title: alt || doctorName,
+                    subtitle: 'Autobiography'
+                  })
+                }
+              />
 
               <div className="pt-4 border-t border-neutral-200 flex justify-end">
                 <button

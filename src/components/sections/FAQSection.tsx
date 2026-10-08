@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { FAQItem } from '../../types';
 import { ChevronDown, Search, HelpCircle } from 'lucide-react';
+import { RichTextContent } from '../common/RichTextContent';
+import { stripHtmlToPlainText } from '../../utils/htmlSanitizer';
 
 interface FAQSectionProps {
   faqs: FAQItem[];
@@ -22,8 +24,8 @@ export const FAQSection: React.FC<FAQSectionProps> = ({ faqs, isLoading }) => {
   const categories = Array.from(new Set(faqs.map((f) => f.categoryEn)));
 
   const filteredFaqs = faqs.filter((faq) => {
-    const q = language === 'np' ? faq.questionNp : faq.questionEn;
-    const a = language === 'np' ? faq.answerNp : faq.answerEn;
+    const q = stripHtmlToPlainText(language === 'np' ? faq.questionNp : faq.questionEn);
+    const a = stripHtmlToPlainText(language === 'np' ? faq.answerNp : faq.answerEn);
     const matchesSearch =
       q.toLowerCase().includes(searchQuery.toLowerCase()) ||
       a.toLowerCase().includes(searchQuery.toLowerCase());
@@ -126,7 +128,9 @@ export const FAQSection: React.FC<FAQSectionProps> = ({ faqs, isLoading }) => {
 
                   {isOpen && (
                     <div className="px-6 pb-5 pt-1 text-sm text-neutral-700 leading-relaxed font-nepali border-t border-neutral-100 bg-neutral-50/30">
-                      {language === 'np' ? faq.answerNp : faq.answerEn}
+                      <RichTextContent
+                        content={language === 'np' ? faq.answerNp : faq.answerEn}
+                      />
                     </div>
                   )}
                 </div>

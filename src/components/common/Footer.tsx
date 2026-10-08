@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { Branding, UsefulLink } from '../../types';
 import { MapPin, Phone, Mail, Shield, ExternalLink, X, FileCheck, Lock } from 'lucide-react';
+import { RichTextContent } from './RichTextContent';
+import { stripHtmlToPlainText } from '../../utils/htmlSanitizer';
 
 interface FooterProps {
   branding: Branding;
@@ -40,9 +42,10 @@ export const Footer: React.FC<FooterProps> = ({ branding, usefulLinks }) => {
               </div>
             </div>
 
-            <p className="text-xs text-neutral-400 leading-relaxed font-nepali max-w-md">
-              {language === 'np' ? branding.tagline.np : branding.tagline.en}
-            </p>
+            <RichTextContent
+              content={language === 'np' ? branding.tagline.np : branding.tagline.en}
+              className="text-xs text-neutral-400 leading-relaxed font-nepali max-w-md"
+            />
 
             <div className="space-y-1.5 text-xs text-neutral-300 font-mono">
               <p className="flex items-center gap-2">
@@ -66,18 +69,27 @@ export const Footer: React.FC<FooterProps> = ({ branding, usefulLinks }) => {
               {language === 'np' ? 'उपयोगी संस्थागत लिङ्कहरू' : 'Useful Regulatory Links'}
             </h4>
             <div className="space-y-2 text-xs">
-              {displayedLinks.map((link) => (
-                <a
-                  key={link.id}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group flex items-center justify-between text-neutral-400 hover:text-emerald-300 transition-colors py-1 border-b border-neutral-800/60"
-                >
-                  <span className="line-clamp-1">{language === 'np' ? link.titleNp : link.titleEn}</span>
-                  <ExternalLink className="w-3 h-3 text-neutral-500 group-hover:text-emerald-400 shrink-0 ml-2" />
-                </a>
-              ))}
+              {displayedLinks.map((link) => {
+                const desc = stripHtmlToPlainText(language === 'np' ? (link.descriptionNp || link.descriptionEn) : link.descriptionEn);
+                return (
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={desc || undefined}
+                    className="group flex items-center justify-between text-neutral-400 hover:text-emerald-300 transition-colors py-1 border-b border-neutral-800/60"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <span className="line-clamp-1 block">{language === 'np' ? link.titleNp : link.titleEn}</span>
+                      {desc && (
+                        <span className="text-[10px] text-neutral-500 line-clamp-1 block">{desc}</span>
+                      )}
+                    </div>
+                    <ExternalLink className="w-3 h-3 text-neutral-500 group-hover:text-emerald-400 shrink-0 ml-2" />
+                  </a>
+                );
+              })}
 
               {usefulLinks.length > 5 && (
                 <button

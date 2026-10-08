@@ -5,6 +5,8 @@ import { CardsSkeleton } from '../common/SkeletonLoaders';
 import { Search, Calendar, Clock, ArrowRight, Share2, Check, X, Tag, Maximize2 } from 'lucide-react';
 import { sanitizeSlug } from '../../utils/slugify';
 import { FullScreenImageViewer } from '../common/FullScreenImageViewer';
+import { RichTextContent } from '../common/RichTextContent';
+import { stripHtmlToPlainText } from '../../utils/htmlSanitizer';
 
 interface BlogsSectionProps {
   blogs: BlogArticle[];
@@ -101,8 +103,8 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
 
   const filteredBlogs = blogs.filter((blog) => {
     const title = language === 'np' ? blog.titleNp : blog.titleEn;
-    const excerpt = language === 'np' ? blog.excerptNp : blog.excerptEn;
-    const content = language === 'np' ? blog.contentNp : blog.contentEn;
+    const excerpt = stripHtmlToPlainText(language === 'np' ? blog.excerptNp : blog.excerptEn);
+    const content = stripHtmlToPlainText(language === 'np' ? blog.contentNp : blog.contentEn);
     const matchesSearch =
       title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -204,6 +206,13 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                       className="relative z-10 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       referrerPolicy="no-referrer"
                       loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (!target.dataset.fallbackApplied) {
+                          target.dataset.fallbackApplied = 'true';
+                          target.src = '/assets/images/hero_ayurveda_clinic_1791392890876.jpg';
+                        }
+                      }}
                     />
                     <div className="absolute top-3 left-3 z-20 bg-neutral-900/80 backdrop-blur-md text-emerald-300 text-[10px] font-mono px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                       {language === 'np' ? blog.categoryNp : blog.categoryEn}
@@ -252,7 +261,7 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                     </h3>
 
                     <p className="text-xs text-neutral-600 line-clamp-3 leading-relaxed font-nepali">
-                      {language === 'np' ? blog.excerptNp : blog.excerptEn}
+                      {stripHtmlToPlainText(language === 'np' ? blog.excerptNp : blog.excerptEn)}
                     </p>
                   </div>
                 </div>
@@ -343,6 +352,13 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                     src={activeBlog.cover_image || activeBlog.coverImage}
                     alt={language === 'np' ? activeBlog.titleNp : activeBlog.titleEn}
                     className="relative z-10 max-h-[480px] w-auto max-w-full object-contain mx-auto shadow-md rounded-xl transition-transform duration-300 group-hover:scale-[1.01]"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (!target.dataset.fallbackApplied) {
+                        target.dataset.fallbackApplied = 'true';
+                        target.src = '/assets/images/hero_ayurveda_clinic_1791392890876.jpg';
+                      }
+                    }}
                   />
 
                   {/* Full Screen Badge Button */}
@@ -382,9 +398,17 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                 </div>
 
                 {/* Formatted Article Body */}
-                <div className="text-base text-neutral-800 leading-relaxed font-nepali space-y-4 whitespace-pre-line border-t border-neutral-200 pt-6">
-                  {language === 'np' ? activeBlog.contentNp : activeBlog.contentEn}
-                </div>
+                <RichTextContent
+                  content={language === 'np' ? activeBlog.contentNp : activeBlog.contentEn}
+                  className="text-base text-neutral-800 leading-relaxed font-nepali space-y-4 border-t border-neutral-200 pt-6"
+                  onImageClick={(url, alt) =>
+                    setFullScreenImage({
+                      url,
+                      title: alt || (language === 'np' ? activeBlog.titleNp : activeBlog.titleEn),
+                      subtitle: `${activeBlog.categoryEn} · ${activeBlog.publishDate}`
+                    })
+                  }
+                />
 
                 {/* Author signature footer - Synchronized profile picture */}
                 <div className="mt-8 pt-6 border-t border-neutral-200 bg-emerald-50/50 p-5 rounded-2xl flex items-center gap-4">

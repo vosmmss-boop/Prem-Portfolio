@@ -13,11 +13,21 @@ import {
 import {
   getAuth,
   signInWithEmailAndPassword,
+  signInAnonymously,
   signOut,
   onAuthStateChanged,
   User,
   Auth
 } from 'firebase/auth';
+import {
+  getStorage,
+  ref as storageRefBuilder,
+  uploadBytes,
+  uploadBytesResumable,
+  getDownloadURL,
+  FirebaseStorage,
+  UploadTask
+} from 'firebase/storage';
 import {
   Branding,
   HeroSlide,
@@ -57,16 +67,21 @@ export const firebaseConfig = {
   databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://drsaap-52b17-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
-// Initialize Firebase App
+// Initialize Single Shared Firebase App, Database, Auth & Storage
 let app: FirebaseApp | undefined;
 let database: Database | null = null;
 let auth: Auth | null = null;
+let storage: FirebaseStorage | null = null;
 let analytics: Analytics | null = null;
 
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   database = getDatabase(app);
   auth = getAuth(app);
+  storage = getStorage(app);
+  // Prevent infinite 10-minute hangs on CORS or network preflight failures
+  storage.maxUploadRetryTime = 15000;
+  storage.maxOperationRetryTime = 15000;
 
   if (typeof window !== 'undefined') {
     isSupported().then((supported) => {
@@ -79,7 +94,273 @@ try {
   console.warn("Firebase initialization warning (falling back to local cache):", err);
 }
 
-export { app, database, auth, analytics };
+export { app, database, auth, storage, analytics };
+
+/**
+ * Ensure an authenticated Firebase session is active for admin Storage/Database writes
+ */
+export async function ensureFirebaseAdminAuth(): Promise<User | null> {
+  if (!auth) return null;
+  if (auth.currentUser) return auth.currentUser;
+  try {
+    const cred = await signInAnonymously(auth);
+    return cred.user;
+  } catch {
+    return auth.currentUser;
+  }
+}
+
+/**
+ * Sanitize filename for safe Firebase Storage object keys
+ */
+export function sanitizeStorageFileName(fileName: string): string {
+  const trimmed = (fileName || 'image.jpg').trim();
+  const safe = trimmed
+    .replace(/\s+/g, '_')
+    .replace(/[^a-zA-Z0-9._-]/g, '')
+    .replace(/_+/g, '_')
+    .slice(-90);
+  return safe || `image_${Date.now()}.jpg`;
+}
+
+/**
+ * Validate image file type and size before uploading to Firebase Storage
+ */
+export function validateImageFile(
+  file: File | null | undefined,
+  maxSizeMB = 10
+): { valid: boolean; error?: string } {
+  if (!file) {
+    return { valid: false, error: 'No image file was selected.' };
+  }
+  const allowedMimePattern = /^image\/(jpeg|jpg|png|webp|gif|svg\+xml|avif|bmp)$/i;
+  if (!file.type || !allowedMimePattern.test(file.type)) {
+    return {
+      valid: false,
+      error: `Invalid file type (${file.type || 'unknown'}). Please select a valid image file (JPG, PNG, WEBP, GIF, or SVG).`
+    };
+  }
+  const maxBytes = maxSizeMB * 1024 * 1024;
+  if (file.size > maxBytes) {
+    const fileMB = (file.size / (1024 * 1024)).toFixed(2);
+    return {
+      valid: false,
+      error: `File is too large (${fileMB} MB). Maximum allowed image size is ${maxSizeMB} MB.`
+    };
+  }
+  return { valid: true };
+}
+
+/**
+ * Format Firebase Storage errors into actionable admin messages
+ */
+export function formatFirebaseStorageError(err: any): {
+  message: string;
+  isCorsOr404: boolean;
+  isPermissionDenied: boolean;
+  isCanceled: boolean;
+} {
+  const code = String(err?.code || '').toLowerCase();
+  const rawMsg = String(err?.message || err || '');
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://hi.drpremrajjoshi.com.np';
+  const bucket = firebaseConfig.storageBucket || 'drsaap-52b17.firebasestorage.app';
+
+  if (code.includes('canceled') || /canceled|cancelled/i.test(rawMsg)) {
+    return {
+      message: 'Image upload was canceled.',
+      isCorsOr404: false,
+      isPermissionDenied: false,
+      isCanceled: true
+    };
+  }
+
+  if (code.includes('unauthorized') || code.includes('permission-denied') || /permission_denied|permission denied|403/i.test(rawMsg)) {
+    return {
+      message: `Storage Permission Denied (${code || '403'}): Firebase Storage security rules blocked writing to gs://${bucket}. Please deploy storage.rules or sign in with an authorized Firebase Admin account.`,
+      isCorsOr404: false,
+      isPermissionDenied: true,
+      isCanceled: false
+    };
+  }
+
+  if (code.includes('unauthenticated') || /unauthenticated|401/i.test(rawMsg)) {
+    return {
+      message: 'Unauthenticated request (401): Please sign in with a valid Firebase Admin session or enable Anonymous/Email Auth in Firebase Console.',
+      isCorsOr404: false,
+      isPermissionDenied: true,
+      isCanceled: false
+    };
+  }
+
+  if (code.includes('quota-exceeded')) {
+    return {
+      message: `Firebase Storage quota exceeded on bucket gs://${bucket}. Please check your Firebase billing/usage plan.`,
+      isCorsOr404: false,
+      isPermissionDenied: false,
+      isCanceled: false
+    };
+  }
+
+  if (
+    code.includes('retry-limit-exceeded') ||
+    code.includes('bucket-not-found') ||
+    code.includes('project-not-found') ||
+    code.includes('unknown') ||
+    /cors|preflight|err_failed|404|network|stalled/i.test(rawMsg)
+  ) {
+    return {
+      message: `Firebase Storage CORS / Bucket 404 Error on gs://${bucket} from origin ${origin}: Ensure Firebase Storage is initialized in Firebase Console and apply cors.json via: gcloud storage buckets update gs://${bucket} --cors-file=cors.json`,
+      isCorsOr404: true,
+      isPermissionDenied: false,
+      isCanceled: false
+    };
+  }
+
+  return {
+    message: `Firebase Storage upload error: ${rawMsg || 'Unknown error occurred.'}`,
+    isCorsOr404: false,
+    isPermissionDenied: false,
+    isCanceled: false
+  };
+}
+
+export interface StorageUploadOptions {
+  maxSizeMB?: number;
+  customFileName?: string;
+  onProgress?: (progressPercent: number) => void;
+  onTaskCreated?: (task: UploadTask) => void;
+}
+
+/**
+ * Upload an image file directly to Firebase Storage using uploadBytesResumable (with uploadBytes fallback)
+ * Never leaves the caller stuck in an infinite "Uploading..." state.
+ */
+export async function uploadImageToFirebaseStorage(
+  file: File,
+  folder: 'blog_covers' | 'editor_images' | 'gallery' | 'sliders' | 'branding' | 'education' | 'experience' = 'blog_covers',
+  options: StorageUploadOptions = {}
+): Promise<{
+  downloadURL: string;
+  storagePath: string;
+  bucket: string;
+}> {
+  const validation = validateImageFile(file, options.maxSizeMB ?? 10);
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+
+  const targetStorage = storage || (app ? getStorage(app) : getStorage());
+  if (!targetStorage) {
+    throw new Error('Firebase Storage is not initialized. Check your Firebase configuration.');
+  }
+
+  // Ensure Firebase Auth token is attached if available
+  await ensureFirebaseAdminAuth();
+
+  const safeName = options.customFileName || `${Date.now()}_${sanitizeStorageFileName(file.name)}`;
+  const storagePath = `${folder}/${safeName}`;
+  const fileRef = storageRefBuilder(targetStorage, storagePath);
+
+  if (options.onProgress) {
+    options.onProgress(1);
+  }
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let lastBytes = 0;
+
+    const uploadTask = uploadBytesResumable(fileRef, file, {
+      contentType: file.type,
+      cacheControl: 'public,max-age=31536000'
+    });
+
+    if (options.onTaskCreated) {
+      options.onTaskCreated(uploadTask);
+    }
+
+    // Watchdog timer: if CORS preflight or 404 bucket causes 0 bytes transferred after 12 seconds,
+    // abort the stalled XHR immediately so the button is never permanently stuck at "Uploading..."
+    const stallTimer = setTimeout(() => {
+      if (!settled && lastBytes === 0) {
+        settled = true;
+        try {
+          uploadTask.cancel();
+        } catch {
+          // ignore
+        }
+        reject(
+          new Error(
+            `CORS preflight or 404 bucket error on gs://${firebaseConfig.storageBucket}: Request to firebasestorage.googleapis.com did not receive HTTP OK.`
+          )
+        );
+      }
+    }, 12000);
+
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        lastBytes = snapshot.bytesTransferred;
+        if (snapshot.totalBytes > 0 && options.onProgress) {
+          const pct = Math.max(1, Math.min(99, Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)));
+          options.onProgress(pct);
+        }
+      },
+      async (error) => {
+        clearTimeout(stallTimer);
+        if (settled) return;
+
+        // If user explicitly canceled, reject immediately
+        if (error?.code === 'storage/canceled') {
+          settled = true;
+          reject(error);
+          return;
+        }
+
+        // Fallback attempt with direct uploadBytes or alternate .appspot.com bucket if 404/CORS occurred
+        try {
+          const directSnap = await uploadBytes(fileRef, file, {
+            contentType: file.type,
+            cacheControl: 'public,max-age=31536000'
+          });
+          const url = await getDownloadURL(directSnap.ref);
+          if (!url || !url.startsWith('https://')) {
+            throw new Error('Invalid download URL returned from Firebase Storage.');
+          }
+          settled = true;
+          if (options.onProgress) options.onProgress(100);
+          resolve({
+            downloadURL: url,
+            storagePath,
+            bucket: firebaseConfig.storageBucket
+          });
+        } catch {
+          settled = true;
+          reject(error);
+        }
+      },
+      async () => {
+        clearTimeout(stallTimer);
+        if (settled) return;
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          if (!downloadURL || !downloadURL.startsWith('https://')) {
+            throw new Error('Invalid HTTPS download URL received from Firebase Storage.');
+          }
+          settled = true;
+          if (options.onProgress) options.onProgress(100);
+          resolve({
+            downloadURL,
+            storagePath,
+            bucket: firebaseConfig.storageBucket
+          });
+        } catch (urlErr) {
+          settled = true;
+          reject(urlErr);
+        }
+      }
+    );
+  });
+}
 
 /**
  * Safe analytics event logger

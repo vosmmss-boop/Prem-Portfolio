@@ -1,0 +1,39 @@
+[
+  {
+    "origin": [
+      "https://hi.drpremrajjoshi.com.np",
+      "https://drpremrajjoshi.com.np",
+      "https://www.drpremrajjoshi.com.np",
+      "http://localhost:3000",
+      "http://localhost:5173"
+    ],
+    "method": [
+      "GET",
+      "HEAD",
+      "POST",
+      "PUT",
+      "DELETE",
+      "OPTIONS"
+    ],
+    "responseHeader": [
+      "Content-Type",
+      "Authorization",
+      "Content-Length",
+      "User-Agent",
+      "X-Goog-Resumable",
+      "X-Goog-Upload-Command",
+      "X-Goog-Upload-Content-Length",
+      "X-Goog-Upload-Content-Type",
+      "X-Goog-Upload-Header-Content-Length",
+      "X-Goog-Upload-Header-Content-Type",
+      "X-Goog-Upload-Offset",
+      "X-Goog-Upload-Protocol",
+      "X-Goog-Upload-Status",
+      "X-Goog-Upload-URL",
+      "X-Goog-Upload-Chunk-Granularity",
+      "X-Firebase-Storage-Version",
+      "X-Goog-Meta-*"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

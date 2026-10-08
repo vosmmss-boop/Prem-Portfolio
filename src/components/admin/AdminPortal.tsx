@@ -13,9 +13,22 @@ import {
   DownloadItem,
   GalleryItem
 } from '../../types';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { app, saveNodeData, checkSlugUniqueness, checkFirebaseConnection, pushAllContentToFirebase } from '../../services/firebase';
+import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL, UploadTask } from 'firebase/storage';
+import {
+  app,
+  storage,
+  firebaseConfig,
+  saveNodeData,
+  checkSlugUniqueness,
+  checkFirebaseConnection,
+  pushAllContentToFirebase,
+  uploadImageToFirebaseStorage,
+  validateImageFile,
+  sanitizeStorageFileName,
+  formatFirebaseStorageError
+} from '../../services/firebase';
 import { generateSlug } from '../../utils/slugify';
+import { UniversalRichTextEditor } from '../common/UniversalRichTextEditor';
 import {
   Shield,
   Layers,
@@ -1110,6 +1123,40 @@ const ProfileLocationStatsManager: React.FC<{
             </div>
           </div>
         </div>
+
+        {/* Portal Tagline / About Description (Rich Text) */}
+        <div className="space-y-3 pt-4 border-t border-neutral-100">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800 font-mono">
+            Portal Tagline & About Description (Rich Text)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <UniversalRichTextEditor
+              label="Portal Tagline / Bio Intro (English)"
+              value={bData.tagline?.en || ''}
+              onChange={(val) =>
+                setBData({
+                  ...bData,
+                  tagline: { ...(bData.tagline || { en: '', np: '' }), en: val }
+                })
+              }
+              minHeight={130}
+              placeholder="Write English portal tagline or summary..."
+            />
+            <UniversalRichTextEditor
+              label="Portal Tagline / Bio Intro (Nepali)"
+              value={bData.tagline?.np || ''}
+              onChange={(val) =>
+                setBData({
+                  ...bData,
+                  tagline: { ...(bData.tagline || { en: '', np: '' }), np: val }
+                })
+              }
+              isNepali={true}
+              minHeight={130}
+              placeholder="नेपालीमा पोर्टल परिचय लेख्नुहोस्..."
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1494,44 +1541,73 @@ const AutobiographyManager: React.FC<{
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 mb-1">Brief Summary (English)</label>
-            <textarea
-              rows={4}
+            <UniversalRichTextEditor
+              label="Brief Summary (English)"
               value={data.summaryEn}
-              onChange={(e) => setData({ ...data, summaryEn: e.target.value })}
-              className="w-full p-2.5 text-xs border rounded-xl"
+              onChange={(val) => setData({ ...data, summaryEn: val })}
+              minHeight={150}
+              draftKey="autobiography_summary_en"
+              placeholder="Write brief biography summary in English..."
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 mb-1">Brief Summary (Nepali)</label>
-            <textarea
-              rows={4}
+            <UniversalRichTextEditor
+              label="Brief Summary (Nepali Unicode)"
               value={data.summaryNp}
-              onChange={(e) => setData({ ...data, summaryNp: e.target.value })}
-              className="w-full p-2.5 text-xs border rounded-xl font-nepali"
+              onChange={(val) => setData({ ...data, summaryNp: val })}
+              isNepali={true}
+              minHeight={150}
+              draftKey="autobiography_summary_np"
+              placeholder="संक्षिप्त जीवनी नेपालीमा लेख्नुहोस्..."
+            />
+          </div>
+
+          <div>
+            <UniversalRichTextEditor
+              label="Medical Philosophy (English)"
+              value={data.philosophyEn || ''}
+              onChange={(val) => setData({ ...data, philosophyEn: val })}
+              minHeight={130}
+              draftKey="autobiography_philosophy_en"
+              placeholder="Medical philosophy quote in English..."
+            />
+          </div>
+
+          <div>
+            <UniversalRichTextEditor
+              label="Medical Philosophy (Nepali Unicode)"
+              value={data.philosophyNp || ''}
+              onChange={(val) => setData({ ...data, philosophyNp: val })}
+              isNepali={true}
+              minHeight={130}
+              draftKey="autobiography_philosophy_np"
+              placeholder="चिकित्सा दर्शन नेपालीमा..."
             />
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-neutral-700 mb-1">Full Autobiography Narrative (English)</label>
-            <textarea
-              rows={8}
+            <UniversalRichTextEditor
+              label="Full Autobiography Narrative (English)"
               value={data.fullBioEn}
-              onChange={(e) => setData({ ...data, fullBioEn: e.target.value })}
-              className="w-full p-2.5 text-xs border rounded-xl whitespace-pre-line"
+              onChange={(val) => setData({ ...data, fullBioEn: val })}
+              minHeight={260}
+              draftKey="autobiography_full_en"
+              placeholder="Write full autobiography narrative in English..."
             />
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-neutral-700 mb-1">Full Autobiography Narrative (Nepali)</label>
-            <textarea
-              rows={8}
+            <UniversalRichTextEditor
+              label="Full Autobiography Narrative (Nepali Unicode)"
               value={data.fullBioNp}
-              onChange={(e) => setData({ ...data, fullBioNp: e.target.value })}
-              className="w-full p-2.5 text-xs border rounded-xl font-nepali whitespace-pre-line"
+              onChange={(val) => setData({ ...data, fullBioNp: val })}
+              isNepali={true}
+              minHeight={260}
+              draftKey="autobiography_full_np"
+              placeholder="पूर्ण आत्मकथा नेपालीमा लेख्नुहोस्..."
             />
           </div>
         </div>
@@ -1681,6 +1757,28 @@ const EducationManager: React.FC<{
                     }}
                   />
                 </label>
+              </div>
+
+              <div className="sm:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                <UniversalRichTextEditor
+                  label="Academic Description & Details (English)"
+                  value={item.descriptionEn}
+                  onChange={(val) =>
+                    setItems(items.map((x) => (x.id === item.id ? { ...x, descriptionEn: val } : x)))
+                  }
+                  minHeight={140}
+                  placeholder="Describe academic curriculum, rotations, and achievements..."
+                />
+                <UniversalRichTextEditor
+                  label="Academic Description & Details (Nepali Unicode)"
+                  value={item.descriptionNp}
+                  onChange={(val) =>
+                    setItems(items.map((x) => (x.id === item.id ? { ...x, descriptionNp: val } : x)))
+                  }
+                  isNepali={true}
+                  minHeight={140}
+                  placeholder="शैक्षिक विवरण नेपालीमा..."
+                />
               </div>
             </div>
           </div>
@@ -1834,6 +1932,28 @@ const ExperienceManager: React.FC<{
                   />
                 </label>
               </div>
+
+              <div className="sm:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                <UniversalRichTextEditor
+                  label="Experience Description, Responsibilities & Details (English)"
+                  value={item.descriptionEn}
+                  onChange={(val) =>
+                    setItems(items.map((x) => (x.id === item.id ? { ...x, descriptionEn: val } : x)))
+                  }
+                  minHeight={140}
+                  placeholder="Describe clinical responsibilities, case management, and duties..."
+                />
+                <UniversalRichTextEditor
+                  label="Experience Description, Responsibilities & Details (Nepali Unicode)"
+                  value={item.descriptionNp}
+                  onChange={(val) =>
+                    setItems(items.map((x) => (x.id === item.id ? { ...x, descriptionNp: val } : x)))
+                  }
+                  isNepali={true}
+                  minHeight={140}
+                  placeholder="कार्य अनुभव र जिम्मेवारीहरू नेपालीमा..."
+                />
+              </div>
             </div>
           </div>
         ))}
@@ -1843,8 +1963,10 @@ const ExperienceManager: React.FC<{
 };
 
 // ==========================================
-// 6. BLOGS & SLUGS (With Firebase Storage Cover Image Upload)
+// 6. BLOGS & SLUGS (With Firebase Storage Cover Image Upload & Rich Text Editor)
 // ==========================================
+const DEFAULT_BLOG_COVER = '/assets/images/hero_ayurveda_clinic_1791392890876.jpg';
+
 const BlogsManager: React.FC<{
   blogs: BlogArticle[];
   onSaveLocal: (b: BlogArticle[]) => void;
@@ -1855,15 +1977,17 @@ const BlogsManager: React.FC<{
   const [editingBlog, setEditingBlog] = useState<BlogArticle | null>(null);
   const [slugError, setSlugError] = useState<string | null>(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const [coverUploadProgress, setCoverUploadProgress] = useState<number>(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showCorsGuide, setShowCorsGuide] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ url: string; title?: string } | null>(null);
+  const activeCoverTaskRef = React.useRef<UploadTask | null>(null);
 
   React.useEffect(() => {
     setItems(blogs);
   }, [blogs]);
 
   const handleCreateNew = () => {
-    const defaultCover = '/src/assets/images/hero_ayurveda_clinic_1791392890876.jpg';
     const newBlog: BlogArticle = {
       id: `blog-${Date.now()}`,
       slug: `health-article-${Date.now().toString(36)}`,
@@ -1871,35 +1995,60 @@ const BlogsManager: React.FC<{
       titleNp: 'नयाँ स्वास्थ्य लेख',
       excerptEn: 'Short summary.',
       excerptNp: 'संक्षिप्त सार।',
-      contentEn: 'Full article body.',
-      contentNp: 'लेखको पूर्ण विवरण।',
+      contentEn: '<p>Full article body.</p>',
+      contentNp: '<p>लेखको पूर्ण विवरण।</p>',
       categoryEn: 'Digestive Health',
       categoryNp: 'पाचन स्वास्थ्य',
       authorEn: 'Dr. Prem Raj Joshi (BAMS)',
       authorNp: 'डा. प्रेम राज जोशी (BAMS)',
       publishDate: new Date().toISOString().slice(0, 10),
       readTime: '4 min read',
-      coverImage: defaultCover,
-      cover_image: defaultCover
+      coverImage: DEFAULT_BLOG_COVER,
+      cover_image: DEFAULT_BLOG_COVER
     };
     setEditingBlog(newBlog);
     setSlugError(null);
     setUploadError(null);
+    setCoverUploadProgress(0);
   };
 
   const handleUploadCover = async (file: File) => {
     if (!editingBlog) return;
+
+    // 1. Validate file type & size before starting upload
+    const validation = validateImageFile(file, 10);
+    if (!validation.valid) {
+      const msg = validation.error || 'Invalid image file.';
+      setUploadError(msg);
+      if (onNotify) onNotify(`⚠️ ${msg}`, 'error');
+      return;
+    }
+
     setIsUploadingCover(true);
+    setCoverUploadProgress(1);
     setUploadError(null);
 
     try {
-      const storage = app ? getStorage(app) : getStorage();
-      const storagePath = `blog_covers/${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, storagePath);
+      // 2. Use the shared Firebase Storage instance & uploadBytesResumable / uploadBytes / getDownloadURL
+      const activeStorage = storage || (app ? getStorage(app) : getStorage());
+      const safeFileName = sanitizeStorageFileName(file.name);
+      const storagePath = `blog_covers/${Date.now()}_${safeFileName}`;
+      const storageRef = ref(activeStorage, storagePath);
 
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      // Upload via resilient resumable upload helper with stall/CORS guard
+      const uploadResult = await uploadImageToFirebaseStorage(file, 'blog_covers', {
+        maxSizeMB: 10,
+        customFileName: `${Date.now()}_${safeFileName}`,
+        onProgress: (pct) => setCoverUploadProgress(pct),
+        onTaskCreated: (task) => {
+          activeCoverTaskRef.current = task;
+        }
+      });
 
+      const downloadURL = uploadResult.downloadURL || (await getDownloadURL(storageRef));
+
+      // 3. Save HTTPS download URL into both cover_image and coverImage using functional state update
+      // so concurrent edits in the Rich Text Editor are never overwritten!
       setEditingBlog((prev) =>
         prev
           ? {
@@ -1909,20 +2058,53 @@ const BlogsManager: React.FC<{
             }
           : null
       );
+
       if (onNotify) {
-        onNotify('✓ Cover image uploaded to Firebase Storage successfully!', 'success');
+        onNotify('✓ Cover image uploaded to Firebase Storage (`blog_covers/`)!', 'success');
       }
     } catch (err: any) {
-      const errMessage = err?.message || 'Unable to upload image to Firebase Storage.';
       console.error('Firebase Storage cover upload failed:', err);
-      const cleanAlertMsg = `Failed to upload cover image to Firebase Storage: ${errMessage}`;
-      setUploadError(cleanAlertMsg);
-      if (onNotify) {
-        onNotify(`⚠️ ${cleanAlertMsg}`, 'error');
+      const formatted = formatFirebaseStorageError(err);
+      if (!formatted.isCanceled) {
+        setUploadError(formatted.message);
+        if (formatted.isCorsOr404) {
+          setShowCorsGuide(true);
+        }
+        if (onNotify) {
+          onNotify(`⚠️ ${formatted.message}`, 'error');
+        }
       }
     } finally {
+      activeCoverTaskRef.current = null;
       setIsUploadingCover(false);
+      setCoverUploadProgress(0);
     }
+  };
+
+  const handleCancelCoverUpload = () => {
+    if (activeCoverTaskRef.current) {
+      try {
+        activeCoverTaskRef.current.cancel();
+      } catch {
+        // ignore
+      }
+    }
+    activeCoverTaskRef.current = null;
+    setIsUploadingCover(false);
+    setCoverUploadProgress(0);
+  };
+
+  const handleRemoveCoverImage = () => {
+    setEditingBlog((prev) =>
+      prev
+        ? {
+            ...prev,
+            cover_image: DEFAULT_BLOG_COVER,
+            coverImage: DEFAULT_BLOG_COVER
+          }
+        : null
+    );
+    setUploadError(null);
   };
 
   const handleSaveItem = () => {
@@ -1935,7 +2117,7 @@ const BlogsManager: React.FC<{
       return;
     }
 
-    const finalCoverUrl = editingBlog.cover_image || editingBlog.coverImage;
+    const finalCoverUrl = editingBlog.cover_image || editingBlog.coverImage || DEFAULT_BLOG_COVER;
     const normalizedBlog: BlogArticle = {
       ...editingBlog,
       cover_image: finalCoverUrl,
@@ -1960,7 +2142,7 @@ const BlogsManager: React.FC<{
             Health Blogs & Unique Slugs
           </h2>
           <p className="text-xs text-neutral-500">
-            Publish articles, upload PC cover photos directly to Firebase Storage, and auto-verify unique slug keys.
+            Publish articles with the Word-like Rich Text Editor, upload PC cover photos directly to Firebase Storage, and auto-verify unique slug keys.
           </p>
         </div>
 
@@ -2004,7 +2186,7 @@ const BlogsManager: React.FC<{
       </div>
 
       {editingBlog && (
-        <div className="bg-white border-2 border-emerald-600 rounded-2xl p-6 shadow-md space-y-4">
+        <div className="bg-white border-2 border-emerald-600 rounded-2xl p-6 shadow-md space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-neutral-700 mb-1">Title (EN)</label>
@@ -2012,12 +2194,26 @@ const BlogsManager: React.FC<{
                 type="text"
                 value={editingBlog.titleEn}
                 onChange={(e) => {
-                  const autoSlug = generateSlug(e.target.value);
-                  setEditingBlog({ ...editingBlog, titleEn: e.target.value, slug: autoSlug });
+                  const val = e.target.value;
+                  const autoSlug = generateSlug(val);
+                  setEditingBlog((prev) => (prev ? { ...prev, titleEn: val, slug: autoSlug } : null));
                   const uniq = checkSlugUniqueness(autoSlug, items, editingBlog.id);
                   setSlugError(uniq ? null : 'Slug already exists');
                 }}
                 className="w-full p-2 text-xs border rounded-lg"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">Title (Nepali Unicode)</label>
+              <input
+                type="text"
+                value={editingBlog.titleNp}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setEditingBlog((prev) => (prev ? { ...prev, titleNp: val } : null));
+                }}
+                className="w-full p-2 text-xs border rounded-lg font-nepali"
               />
             </div>
 
@@ -2028,7 +2224,7 @@ const BlogsManager: React.FC<{
                 value={editingBlog.slug}
                 onChange={(e) => {
                   const cl = generateSlug(e.target.value);
-                  setEditingBlog({ ...editingBlog, slug: cl });
+                  setEditingBlog((prev) => (prev ? { ...prev, slug: cl } : null));
                   const uniq = checkSlugUniqueness(cl, items, editingBlog.id);
                   setSlugError(uniq ? null : 'Slug already exists');
                 }}
@@ -2037,7 +2233,34 @@ const BlogsManager: React.FC<{
               {slugError && <p className="text-[10px] text-rose-600 font-bold mt-1">{slugError}</p>}
             </div>
 
-            {/* Direct PC Cover Image Upload via Firebase Storage with Loading Indicator & Error Alert */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1">Category (EN)</label>
+                <input
+                  type="text"
+                  value={editingBlog.categoryEn}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setEditingBlog((prev) => (prev ? { ...prev, categoryEn: val } : null));
+                  }}
+                  className="w-full p-2 text-xs border rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1">Read Time</label>
+                <input
+                  type="text"
+                  value={editingBlog.readTime}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setEditingBlog((prev) => (prev ? { ...prev, readTime: val } : null));
+                  }}
+                  className="w-full p-2 text-xs border rounded-lg font-mono"
+                />
+              </div>
+            </div>
+
+            {/* Direct PC Cover Image Upload via Firebase Storage with Progress, Cancel, Remove & Error Alert */}
             <div className="md:col-span-2 space-y-2">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-neutral-50 p-3.5 rounded-xl border border-neutral-200">
                 <div
@@ -2057,10 +2280,18 @@ const BlogsManager: React.FC<{
                     className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${
                       isUploadingCover ? 'opacity-40' : ''
                     }`}
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (!target.dataset.fallbackApplied) {
+                        target.dataset.fallbackApplied = 'true';
+                        target.src = DEFAULT_BLOG_COVER;
+                      }
+                    }}
                   />
                   {isUploadingCover ? (
-                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white">
-                      <RefreshCw className="w-5 h-5 animate-spin text-emerald-400" />
+                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white">
+                      <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
+                      <span className="text-[9px] font-mono mt-0.5">{coverUploadProgress}%</span>
                     </div>
                   ) : (
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
@@ -2068,35 +2299,70 @@ const BlogsManager: React.FC<{
                     </div>
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
+
+                <div className="flex-1 min-w-0 space-y-1">
                   <span className="text-xs font-bold text-neutral-800 block">
                     Article Cover Photo (Firebase Storage `cover_image`):
                   </span>
                   {isUploadingCover ? (
-                    <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1.5 mt-0.5">
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Uploading image to Firebase Storage (`blog_covers/...`)...</span>
-                    </span>
+                    <div className="space-y-1">
+                      <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1.5">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Uploading to `blog_covers/...` ({coverUploadProgress}%)</span>
+                      </span>
+                      <div className="w-full max-w-xs h-1.5 bg-emerald-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-700 transition-all duration-200"
+                          style={{ width: `${coverUploadProgress}%` }}
+                        />
+                      </div>
+                    </div>
                   ) : (
                     <span className="text-[10px] text-neutral-500 font-mono truncate block">
                       {editingBlog.cover_image || editingBlog.coverImage}
                     </span>
                   )}
-                  <button
-                    type="button"
-                    disabled={isUploadingCover}
-                    onClick={() =>
-                      setPreviewImage({
-                        url: editingBlog.cover_image || editingBlog.coverImage,
-                        title: editingBlog.titleEn
-                      })
-                    }
-                    className="mt-1 text-[11px] text-emerald-700 font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                  >
-                    <Maximize2 className="w-3 h-3" />
-                    <span>Preview Full Screen</span>
-                  </button>
+
+                  <div className="flex flex-wrap items-center gap-3 pt-0.5">
+                    <button
+                      type="button"
+                      disabled={isUploadingCover}
+                      onClick={() =>
+                        setPreviewImage({
+                          url: editingBlog.cover_image || editingBlog.coverImage,
+                          title: editingBlog.titleEn
+                        })
+                      }
+                      className="text-[11px] text-emerald-700 font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <Maximize2 className="w-3 h-3" />
+                      <span>Preview Full Screen</span>
+                    </button>
+
+                    {(editingBlog.cover_image || editingBlog.coverImage) !== DEFAULT_BLOG_COVER && !isUploadingCover && (
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoverImage}
+                        className="text-[11px] text-rose-600 font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Remove Cover Image</span>
+                      </button>
+                    )}
+
+                    {isUploadingCover && (
+                      <button
+                        type="button"
+                        onClick={handleCancelCoverUpload}
+                        className="text-[11px] text-rose-700 font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                        <span>Cancel Upload</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
+
                 <label
                   className={`px-3 py-1.5 bg-white border border-neutral-300 text-neutral-700 rounded-lg text-xs font-bold shrink-0 flex items-center gap-1.5 transition-colors shadow-2xs ${
                     isUploadingCover
@@ -2132,31 +2398,96 @@ const BlogsManager: React.FC<{
               {uploadError && (
                 <div
                   role="alert"
-                  className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-start justify-between gap-2"
+                  className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs space-y-2"
                 >
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                    <span>{uploadError}</span>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                      <span>{uploadError}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setUploadError(null)}
+                      className="text-rose-500 hover:text-rose-800 p-0.5"
+                      aria-label="Dismiss upload error"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setUploadError(null)}
-                    className="text-rose-500 hover:text-rose-800 p-0.5"
-                    aria-label="Dismiss upload error"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+
+                  {showCorsGuide && (
+                    <div className="p-2.5 bg-white border border-rose-200 rounded-lg text-[11px] text-neutral-800 space-y-1.5">
+                      <p className="font-bold text-neutral-900">
+                        How to apply Firebase Storage CORS for `https://hi.drpremrajjoshi.com.np`:
+                      </p>
+                      <p>
+                        Run this command in Google Cloud Shell or your terminal using the included <code className="font-mono font-bold">cors.json</code> file:
+                      </p>
+                      <pre className="bg-neutral-900 text-emerald-300 p-2 rounded font-mono text-[10px] overflow-x-auto">
+{`gcloud storage buckets update gs://${firebaseConfig.storageBucket} --cors-file=cors.json`}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
+            {/* Excerpt / Summary (EN & NP) */}
+            <div>
+              <UniversalRichTextEditor
+                label="Article Summary / Excerpt (English)"
+                value={editingBlog.excerptEn}
+                onChange={(val) =>
+                  setEditingBlog((prev) => (prev ? { ...prev, excerptEn: val } : null))
+                }
+                minHeight={110}
+                allowTables={false}
+                placeholder="Write a concise summary for article cards and SEO..."
+              />
+            </div>
+
+            <div>
+              <UniversalRichTextEditor
+                label="Article Summary / Excerpt (Nepali Unicode)"
+                value={editingBlog.excerptNp}
+                onChange={(val) =>
+                  setEditingBlog((prev) => (prev ? { ...prev, excerptNp: val } : null))
+                }
+                isNepali={true}
+                minHeight={110}
+                allowTables={false}
+                placeholder="लेखको संक्षिप्त सार नेपालीमा..."
+              />
+            </div>
+
+            {/* Rich Article Content (English) */}
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-neutral-700 mb-1">Article Content (English)</label>
-              <textarea
-                rows={6}
+              <UniversalRichTextEditor
+                label="Article Content (English — Microsoft Word-Like Rich Text Editor)"
                 value={editingBlog.contentEn}
-                onChange={(e) => setEditingBlog({ ...editingBlog, contentEn: e.target.value })}
-                className="w-full p-2.5 text-xs border rounded-lg whitespace-pre-line"
+                onChange={(val) =>
+                  setEditingBlog((prev) => (prev ? { ...prev, contentEn: val } : null))
+                }
+                minHeight={280}
+                draftKey={`blog_en_${editingBlog.id}`}
+                onNotify={onNotify}
+                placeholder="Write full formatted medical article in English..."
+              />
+            </div>
+
+            {/* Rich Article Content (Nepali Unicode) */}
+            <div className="md:col-span-2">
+              <UniversalRichTextEditor
+                label="Article Content (Nepali Unicode — Microsoft Word-Like Rich Text Editor)"
+                value={editingBlog.contentNp}
+                onChange={(val) =>
+                  setEditingBlog((prev) => (prev ? { ...prev, contentNp: val } : null))
+                }
+                isNepali={true}
+                minHeight={260}
+                draftKey={`blog_np_${editingBlog.id}`}
+                onNotify={onNotify}
+                placeholder="लेखको पूर्ण विवरण नेपालीमा लेख्नुहोस्..."
               />
             </div>
           </div>
@@ -2164,6 +2495,7 @@ const BlogsManager: React.FC<{
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={() => {
+                handleCancelCoverUpload();
                 setEditingBlog(null);
                 setUploadError(null);
               }}
@@ -2186,7 +2518,7 @@ const BlogsManager: React.FC<{
       {/* Blog list */}
       <div className="space-y-3">
         {items.map((b) => {
-          const itemCover = b.cover_image || b.coverImage;
+          const itemCover = b.cover_image || b.coverImage || DEFAULT_BLOG_COVER;
           return (
             <div key={b.id} className="bg-white p-4 rounded-xl border flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -2195,7 +2527,18 @@ const BlogsManager: React.FC<{
                   onClick={() => setPreviewImage({ url: itemCover, title: b.titleEn })}
                   title="Click to view full screen"
                 >
-                  <img src={itemCover} alt={b.titleEn} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                  <img
+                    src={itemCover}
+                    alt={b.titleEn}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (!target.dataset.fallbackApplied) {
+                        target.dataset.fallbackApplied = 'true';
+                        target.src = DEFAULT_BLOG_COVER;
+                      }
+                    }}
+                  />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
                     <Maximize2 className="w-3.5 h-3.5" />
                   </div>
@@ -2295,28 +2638,76 @@ const FAQManager: React.FC<{
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {items.map((faq) => (
-          <div key={faq.id} className="bg-white p-4 rounded-xl border space-y-2">
-            <div className="flex justify-between">
-              <span className="text-[11px] font-mono text-emerald-800 font-bold">{faq.categoryEn}</span>
+          <div key={faq.id} className="bg-white p-5 rounded-xl border space-y-3">
+            <div className="flex justify-between items-center border-b pb-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={faq.categoryEn}
+                  onChange={(e) =>
+                    setItems(items.map((x) => (x.id === faq.id ? { ...x, categoryEn: e.target.value } : x)))
+                  }
+                  placeholder="Category (EN)"
+                  className="px-2 py-1 text-[11px] font-mono text-emerald-800 font-bold border rounded bg-emerald-50/40"
+                />
+                <input
+                  type="text"
+                  value={faq.categoryNp}
+                  onChange={(e) =>
+                    setItems(items.map((x) => (x.id === faq.id ? { ...x, categoryNp: e.target.value } : x)))
+                  }
+                  placeholder="Category (NP)"
+                  className="px-2 py-1 text-[11px] font-nepali text-emerald-800 font-bold border rounded bg-emerald-50/40"
+                />
+              </div>
               <button onClick={() => setItems(items.filter((x) => x.id !== faq.id))} className="text-rose-600">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <input
-                type="text"
-                value={faq.questionEn}
-                onChange={(e) => setItems(items.map((x) => x.id === faq.id ? { ...x, questionEn: e.target.value } : x))}
-                className="p-1.5 text-xs border rounded"
-              />
-              <textarea
-                rows={2}
-                value={faq.answerEn}
-                onChange={(e) => setItems(items.map((x) => x.id === faq.id ? { ...x, answerEn: e.target.value } : x))}
-                className="p-1.5 text-xs border rounded"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-neutral-600 mb-1">Question (English)</label>
+                <input
+                  type="text"
+                  value={faq.questionEn}
+                  onChange={(e) => setItems(items.map((x) => x.id === faq.id ? { ...x, questionEn: e.target.value } : x))}
+                  className="w-full p-2 text-xs border rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-neutral-600 mb-1">Question (Nepali Unicode)</label>
+                <input
+                  type="text"
+                  value={faq.questionNp}
+                  onChange={(e) => setItems(items.map((x) => x.id === faq.id ? { ...x, questionNp: e.target.value } : x))}
+                  className="w-full p-2 text-xs border rounded-lg font-nepali"
+                />
+              </div>
+              <div>
+                <UniversalRichTextEditor
+                  label="Answer (English — Rich Text)"
+                  value={faq.answerEn}
+                  onChange={(val) =>
+                    setItems(items.map((x) => (x.id === faq.id ? { ...x, answerEn: val } : x)))
+                  }
+                  minHeight={130}
+                  placeholder="Write detailed FAQ answer in English..."
+                />
+              </div>
+              <div>
+                <UniversalRichTextEditor
+                  label="Answer (Nepali Unicode — Rich Text)"
+                  value={faq.answerNp}
+                  onChange={(val) =>
+                    setItems(items.map((x) => (x.id === faq.id ? { ...x, answerNp: val } : x)))
+                  }
+                  isNepali={true}
+                  minHeight={130}
+                  placeholder="विस्तृत उत्तर नेपालीमा लेख्नुहोस्..."
+                />
+              </div>
             </div>
           </div>
         ))}
@@ -2362,24 +2753,60 @@ const LinksManager: React.FC<{
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {items.map((l) => (
-          <div key={l.id} className="bg-white p-4 rounded-xl border flex items-center justify-between gap-3">
-            <input
-              type="text"
-              value={l.titleEn}
-              onChange={(e) => setItems(items.map((x) => x.id === l.id ? { ...x, titleEn: e.target.value } : x))}
-              className="flex-1 p-1.5 text-xs border rounded"
-            />
-            <input
-              type="text"
-              value={l.url}
-              onChange={(e) => setItems(items.map((x) => x.id === l.id ? { ...x, url: e.target.value } : x))}
-              className="w-1/3 p-1.5 text-xs border rounded font-mono"
-            />
-            <button onClick={() => setItems(items.filter((x) => x.id !== l.id))} className="text-rose-600">
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+          <div key={l.id} className="bg-white p-4 rounded-xl border space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <input
+                type="text"
+                value={l.titleEn}
+                onChange={(e) => setItems(items.map((x) => x.id === l.id ? { ...x, titleEn: e.target.value } : x))}
+                placeholder="Link Title (English)"
+                className="flex-1 min-w-[180px] p-2 text-xs border rounded-lg"
+              />
+              <input
+                type="text"
+                value={l.titleNp}
+                onChange={(e) => setItems(items.map((x) => x.id === l.id ? { ...x, titleNp: e.target.value } : x))}
+                placeholder="Link Title (Nepali)"
+                className="flex-1 min-w-[180px] p-2 text-xs border rounded-lg font-nepali"
+              />
+              <input
+                type="text"
+                value={l.url}
+                onChange={(e) => setItems(items.map((x) => x.id === l.id ? { ...x, url: e.target.value } : x))}
+                placeholder="https://..."
+                className="w-full sm:w-1/3 p-2 text-xs border rounded-lg font-mono"
+              />
+              <button onClick={() => setItems(items.filter((x) => x.id !== l.id))} className="text-rose-600 p-1">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <UniversalRichTextEditor
+                label="Link Description (English — Optional)"
+                value={l.descriptionEn || ''}
+                onChange={(val) =>
+                  setItems(items.map((x) => (x.id === l.id ? { ...x, descriptionEn: val } : x)))
+                }
+                minHeight={95}
+                allowImages={false}
+                allowTables={false}
+                placeholder="Optional institutional link description..."
+              />
+              <UniversalRichTextEditor
+                label="Link Description (Nepali — Optional)"
+                value={l.descriptionNp || ''}
+                onChange={(val) =>
+                  setItems(items.map((x) => (x.id === l.id ? { ...x, descriptionNp: val } : x)))
+                }
+                isNepali={true}
+                minHeight={95}
+                allowImages={false}
+                allowTables={false}
+                placeholder="संस्थागत लिङ्कको संक्षिप्त विवरण..."
+              />
+            </div>
           </div>
         ))}
       </div>

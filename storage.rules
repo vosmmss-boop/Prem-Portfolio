@@ -1,0 +1,67 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper: Check if user is authenticated via Firebase Auth
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: Check if user is an authorized admin
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.admin == true ||
+        request.auth.token.email == 'drpremrajjoshi@gmail.com' ||
+        request.auth.token.email == 'admin@prem.com' ||
+        request.auth.uid != null
+      );
+    }
+
+    // Helper: Validate image MIME types and reasonable file size (max 10 MB)
+    function isValidImageUpload() {
+      return request.resource != null
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Helper: Validate PDF document uploads (max 20 MB)
+    function isValidPdfUpload() {
+      return request.resource != null
+        && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+    }
+
+    // Blog cover images
+    match /blog_covers/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidImageUpload();
+    }
+
+    // Rich text editor inline images
+    match /editor_images/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidImageUpload();
+    }
+
+    // Gallery images
+    match /gallery/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidImageUpload();
+    }
+
+    // Hero slider images
+    match /sliders/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidImageUpload();
+    }
+
+    // Branding, Education, and Experience images
+    match /{folder}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() && (
+        ((folder == 'branding' || folder == 'education' || folder == 'experience') && isValidImageUpload()) ||
+        (folder == 'downloads' && isValidPdfUpload())
+      );
+    }
+  }
+}

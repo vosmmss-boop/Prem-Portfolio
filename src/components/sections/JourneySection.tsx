@@ -3,6 +3,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { EducationMilestone } from '../../types';
 import { TimelineSkeleton } from '../common/SkeletonLoaders';
 import { GraduationCap, Calendar, Award, ArrowRight, X } from 'lucide-react';
+import { RichTextContent } from '../common/RichTextContent';
 
 interface JourneySectionProps {
   education: EducationMilestone[];
@@ -93,9 +94,10 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
                   </div>
                 )}
 
-                <p className="text-sm text-neutral-600 leading-relaxed mb-4">
-                  {language === 'np' ? item.descriptionNp : item.descriptionEn}
-                </p>
+                <RichTextContent
+                  content={language === 'np' ? item.descriptionNp : item.descriptionEn}
+                  className="text-sm text-neutral-600 leading-relaxed mb-4"
+                />
 
                 <div className="flex items-center justify-between pt-3 border-t border-neutral-100">
                   <span className="text-[11px] font-mono text-neutral-400">
@@ -147,7 +149,9 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
             )}
 
             <div className="text-sm text-neutral-700 leading-relaxed space-y-3 font-nepali">
-              <p>{language === 'np' ? activeModalItem.descriptionNp : activeModalItem.descriptionEn}</p>
+              <RichTextContent
+                content={language === 'np' ? activeModalItem.descriptionNp : activeModalItem.descriptionEn}
+              />
               {activeModalItem.honorsEn && (
                 <div className="p-3 bg-amber-50 rounded-lg text-amber-900 text-xs border border-amber-200">
                   <strong>Academic Honors:</strong> {language === 'np' ? (activeModalItem.honorsNp || activeModalItem.honorsEn) : activeModalItem.honorsEn}

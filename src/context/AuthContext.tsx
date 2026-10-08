@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { auth } from '../services/firebase';
+import { auth, ensureFirebaseAdminAuth } from '../services/firebase';
 import { signInWithEmailAndPassword, signOut as fbSignOut, onAuthStateChanged, User } from 'firebase/auth';
 
 interface AuthContextType {
@@ -23,6 +23,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         const parsed = JSON.parse(savedLocalSession);
         setUser(parsed);
+        ensureFirebaseAdminAuth().catch(() => {});
       } catch (e) {
         // ignore
       }
@@ -57,6 +58,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       };
       setUser(adminObj);
       localStorage.setItem('dr_joshi_admin_session', JSON.stringify(adminObj));
+      await ensureFirebaseAdminAuth().catch(() => {});
       return { success: true };
     }
 

@@ -3,6 +3,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { ExperienceEntry, Branding } from '../../types';
 import { CardsSkeleton } from '../common/SkeletonLoaders';
 import { Briefcase, MapPin, CheckCircle, ArrowRight, X, Building2, Stethoscope, HeartPulse, Award } from 'lucide-react';
+import { RichTextContent } from '../common/RichTextContent';
 
 interface ExperienceSectionProps {
   experience: ExperienceEntry[];
@@ -162,9 +163,10 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
                   </p>
 
                   {/* Description */}
-                  <p className="text-xs sm:text-sm text-neutral-700 leading-relaxed mb-6 font-nepali">
-                    {language === 'np' ? entry.descriptionNp : entry.descriptionEn}
-                  </p>
+                  <RichTextContent
+                    content={language === 'np' ? entry.descriptionNp : entry.descriptionEn}
+                    className="text-xs sm:text-sm text-neutral-700 leading-relaxed mb-6 font-nepali"
+                  />
 
                   {/* Achievements Checklist */}
                   {achievements.length > 0 && (
@@ -236,7 +238,9 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
             </p>
 
             <div className="text-sm text-neutral-700 leading-relaxed space-y-4 font-nepali">
-              <p>{language === 'np' ? activeItem.descriptionNp : activeItem.descriptionEn}</p>
+              <RichTextContent
+                content={language === 'np' ? activeItem.descriptionNp : activeItem.descriptionEn}
+              />
 
               <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200/80 space-y-2.5">
                 <span className="font-bold text-xs text-emerald-900 uppercase font-mono block">Documented Clinical Impact & Outcomes:</span>
