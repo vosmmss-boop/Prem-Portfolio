@@ -482,15 +482,39 @@ export function getLocal<T>(key: string, fallback: T): T {
   return normalizeAssetUrls(fallback);
 }
 
-export function setLocal<T>(key: string, data: T): void {
+export function setLocal<T>(key: string, data: T, updateModifiedTimestamp = true): void {
   try {
     const normalized = normalizeAssetUrls(data);
     localStorage.setItem(key, JSON.stringify(normalized));
-    localStorage.setItem(`${key}_modified_at`, String(Date.now()));
+    if (updateModifiedTimestamp) {
+      localStorage.setItem(`${key}_modified_at`, String(Date.now()));
+    }
   } catch (e) {
-    // ignore
+    // If localStorage quota is exceeded (e.g. multiple high-res base64 images),
+    // clear old draft keys and retry so CMS updates are never lost!
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('rte_draft_') || k.startsWith('blog_en_') || k.startsWith('blog_np_'))) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+      const normalized = normalizeAssetUrls(data);
+      localStorage.setItem(key, JSON.stringify(normalized));
+      if (updateModifiedTimestamp) {
+        localStorage.setItem(`${key}_modified_at`, String(Date.now()));
+      }
+    } catch {
+      // ignore if still over quota
+    }
   }
 }
+
+// Track keys modified locally during this session where Firebase write has not yet succeeded,
+// preventing stale Firebase snapshots from overwriting newly saved local CMS items.
+const locallyModifiedPendingSync = new Set<string>();
 
 /**
  * Universal Realtime Database Listener with 3-second Max Timeout fallback
@@ -533,6 +557,11 @@ export function subscribeToNode<T>(
           clearTimeout(timer);
           onLoaded();
         }
+        // If the user has unsynced local CMS changes in this browser, do not let a stale remote snapshot overwrite them!
+        const hasPendingLocal =
+          locallyModifiedPendingSync.has(storageKey) ||
+          localStorage.getItem(`${storageKey}_pending_sync`) === 'true';
+
         if (snapshot.exists()) {
           const val = snapshot.val();
           let parsedData: any = val;
@@ -542,19 +571,38 @@ export function subscribeToNode<T>(
             parsedData = [];
           } else if (Array.isArray(initialFallback)) {
             if (Array.isArray(val)) {
-              parsedData = val;
+              parsedData = val.filter(Boolean);
             } else if (typeof val === 'object' && val !== null) {
-              parsedData = Object.keys(val).map((k) => ({
-                ...val[k],
-                firebaseKey: k
-              }));
+              parsedData = Object.keys(val)
+                .filter((k) => val[k] !== null && val[k] !== undefined)
+                .map((k) => ({
+                  ...val[k],
+                  firebaseKey: k
+                }));
             }
           }
 
-          // If valid data exists in snapshot, update local cache and UI
           if (parsedData !== null && parsedData !== undefined) {
             const normalized = normalizeAssetUrls(parsedData);
-            setLocal(storageKey, normalized);
+
+            // If there are pending local edits that failed to push to Firebase (e.g. Permission Denied),
+            // merge or preserve local edits so newly added blogs/items never disappear!
+            if (hasPendingLocal) {
+              const localCurrent = getLocal<T>(storageKey, initialFallback);
+              if (Array.isArray(localCurrent) && Array.isArray(normalized)) {
+                // Merge any local items not in remote snapshot at the front
+                const remoteIds = new Set(normalized.map((item: any) => item?.id));
+                const localOnly = localCurrent.filter((item: any) => item?.id && !remoteIds.has(item.id));
+                const merged = [...localOnly, ...normalized] as unknown as T;
+                setLocal(storageKey, merged, false);
+                onData(merged);
+                return;
+              }
+              onData(localCurrent);
+              return;
+            }
+
+            setLocal(storageKey, normalized, false);
             onData(normalized);
           }
         } else {
@@ -596,6 +644,25 @@ export interface SaveResult {
 }
 
 /**
+ * Recursively strip undefined values so Firebase Realtime Database set() never throws
+ * "set failed: value argument contains undefined"
+ */
+function sanitizeForFirebase<T>(obj: T): T {
+  if (obj === undefined) return null as unknown as T;
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sanitizeForFirebase(item)) as unknown as T;
+  }
+  const clean: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj as Record<string, any>)) {
+    if (v !== undefined) {
+      clean[k] = sanitizeForFirebase(v);
+    }
+  }
+  return clean as T;
+}
+
+/**
  * Update a node in Firebase and Local Cache simultaneously
  */
 export async function saveNodeData<T>(
@@ -603,15 +670,34 @@ export async function saveNodeData<T>(
   storageKey: string,
   data: T
 ): Promise<SaveResult> {
+  const cleanData = sanitizeForFirebase(data);
+
+  // Mark as pending sync until Firebase confirms write
+  locallyModifiedPendingSync.add(storageKey);
+  try {
+    localStorage.setItem(`${storageKey}_pending_sync`, 'true');
+  } catch {
+    // ignore
+  }
+
   // Always update local storage first so changes appear instantly on screen
-  setLocal(storageKey, data);
+  setLocal(storageKey, cleanData, true);
 
   if (database) {
     try {
       const nodeRef = ref(database, nodePath);
       // Firebase RTDB deletes nodes on empty arrays []; persist sentinel to prevent wiping
-      const dataToPersist = Array.isArray(data) && data.length === 0 ? { _emptyList: true } : data;
+      const dataToPersist =
+        Array.isArray(cleanData) && cleanData.length === 0 ? { _emptyList: true } : cleanData;
       await set(nodeRef, dataToPersist);
+
+      // Write succeeded in Firebase; clear pending flag
+      locallyModifiedPendingSync.delete(storageKey);
+      try {
+        localStorage.removeItem(`${storageKey}_pending_sync`);
+      } catch {
+        // ignore
+      }
       return { success: true, savedLocally: true, syncedToFirebase: true };
     } catch (err: any) {
       const msg = err?.message || String(err);

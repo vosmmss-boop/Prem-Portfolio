@@ -99,19 +99,29 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
   };
 
   // Filter categories
-  const categoriesEn = Array.from(new Set(blogs.map((b) => b.categoryEn)));
+  const categoriesEn = Array.from(
+    new Set(blogs.map((b) => (b.categoryEn || 'General Ayurveda').trim()).filter(Boolean))
+  );
 
   const filteredBlogs = blogs.filter((blog) => {
-    const title = language === 'np' ? blog.titleNp : blog.titleEn;
-    const excerpt = stripHtmlToPlainText(language === 'np' ? blog.excerptNp : blog.excerptEn);
-    const content = stripHtmlToPlainText(language === 'np' ? blog.contentNp : blog.contentEn);
+    if (!blog) return false;
+    const title = (language === 'np' ? blog.titleNp || blog.titleEn : blog.titleEn || blog.titleNp) || '';
+    const excerpt = stripHtmlToPlainText(
+      (language === 'np' ? blog.excerptNp || blog.excerptEn : blog.excerptEn || blog.excerptNp) || ''
+    );
+    const content = stripHtmlToPlainText(
+      (language === 'np' ? blog.contentNp || blog.contentEn : blog.contentEn || blog.contentNp) || ''
+    );
+    const q = searchQuery.toLowerCase().trim();
     const matchesSearch =
-      title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      content.toLowerCase().includes(searchQuery.toLowerCase());
+      !q ||
+      title.toLowerCase().includes(q) ||
+      excerpt.toLowerCase().includes(q) ||
+      content.toLowerCase().includes(q);
 
+    const blogCategory = (blog.categoryEn || 'General Ayurveda').trim();
     const matchesCategory =
-      selectedCategory === 'all' || blog.categoryEn === selectedCategory;
+      selectedCategory === 'all' || blogCategory === selectedCategory;
 
     return matchesSearch && matchesCategory;
   });

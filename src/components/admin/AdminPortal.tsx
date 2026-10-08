@@ -2686,31 +2686,66 @@ const BlogsManager: React.FC<{
     setUploadError(null);
   };
 
-  const handleSaveItem = () => {
-    if (!editingBlog || isUploadingCover) return;
-    const isUnique = checkSlugUniqueness(editingBlog.slug, items, editingBlog.id);
-    if (!isUnique) {
-      const duplicateMsg = `Slug "${editingBlog.slug}" is already in use! Please choose a unique slug.`;
-      setSlugError(duplicateMsg);
-      if (onNotify) onNotify(`⚠️ ${duplicateMsg}`, 'error');
-      return;
+  const buildUpdatedBlogsList = ( closeEditor = true ): BlogArticle[] | null => {
+    let baseList: BlogArticle[] = items.map((b) => ({
+      ...b,
+      cover_image: b.cover_image || b.coverImage || DEFAULT_BLOG_COVER,
+      coverImage: b.cover_image || b.coverImage || DEFAULT_BLOG_COVER
+    }));
+
+    if (editingBlog) {
+      const candidateSlug = (editingBlog.slug || generateSlug(editingBlog.titleEn || `article-${Date.now()}`)).trim();
+      const isUnique = checkSlugUniqueness(candidateSlug, baseList, editingBlog.id);
+      const finalSlug = isUnique ? candidateSlug : `${candidateSlug}-${Date.now().toString(36).slice(-4)}`;
+
+      const finalCoverUrl = editingBlog.cover_image || editingBlog.coverImage || DEFAULT_BLOG_COVER;
+      const normalizedBlog: BlogArticle = {
+        ...editingBlog,
+        slug: finalSlug,
+        titleEn: editingBlog.titleEn?.trim() || 'Untitled Health Article',
+        titleNp: editingBlog.titleNp?.trim() || editingBlog.titleEn?.trim() || 'नयाँ स्वास्थ्य लेख',
+        categoryEn: editingBlog.categoryEn?.trim() || 'General Ayurveda',
+        categoryNp: editingBlog.categoryNp?.trim() || editingBlog.categoryEn?.trim() || 'आयुर्वेद स्वास्थ्य',
+        authorEn: editingBlog.authorEn || 'Dr. Prem Raj Joshi (BAMS)',
+        authorNp: editingBlog.authorNp || 'डा. प्रेम राज जोशी (BAMS)',
+        publishDate: editingBlog.publishDate || new Date().toISOString().slice(0, 10),
+        readTime: editingBlog.readTime || '4 min read',
+        cover_image: finalCoverUrl,
+        coverImage: finalCoverUrl
+      };
+
+      baseList = baseList.some((b) => b.id === normalizedBlog.id)
+        ? baseList.map((b) => (b.id === normalizedBlog.id ? normalizedBlog : b))
+        : [normalizedBlog, ...baseList];
+
+      setItems(baseList);
+      if (closeEditor) {
+        setEditingBlog(null);
+      } else {
+        setEditingBlog(normalizedBlog);
+      }
+      setSlugError(null);
+      setUploadError(null);
     }
 
-    const finalCoverUrl = editingBlog.cover_image || editingBlog.coverImage || DEFAULT_BLOG_COVER;
-    const normalizedBlog: BlogArticle = {
-      ...editingBlog,
-      cover_image: finalCoverUrl,
-      coverImage: finalCoverUrl
-    };
+    return baseList;
+  };
 
-    const updated = items.some((b) => b.id === normalizedBlog.id)
-      ? items.map((b) => (b.id === normalizedBlog.id ? normalizedBlog : b))
-      : [normalizedBlog, ...items];
+  const handleSaveItem = () => {
+    if (!editingBlog || isUploadingCover) return;
+    const updated = buildUpdatedBlogsList(true);
+    if (updated) {
+      onSaveLive(updated);
+    }
+  };
 
+  const handleDeleteBlog = (blogId: string) => {
+    const updated = items.filter((x) => x.id !== blogId);
     setItems(updated);
+    if (editingBlog?.id === blogId) {
+      setEditingBlog(null);
+    }
     onSaveLive(updated);
-    setEditingBlog(null);
-    setUploadError(null);
   };
 
   return (
@@ -2728,36 +2763,28 @@ const BlogsManager: React.FC<{
         <div className="flex items-center gap-2">
           <button
             onClick={handleCreateNew}
-            className="px-3.5 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>New Article</span>
           </button>
           <button
-            onClick={() =>
-              onSaveLocal(
-                items.map((b) => ({
-                  ...b,
-                  cover_image: b.cover_image || b.coverImage,
-                  coverImage: b.cover_image || b.coverImage
-                }))
-              )
-            }
-            className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 text-xs font-bold rounded-xl"
+            disabled={isUploadingCover}
+            onClick={() => {
+              const updated = buildUpdatedBlogsList(false);
+              if (updated) onSaveLocal(updated);
+            }}
+            className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 disabled:opacity-50 text-neutral-800 text-xs font-bold rounded-xl cursor-pointer"
           >
             Save Draft
           </button>
           <button
-            onClick={() =>
-              onSaveLive(
-                items.map((b) => ({
-                  ...b,
-                  cover_image: b.cover_image || b.coverImage,
-                  coverImage: b.cover_image || b.coverImage
-                }))
-              )
-            }
-            className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs"
+            disabled={isUploadingCover}
+            onClick={() => {
+              const updated = buildUpdatedBlogsList(true);
+              if (updated) onSaveLive(updated);
+            }}
+            className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
           >
             Global Live Push
           </button>
@@ -3088,7 +3115,7 @@ const BlogsManager: React.FC<{
               className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold cursor-pointer flex items-center gap-1.5"
             >
               {isUploadingCover && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-              <span>{isUploadingCover ? 'Uploading Cover...' : 'Confirm Article'}</span>
+              <span>{isUploadingCover ? 'Uploading Cover...' : 'Save & Publish Article'}</span>
             </button>
           </div>
         </div>
@@ -3149,7 +3176,7 @@ const BlogsManager: React.FC<{
                 >
                   <Edit className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => setItems(items.filter((x) => x.id !== b.id))} className="p-1.5 rounded-lg bg-neutral-100 text-rose-600 hover:bg-rose-100 cursor-pointer">
+                <button onClick={() => handleDeleteBlog(b.id)} className="p-1.5 rounded-lg bg-neutral-100 text-rose-600 hover:bg-rose-100 cursor-pointer">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
