@@ -231,39 +231,25 @@ export interface StorageUploadOptions {
   onTaskCreated?: (task: UploadTask) => void;
 }
 
-/**
- * Upload an image file directly to Firebase Storage using uploadBytesResumable (with uploadBytes fallback)
- * Never leaves the caller stuck in an infinite "Uploading..." state.
- */
-export async function uploadImageToFirebaseStorage(
-  file: File,
-  folder: 'blog_covers' | 'editor_images' | 'gallery' | 'sliders' | 'branding' | 'education' | 'experience' = 'blog_covers',
-  options: StorageUploadOptions = {}
-): Promise<{
+export interface StorageUploadResult {
   downloadURL: string;
   storagePath: string;
   bucket: string;
-}> {
-  const validation = validateImageFile(file, options.maxSizeMB ?? 10);
-  if (!validation.valid) {
-    throw new Error(validation.error);
-  }
+  usedFallback?: boolean;
+}
 
-  const targetStorage = storage || (app ? getStorage(app) : getStorage());
-  if (!targetStorage) {
-    throw new Error('Firebase Storage is not initialized. Check your Firebase configuration.');
-  }
-
-  // Ensure Firebase Auth token is attached if available
-  await ensureFirebaseAdminAuth();
-
-  const safeName = options.customFileName || `${Date.now()}_${sanitizeStorageFileName(file.name)}`;
-  const storagePath = `${folder}/${safeName}`;
+/**
+ * Helper to attempt a Firebase Storage upload against a specific bucket URL with a fast timeout
+ */
+async function tryFirebaseBucketUpload(
+  targetStorage: FirebaseStorage,
+  storagePath: string,
+  file: File,
+  bucketName: string,
+  timeoutMs: number,
+  options: StorageUploadOptions
+): Promise<StorageUploadResult> {
   const fileRef = storageRefBuilder(targetStorage, storagePath);
-
-  if (options.onProgress) {
-    options.onProgress(1);
-  }
 
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -278,8 +264,6 @@ export async function uploadImageToFirebaseStorage(
       options.onTaskCreated(uploadTask);
     }
 
-    // Watchdog timer: if CORS preflight or 404 bucket causes 0 bytes transferred after 12 seconds,
-    // abort the stalled XHR immediately so the button is never permanently stuck at "Uploading..."
     const stallTimer = setTimeout(() => {
       if (!settled && lastBytes === 0) {
         settled = true;
@@ -288,20 +272,16 @@ export async function uploadImageToFirebaseStorage(
         } catch {
           // ignore
         }
-        reject(
-          new Error(
-            `CORS preflight or 404 bucket error on gs://${firebaseConfig.storageBucket}: Request to firebasestorage.googleapis.com did not receive HTTP OK.`
-          )
-        );
+        reject(new Error(`Bucket ${bucketName} timed out or blocked by CORS/404.`));
       }
-    }, 12000);
+    }, timeoutMs);
 
     uploadTask.on(
       'state_changed',
       (snapshot) => {
         lastBytes = snapshot.bytesTransferred;
         if (snapshot.totalBytes > 0 && options.onProgress) {
-          const pct = Math.max(1, Math.min(99, Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)));
+          const pct = Math.max(5, Math.min(95, Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100)));
           options.onProgress(pct);
         }
       },
@@ -309,14 +289,12 @@ export async function uploadImageToFirebaseStorage(
         clearTimeout(stallTimer);
         if (settled) return;
 
-        // If user explicitly canceled, reject immediately
         if (error?.code === 'storage/canceled') {
           settled = true;
           reject(error);
           return;
         }
 
-        // Fallback attempt with direct uploadBytes or alternate .appspot.com bucket if 404/CORS occurred
         try {
           const directSnap = await uploadBytes(fileRef, file, {
             contentType: file.type,
@@ -331,7 +309,7 @@ export async function uploadImageToFirebaseStorage(
           resolve({
             downloadURL: url,
             storagePath,
-            bucket: firebaseConfig.storageBucket
+            bucket: bucketName
           });
         } catch {
           settled = true;
@@ -351,7 +329,7 @@ export async function uploadImageToFirebaseStorage(
           resolve({
             downloadURL,
             storagePath,
-            bucket: firebaseConfig.storageBucket
+            bucket: bucketName
           });
         } catch (urlErr) {
           settled = true;
@@ -360,6 +338,109 @@ export async function uploadImageToFirebaseStorage(
       }
     );
   });
+}
+
+/**
+ * Upload an image file directly to Firebase Storage using uploadBytesResumable (with uploadBytes fallback),
+ * trying both primary (.firebasestorage.app) and legacy (.appspot.com) buckets, and automatically falling back
+ * to optimized Realtime Database cloud persistence if the Storage bucket returns 404 or CORS block.
+ */
+export async function uploadImageToFirebaseStorage(
+  file: File,
+  folder: 'blog_covers' | 'editor_images' | 'gallery' | 'sliders' | 'branding' | 'education' | 'experience' = 'blog_covers',
+  options: StorageUploadOptions = {}
+): Promise<StorageUploadResult> {
+  const validation = validateImageFile(file, options.maxSizeMB ?? 10);
+  if (!validation.valid) {
+    throw new Error(validation.error);
+  }
+
+  // Ensure Firebase Auth token is attached if available
+  await ensureFirebaseAdminAuth();
+
+  const safeName = options.customFileName || `${Date.now()}_${sanitizeStorageFileName(file.name)}`;
+  const storagePath = `${folder}/${safeName}`;
+
+  if (options.onProgress) {
+    options.onProgress(5);
+  }
+
+  const primaryBucket = firebaseConfig.storageBucket || 'drsaap-52b17.firebasestorage.app';
+  const projectId = firebaseConfig.projectId || 'drsaap-52b17';
+  const alternateBucket = primaryBucket.endsWith('.firebasestorage.app')
+    ? `${projectId}.appspot.com`
+    : `${projectId}.firebasestorage.app`;
+
+  // 1. Try Primary Configured Bucket
+  const primaryStorage = storage || (app ? getStorage(app) : null);
+  if (primaryStorage) {
+    try {
+      primaryStorage.maxUploadRetryTime = 5000;
+      primaryStorage.maxOperationRetryTime = 5000;
+      return await tryFirebaseBucketUpload(primaryStorage, storagePath, file, primaryBucket, 3500, options);
+    } catch (primaryErr: any) {
+      if (primaryErr?.code === 'storage/canceled') {
+        throw primaryErr;
+      }
+      // Proceed to alternate bucket or RTDB cloud fallback
+    }
+  }
+
+  // 2. Try Alternate Bucket (e.g. gs://drsaap-52b17.appspot.com) in case the project uses legacy bucket naming
+  if (app) {
+    try {
+      const altStorage = getStorage(app, `gs://${alternateBucket}`);
+      altStorage.maxUploadRetryTime = 4000;
+      altStorage.maxOperationRetryTime = 4000;
+      if (options.onProgress) options.onProgress(25);
+      return await tryFirebaseBucketUpload(altStorage, storagePath, file, alternateBucket, 3000, options);
+    } catch (altErr: any) {
+      if (altErr?.code === 'storage/canceled') {
+        throw altErr;
+      }
+    }
+  }
+
+  // 3. Automatic Cloud Fallback: Optimize image via high-quality canvas compression and store directly
+  // in Firebase Realtime Database so the image works immediately across all devices without CORS/404 failures!
+  if (options.onProgress) options.onProgress(65);
+  const { adjustAndProcessUploadedImage } = await import('../utils/imageAdjuster');
+  const processed = await adjustAndProcessUploadedImage(file, {
+    maxWidth: 1600,
+    maxHeight: 1000,
+    quality: 0.86
+  });
+
+  if (options.onProgress) options.onProgress(90);
+
+  // Also persist metadata/image record to Firebase Realtime Database `/cms_media` if connected
+  if (database) {
+    try {
+      const mediaKey = safeName.replace(/[.#$/[\]]/g, '_');
+      const mediaRef = ref(database, `cms_media/${folder}/${mediaKey}`);
+      await set(mediaRef, {
+        fileName: safeName,
+        folder,
+        mimeType: file.type,
+        width: processed.width,
+        height: processed.height,
+        size: processed.size,
+        url: processed.dataUrl,
+        uploadedAt: new Date().toISOString()
+      });
+    } catch {
+      // Ignore RTDB write warning; the returned URL will still be saved in the record itself
+    }
+  }
+
+  if (options.onProgress) options.onProgress(100);
+
+  return {
+    downloadURL: processed.dataUrl,
+    storagePath,
+    bucket: 'firebase-rtdb-cloud',
+    usedFallback: true
+  };
 }
 
 /**

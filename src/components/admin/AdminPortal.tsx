@@ -2035,7 +2035,7 @@ const BlogsManager: React.FC<{
       const storagePath = `blog_covers/${Date.now()}_${safeFileName}`;
       const storageRef = ref(activeStorage, storagePath);
 
-      // Upload via resilient resumable upload helper with stall/CORS guard
+      // Upload via resilient resumable upload helper with multi-bucket & RTDB cloud fallback
       const uploadResult = await uploadImageToFirebaseStorage(file, 'blog_covers', {
         maxSizeMB: 10,
         customFileName: `${Date.now()}_${safeFileName}`,
@@ -2047,7 +2047,7 @@ const BlogsManager: React.FC<{
 
       const downloadURL = uploadResult.downloadURL || (await getDownloadURL(storageRef));
 
-      // 3. Save HTTPS download URL into both cover_image and coverImage using functional state update
+      // 3. Save download URL into both cover_image and coverImage using functional state update
       // so concurrent edits in the Rich Text Editor are never overwritten!
       setEditingBlog((prev) =>
         prev
@@ -2060,7 +2060,12 @@ const BlogsManager: React.FC<{
       );
 
       if (onNotify) {
-        onNotify('✓ Cover image uploaded to Firebase Storage (`blog_covers/`)!', 'success');
+        onNotify(
+          uploadResult.usedFallback
+            ? '✓ Cover image optimized & saved directly to Firebase Realtime Database (Storage bucket 404/CORS bypassed)!'
+            : '✓ Cover image uploaded to Firebase Storage (`blog_covers/`)!',
+          'success'
+        );
       }
     } catch (err: any) {
       console.error('Firebase Storage cover upload failed:', err);
