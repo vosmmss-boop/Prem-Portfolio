@@ -106,7 +106,7 @@ export function AppContent() {
       "url": "https://drpremrajjoshi.com.np",
       "telephone": branding.phone,
       "email": branding.email,
-      "image": syncedDoctorPhoto || "https://drpremrajjoshi.com.np/src/assets/images/doctor_portrait_1791392878397.jpg",
+      "image": syncedDoctorPhoto || "https://hi.drpremrajjoshi.com.np/logo.png",
       "hasCredential": {
         "@type": "EducationalOccupationalCredential",
         "credentialCategory": "degree",
@@ -146,10 +146,13 @@ export function AppContent() {
     if (syncedDoctorPhoto) {
       const fav = document.getElementById('dynamic-favicon') as HTMLLinkElement | null;
       if (fav) fav.href = syncedDoctorPhoto;
+      const absolutePhotoUrl = syncedDoctorPhoto.startsWith('http')
+        ? syncedDoctorPhoto
+        : 'https://hi.drpremrajjoshi.com.np/logo.png';
       const ogImg = document.querySelector('meta[property="og:image"]') as HTMLMetaElement | null;
-      if (ogImg) ogImg.content = syncedDoctorPhoto;
+      if (ogImg) ogImg.content = absolutePhotoUrl;
       const twImg = document.querySelector('meta[name="twitter:image"]') as HTMLMetaElement | null;
-      if (twImg) twImg.content = syncedDoctorPhoto;
+      if (twImg) twImg.content = absolutePhotoUrl;
     }
   }, [branding, autobiography, syncedDoctorPhoto]);
 

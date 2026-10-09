@@ -6,7 +6,18 @@
 
 export async function onRequest(context) {
   const { request, params, env } = context;
-  const slug = params?.slug || new URL(request.url).pathname.split('/').filter(Boolean).pop();
+  const url = new URL(request.url);
+  const pathname = url.pathname;
+
+  // Bypass crawler interception for static assets (e.g., favicon.ico, logo.png, .svg, .png, .jpg)
+  if (pathname.includes('.') && !pathname.endsWith('.html')) {
+    if (env && env.ASSETS) {
+      return env.ASSETS.fetch(request);
+    }
+    return fetch(request);
+  }
+
+  const slug = params?.slug || pathname.split('/').filter(Boolean).pop();
   const userAgent = request.headers.get('user-agent') || '';
 
   // Detect social media and search crawlers
@@ -93,12 +104,13 @@ export async function onRequest(context) {
     blogData?.summaryNp ||
     'Integrative Ayurvedic medicine consultations, holistic wellness therapies, and lifestyle guidance by Dr. Prem Raj Joshi (BAMS, IOM, TU).';
 
+  const defaultImage = 'https://hi.drpremrajjoshi.com.np/logo.png';
   const coverImage =
     blogData?.cover_image ||
     blogData?.coverImage ||
     blogData?.image ||
     blogData?.thumbnail ||
-    `${origin}/assets/images/doctor_portrait_1791392878397.jpg`;
+    defaultImage;
 
   const canonicalUrl = `${origin}/blog/${slug}`;
 
