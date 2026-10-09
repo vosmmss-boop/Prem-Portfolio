@@ -1,15 +1,29 @@
 /**
  * Cloudflare Pages Function / Worker: /functions/blog/[slug].js
  * Dynamic Open Graph (OG) & Twitter Card Meta Tag Injection for Social Media Crawlers
- * Connected to Firebase Realtime Database REST API with flexible queries & schema fallbacks
+ * Connected to Firebase Realtime Database REST API with flexible queries & schema fallbacks.
+ * Ensures fb:app_id is injected and Cache-Control: no-cache, no-store, must-revalidate is set.
  */
+
+function withNoCacheHtmlHeaders(response) {
+  const headers = new Headers(response.headers);
+  headers.set('Content-Type', 'text/html; charset=utf-8');
+  headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  headers.set('Pragma', 'no-cache');
+  headers.set('Expires', '0');
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
 
 export async function onRequest(context) {
   const { request, params, env } = context;
   const url = new URL(request.url);
   const pathname = url.pathname;
 
-  // Bypass crawler interception for static assets (e.g., favicon.ico, logo.png, .svg, .png, .jpg)
+  // 1. Bypass crawler interception for static assets (e.g., favicon.ico, logo.png, .svg, .png, .jpg)
   if (pathname.includes('.') && !pathname.endsWith('.html')) {
     if (env && env.ASSETS) {
       return env.ASSETS.fetch(request);
@@ -17,31 +31,8 @@ export async function onRequest(context) {
     return fetch(request);
   }
 
-  const slug = params?.slug || pathname.split('/').filter(Boolean).pop();
-  const userAgent = request.headers.get('user-agent') || '';
-
-  // Detect social media and search crawlers
-  const isCrawler = /facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|TelegramBot|Slackbot|Discordbot|Applebot|Pinterest|SkypeUriPreview/i.test(
-    userAgent
-  );
-
-  // If regular user browser, forward request to standard root SPA HTML shell
-  if (!isCrawler) {
-    if (env && env.ASSETS) {
-      return env.ASSETS.fetch(new Request(new URL('/', request.url), request));
-    }
-    try {
-      return await fetch(new Request(new URL('/', request.url), request));
-    } catch {
-      return context.next();
-    }
-  }
-
-  const origin = url.origin;
-  const defaultImage = `${origin}/logo.png`;
-  const defaultTitle = 'Dr. Prem Raj Joshi - BAMS, IOM, TU | Ayurvedic Physician';
-
-  // If request is for root path ('/' or '/index.html'), ensure <title>, og:title, twitter:title, og:image, and twitter:image match exactly
+  // 2. For root path requests ('/' or '/index.html'), return the static index.html with hardcoded
+  // logo.png metadata and fb:app_id without dynamic overrides getting in the way.
   if (pathname === '/' || pathname === '' || pathname === '/index.html') {
     let rootResponse;
     if (env && env.ASSETS) {
@@ -54,48 +45,65 @@ export async function onRequest(context) {
       }
     }
 
-    return new HTMLRewriter()
-      .on('title', {
-        element(el) {
-          el.setInnerContent(defaultTitle);
-        }
-      })
-      .on('meta[property="og:title"]', {
-        element(el) {
-          el.setAttribute('content', defaultTitle);
-        }
-      })
-      .on('meta[name="twitter:title"]', {
-        element(el) {
-          el.setAttribute('content', defaultTitle);
-        }
-      })
-      .on('meta[property="og:image"]', {
-        element(el) {
-          el.setAttribute('content', defaultImage);
-        }
-      })
-      .on('meta[name="twitter:image"]', {
-        element(el) {
-          el.setAttribute('content', defaultImage);
-        }
-      })
-      .transform(rootResponse);
+    let html = await rootResponse.text();
+    if (!html.includes('property="fb:app_id"')) {
+      html = html.replace(
+        /<head[^>]*>/i,
+        (match) => `${match}\n    <meta property="fb:app_id" content="966242223397117" />`
+      );
+    }
+
+    const headers = new Headers(rootResponse.headers);
+    headers.set('Content-Type', 'text/html; charset=utf-8');
+    headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    headers.set('Pragma', 'no-cache');
+    headers.set('Expires', '0');
+
+    return new Response(html, {
+      status: rootResponse.status,
+      statusText: rootResponse.statusText,
+      headers
+    });
   }
 
+  const slug = params?.slug || pathname.split('/').filter(Boolean).pop();
+  const userAgent = request.headers.get('user-agent') || '';
+
+  // Detect social media and search crawlers
+  const isCrawler = /facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|TelegramBot|Slackbot|Discordbot|Applebot|Pinterest|SkypeUriPreview/i.test(
+    userAgent
+  );
+
+  // If regular user browser, forward request to standard root SPA HTML shell with no-cache headers
+  if (!isCrawler) {
+    let spaResponse;
+    if (env && env.ASSETS) {
+      spaResponse = await env.ASSETS.fetch(new Request(new URL('/', request.url), request));
+    } else {
+      try {
+        spaResponse = await fetch(new Request(new URL('/', request.url), request));
+      } catch {
+        spaResponse = await context.next();
+      }
+    }
+    return withNoCacheHtmlHeaders(spaResponse);
+  }
+
+  const origin = url.origin;
+  const defaultImage = `${origin}/logo.png`;
+  const defaultTitle = 'Dr. Prem Raj Joshi - BAMS, IOM, TU | Ayurvedic Physician';
+
   // Firebase Realtime Database default endpoint
-  // Works with both default regional domain and default rtdb
-  const RTDB_URL = env?.FIREBASE_DATABASE_URL ||
+  const RTDB_URL =
+    env?.FIREBASE_DATABASE_URL ||
     'https://drsaap-52b17-default-rtdb.asia-southeast1.firebasedatabase.app';
 
   let blogData = null;
 
   try {
-    // 1. Flexible Firebase Querying using orderBy="slug"&equalTo="${slug}"
     const queryUrl = `${RTDB_URL}/blogs.json?orderBy="slug"&equalTo="${encodeURIComponent(slug)}"`;
     let res = await fetch(queryUrl);
 
-    // If region query fails or index isn't ready, try default firebaseio.com or fetch fallback
     if (!res.ok && RTDB_URL.includes('.asia-southeast1.')) {
       const fallbackUrl = `https://drsaap-52b17-default-rtdb.firebaseio.com/blogs.json?orderBy="slug"&equalTo="${encodeURIComponent(slug)}"`;
       res = await fetch(fallbackUrl);
@@ -104,7 +112,6 @@ export async function onRequest(context) {
     if (res.ok) {
       const data = await res.json();
       if (data && typeof data === 'object') {
-        // Firebase returns a map keyed by push ID (e.g., {"-NkJ1829s": { ...blogData }})
         const keys = Object.keys(data);
         if (keys.length > 0) {
           const firstKey = keys[0];
@@ -113,7 +120,6 @@ export async function onRequest(context) {
       }
     }
 
-    // Secondary fallback: if query by slug returned null/empty, fetch blogs list and search
     if (!blogData) {
       const allRes = await fetch(`${RTDB_URL}/blogs.json`);
       if (allRes.ok) {
@@ -125,11 +131,9 @@ export async function onRequest(context) {
       }
     }
   } catch (err) {
-    // Network or parse issue: fall back gracefully
     blogData = null;
   }
 
-  // 2. Fallback Object Access
   const rawBlogTitle =
     blogData?.title_en ||
     blogData?.titleEn ||
@@ -160,7 +164,6 @@ export async function onRequest(context) {
 
   const canonicalUrl = `${origin}/blog/${slug}`;
 
-  // 3. Fetch the root HTML shell ('/') to ensure 200 OK status
   let response;
   if (env && env.ASSETS) {
     response = await env.ASSETS.fetch(new Request(new URL('/', request.url), request));
@@ -177,15 +180,16 @@ export async function onRequest(context) {
   const safeImage = coverImage;
   const safeUrl = canonicalUrl;
 
-  // 4. HTMLRewriter: strip existing static og: / twitter: meta tags and inject dynamic ones
-  return new HTMLRewriter()
-    // Strip existing static open graph & twitter tags to avoid duplicate tag conflicts
-    .on('meta[property^="og:"]', {
+  let hasFbAppId = false;
+
+  const transformed = new HTMLRewriter()
+    .on('meta[property="fb:app_id"]', {
       element(el) {
-        el.remove();
+        hasFbAppId = true;
+        el.setAttribute('content', '966242223397117');
       }
     })
-    .on('meta[property="fb:app_id"]', {
+    .on('meta[property^="og:"]', {
       element(el) {
         el.remove();
       }
@@ -207,8 +211,9 @@ export async function onRequest(context) {
     })
     .on('head', {
       element(el) {
-        // Append dynamic Open Graph tags
-        el.append(`<meta property="fb:app_id" content="966242223397117" />`, { html: true });
+        if (!hasFbAppId) {
+          el.append(`<meta property="fb:app_id" content="966242223397117" />`, { html: true });
+        }
         el.append(`<meta property="og:type" content="article" />`, { html: true });
         el.append(`<meta property="og:title" content="${safeTitle}" />`, { html: true });
         el.append(`<meta property="og:description" content="${safeDesc}" />`, { html: true });
@@ -218,7 +223,6 @@ export async function onRequest(context) {
         el.append(`<meta property="og:url" content="${safeUrl}" />`, { html: true });
         el.append(`<meta property="og:site_name" content="Dr. Prem Raj Joshi - Ayurvedic Physician" />`, { html: true });
 
-        // Append dynamic Twitter Card tags
         el.append(`<meta name="twitter:card" content="summary_large_image" />`, { html: true });
         el.append(`<meta name="twitter:title" content="${safeTitle}" />`, { html: true });
         el.append(`<meta name="twitter:description" content="${safeDesc}" />`, { html: true });
@@ -226,5 +230,6 @@ export async function onRequest(context) {
       }
     })
     .transform(response);
-}
 
+  return withNoCacheHtmlHeaders(transformed);
+}

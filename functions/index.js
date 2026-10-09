@@ -1,7 +1,8 @@
 /**
  * Cloudflare Pages Root Function: /functions/index.js
- * Ensures homepage ('/') requests serve `${origin}/logo.png` in og:image and twitter:image
- * along with fb:app_id for Facebook Sharing Debugger & social crawlers.
+ * Serves the static index.html for root path requests ('/') with hardcoded logo.png metadata
+ * and fb:app_id without dynamic overrides getting in the way, ensuring fb:app_id is present
+ * and setting Cache-Control: no-cache, no-store, must-revalidate on HTML responses.
  */
 
 export async function onRequest(context) {
@@ -17,10 +18,6 @@ export async function onRequest(context) {
     return fetch(request);
   }
 
-  const origin = url.origin;
-  const defaultImage = `${origin}/logo.png`;
-  const pageTitle = 'Dr. Prem Raj Joshi - BAMS, IOM, TU | Ayurvedic Physician';
-
   let response;
   if (env && env.ASSETS) {
     response = await env.ASSETS.fetch(new Request(new URL('/', request.url), request));
@@ -32,31 +29,25 @@ export async function onRequest(context) {
     }
   }
 
-  return new HTMLRewriter()
-    .on('title', {
-      element(el) {
-        el.setInnerContent(pageTitle);
-      }
-    })
-    .on('meta[property="og:title"]', {
-      element(el) {
-        el.setAttribute('content', pageTitle);
-      }
-    })
-    .on('meta[name="twitter:title"]', {
-      element(el) {
-        el.setAttribute('content', pageTitle);
-      }
-    })
-    .on('meta[property="og:image"]', {
-      element(el) {
-        el.setAttribute('content', defaultImage);
-      }
-    })
-    .on('meta[name="twitter:image"]', {
-      element(el) {
-        el.setAttribute('content', defaultImage);
-      }
-    })
-    .transform(response);
+  let html = await response.text();
+
+  // Ensure <meta property="fb:app_id" content="966242223397117" /> is present in <head> if not already present
+  if (!html.includes('property="fb:app_id"')) {
+    html = html.replace(
+      /<head[^>]*>/i,
+      (match) => `${match}\n    <meta property="fb:app_id" content="966242223397117" />`
+    );
+  }
+
+  const headers = new Headers(response.headers);
+  headers.set('Content-Type', 'text/html; charset=utf-8');
+  headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  headers.set('Pragma', 'no-cache');
+  headers.set('Expires', '0');
+
+  return new Response(html, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
 }
