@@ -11,6 +11,25 @@ export interface SocialChannelItem {
   active: boolean;
 }
 
+export interface SitePopupNotice {
+  active: boolean;
+  titleEn: string;
+  titleNp?: string;
+  subtitleEn?: string;
+  subtitleNp?: string;
+  bodyEn?: string;
+  bodyNp?: string;
+  imageUrl?: string;
+  imageSize?: 'small' | 'medium' | 'large' | 'full' | 'custom';
+  customWidthPx?: number;
+  customHeightPx?: number;
+  imageObjectFit?: 'contain' | 'cover';
+  ctaTextEn?: string;
+  ctaTextNp?: string;
+  ctaLink?: string;
+  updatedAt?: number | string;
+}
+
 export interface Branding {
   doctorName: {
     en: string;
@@ -62,6 +81,7 @@ export interface Branding {
     whatsapp?: string;
   };
   socialChannels?: SocialChannelItem[];
+  popupNotice?: SitePopupNotice;
 }
 
 export interface HeroSlide {

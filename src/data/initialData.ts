@@ -61,6 +61,26 @@ export const initialBranding: Branding = {
     twitter: 'https://twitter.com/drpremrajjoshi',
     youtube: 'https://youtube.com/@drpremrajjoshi',
     whatsapp: 'https://wa.me/9779848721200'
+  },
+  popupNotice: {
+    active: false,
+    titleEn: 'Special Ayurvedic Health Camp & Consultation Notice',
+    titleNp: 'विशेष आयुर्वेदिक स्वास्थ्य शिविर तथा परामर्श सूचना',
+    subtitleEn: 'Maharajgunj Clinic, Kathmandu & Online Tele-Consultation',
+    subtitleNp: 'महाराजगञ्ज क्लिनिक, काठमाडौं तथा अनलाइन परामर्श सेवा',
+    bodyEn:
+      '<p>Join our upcoming integrative Ayurvedic consultation session for chronic digestive disorders (Amlapitta, Grahani), joint care, and personalized Dinacharya lifestyle planning with <strong>Dr. Prem Raj Joshi (BAMS, IOM, TU)</strong>.</p><p>Patients can book appointments online or track their consultation status directly using their unique Tracking ID.</p>',
+    bodyNp:
+      '<p><strong>डा. प्रेम राज जोशी (BAMS, IOM, TU)</strong> द्वारा पाचन प्रणाली (ग्यास्ट्रिक, अम्लपित्त), बाथरोग, तथा जीवनशैलीजन्य समस्याहरूको विशेष आयुर्वेदिक परामर्श सेवा सञ्चालन भइरहेको छ।</p><p>तपाईंले वेबसाइटबाटै अनलाइन अपोइन्टमेन्ट बुक गर्न र आफ्नो ट्र्याकिङ आईडी मार्फत स्थिति जाँच्न सक्नुहुन्छ।</p>',
+    imageUrl: '/assets/images/hero_ayurveda_clinic_1791392890876.jpg',
+    imageSize: 'medium',
+    customWidthPx: 600,
+    customHeightPx: 320,
+    imageObjectFit: 'cover',
+    ctaTextEn: 'Book Appointment',
+    ctaTextNp: 'अपोइन्टमेन्ट लिनुहोस्',
+    ctaLink: '#appointment',
+    updatedAt: 1728432000000
   }
 };
 

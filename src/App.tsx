@@ -37,6 +37,7 @@ import { Footer } from './components/common/Footer';
 import { NamasteWidget } from './components/common/NamasteWidget';
 import { AccessibilityPanel } from './components/common/AccessibilityPanel';
 import { HeaderSkeleton } from './components/common/SkeletonLoaders';
+import { SitePopupModal } from './components/common/SitePopupModal';
 
 import { HeroSlider } from './components/sections/HeroSlider';
 import { AutobiographySection } from './components/sections/AutobiographySection';
@@ -690,6 +691,14 @@ export function AppContent() {
 
           {/* Floating Accessibility Tools Button & Panel */}
           <AccessibilityPanel />
+
+          {/* Customizable Site Notice Popup Modal (Managed from CMS) */}
+          <SitePopupModal
+            popupNotice={branding.popupNotice}
+            doctorName={branding.doctorName?.en || 'Dr. Prem Raj Joshi'}
+            doctorLogo={syncedDoctorPhoto}
+            onOpenAppointment={handleOpenAppointmentModal}
+          />
         </>
       )}
     </div>

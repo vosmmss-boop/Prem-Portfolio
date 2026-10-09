@@ -12,7 +12,8 @@ import {
   UsefulLink,
   DownloadItem,
   GalleryItem,
-  SocialChannelItem
+  SocialChannelItem,
+  SitePopupNotice
 } from '../../types';
 import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL, UploadTask } from 'firebase/storage';
 import {
@@ -67,11 +68,14 @@ import {
   Database,
   X,
   DownloadCloud,
-  Maximize2
+  Maximize2,
+  Bell,
+  Eye
 } from 'lucide-react';
 import { adjustAndProcessUploadedImage } from '../../utils/imageAdjuster';
 import { FullScreenImageViewer } from '../common/FullScreenImageViewer';
 import { downloadAdminUserManualDoc } from '../../utils/adminManualGenerator';
+import { parseYouTubeUrl } from '../../utils/youtube';
 
 interface AdminPortalProps {
   branding: Branding;
@@ -116,9 +120,24 @@ function readFileAsDataUrl(
         console.error('Image upload failed:', err);
       });
   } else {
-    // Non-image files (e.g. PDF downloads)
-    const objectUrl = URL.createObjectURL(file);
-    callback(objectUrl, file.name, size);
+    // Non-image files (e.g. PDF downloads) -> encode as persistent data:application/pdf URL via ArrayBuffer
+    file
+      .arrayBuffer()
+      .then((buffer) => {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        const chunkSize = 8192;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+        }
+        const base64 = btoa(binary);
+        const mimeType = file.type || 'application/pdf';
+        callback(`data:${mimeType};base64,${base64}`, file.name, size);
+      })
+      .catch(() => {
+        const objectUrl = URL.createObjectURL(file);
+        callback(objectUrl, file.name, size);
+      });
   }
 }
 
@@ -452,6 +471,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   // CMS Content Management Tabs (Pure content editing, no patient inquiries!)
   const cmsTabs = [
     { id: 'active_feed', label: 'Active Live Feed', icon: Globe },
+    { id: 'popup_notice', label: 'Site Popup Notice', icon: Bell },
     { id: 'profile_stats', label: 'Profile, Location & Stats', icon: BarChart3 },
     { id: 'social_links', label: 'Social Media & Feed', icon: Share2 },
     { id: 'sliders', label: 'Hero Sliders', icon: Layers },
@@ -737,6 +757,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               onSelectTab={(tabId) => setActiveTab(tabId)}
               onSyncAll={handleSyncAllToFirebase}
               isSyncingAll={isSyncingAll}
+            />
+          )}
+
+          {/* Module 0.5: Site Popup Notice Manager */}
+          {activeTab === 'popup_notice' && (
+            <PopupNoticeManager
+              branding={branding}
+              onSaveLocal={(b) => saveEntityWithGlobalSync('branding', 'dr_joshi_branding', b, onUpdateBranding, 'Site Popup Notice')}
+              onSaveLive={(b) => saveEntityWithGlobalSync('branding', 'dr_joshi_branding', b, onUpdateBranding, 'Site Popup Notice')}
             />
           )}
 
@@ -3663,30 +3692,456 @@ const DownloadsManager: React.FC<{
                 />
               </div>
 
-              {/* Direct PDF Upload Button */}
-              <div className="sm:col-span-2 flex items-center justify-between bg-neutral-50 p-3 rounded-xl border">
-                <div>
-                  <span className="text-xs font-bold text-neutral-800 block">PDF Asset File:</span>
-                  <span className="text-[11px] text-neutral-500 font-mono">{item.fileName} · {item.fileSize}</span>
+              {/* Direct PDF Upload Button or Direct PDF Link */}
+              <div className="sm:col-span-2 bg-neutral-50 p-3.5 rounded-xl border space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="text-xs font-bold text-neutral-800 block">
+                      PDF Document Source (View in Website & Download Buttons Enabled):
+                    </span>
+                    <span className="text-[11px] text-neutral-500 font-mono">
+                      {item.fileName} · {item.fileSize}
+                    </span>
+                  </div>
+
+                  <label className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5 shadow-2xs">
+                    <FileUp className="w-4 h-4" />
+                    <span>Upload PDF From Device</span>
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleUploadPdf(item.id, f);
+                      }}
+                    />
+                  </label>
                 </div>
 
-                <label className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5 shadow-2xs">
-                  <FileUp className="w-4 h-4" />
-                  <span>Upload PDF From Device</span>
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleUploadPdf(item.id, f);
-                    }}
-                  />
-                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-neutral-200/80">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-mono font-bold text-neutral-500 uppercase mb-1">
+                      Or Paste Direct PDF URL (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={item.fileUrl.startsWith('data:') ? 'Uploaded Device PDF (Stored Ready for View & Download)' : item.fileUrl}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!val.startsWith('Uploaded Device PDF')) {
+                          setItems(items.map((x) => (x.id === item.id ? { ...x, fileUrl: val } : x)));
+                        }
+                      }}
+                      placeholder="https://example.com/guide.pdf"
+                      className="w-full p-1.5 text-xs border rounded-lg font-mono bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono font-bold text-neutral-500 uppercase mb-1">
+                      Category (EN / NP)
+                    </label>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={item.categoryEn}
+                        onChange={(e) => setItems(items.map((x) => (x.id === item.id ? { ...x, categoryEn: e.target.value } : x)))}
+                        placeholder="Category EN"
+                        className="w-1/2 p-1.5 text-xs border rounded-lg bg-white"
+                      />
+                      <input
+                        type="text"
+                        value={item.categoryNp}
+                        onChange={(e) => setItems(items.map((x) => (x.id === item.id ? { ...x, categoryNp: e.target.value } : x)))}
+                        placeholder="श्रेणी"
+                        className="w-1/2 p-1.5 text-xs border rounded-lg bg-white font-nepali"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// 9.5 SITE POPUP NOTICE MANAGER (Custom Image Size, Activate/Deactivate, Title/Subtitle & Scrollable Read More)
+// ==========================================
+const PopupNoticeManager: React.FC<{
+  branding: Branding;
+  onSaveLocal: (b: Branding) => void;
+  onSaveLive: (b: Branding) => void;
+}> = ({ branding, onSaveLocal, onSaveLive }) => {
+  const defaultPopup: SitePopupNotice = {
+    active: false,
+    titleEn: 'Special Ayurvedic Health Camp & Consultation Notice',
+    titleNp: 'विशेष आयुर्वेदिक स्वास्थ्य शिविर तथा परामर्श सूचना',
+    subtitleEn: 'Integrative Kayachikitsa & Digestive Care — Kathmandu & Dhangadhi',
+    subtitleNp: 'काठमाडौँ र धनगढीमा प्रत्यक्ष तथा अनलाइन स्वास्थ्य परामर्श',
+    bodyEn:
+      '<p>Patients seeking specialized Ayurvedic consultation for chronic gastritis (Amlapitta), joint disorders, sinusitis, and lifestyle management can now book appointments directly through our online portal.</p><p><strong>Key Highlights:</strong></p><ul><li>Personalized Prakriti (Body Constitution) assessment</li><li>Classical herbal formulations and Panchakarma guidance</li><li>Dedicated follow-up prescription tracking using your registered phone number</li></ul>',
+    bodyNp:
+      '<p>पुराना ग्यास्ट्राइटिस (अम्लपित्त), जोर्नी दुख्ने, पिनास तथा जीवनशैलीजन्य समस्याका लागि विशेष आयुर्वेदिक परामर्श सेवा अब अनलाइन मार्फत उपलब्ध छ।</p>',
+    imageUrl: '/assets/images/hero_ayurveda_clinic_1791392890876.jpg',
+    imageSize: 'medium',
+    customWidthPx: 520,
+    customHeightPx: 280,
+    imageObjectFit: 'cover',
+    ctaTextEn: 'Book Appointment Now',
+    ctaTextNp: 'अपोइन्टमेन्ट बुक गर्नुहोस्',
+    ctaLink: '#appointment',
+    updatedAt: new Date().toISOString()
+  };
+
+  const [bData, setBData] = useState<Branding>(branding);
+  const [isUploadingImg, setIsUploadingImg] = useState(false);
+
+  React.useEffect(() => {
+    setBData(branding);
+  }, [branding]);
+
+  const popup: SitePopupNotice = {
+    ...defaultPopup,
+    ...(bData.popupNotice || {})
+  };
+
+  const updatePopup = (patch: Partial<SitePopupNotice>) => {
+    setBData({
+      ...bData,
+      popupNotice: {
+        ...popup,
+        ...patch,
+        updatedAt: new Date().toISOString()
+      }
+    });
+  };
+
+  const handleUploadPopupImage = async (file: File) => {
+    setIsUploadingImg(true);
+    try {
+      const res = await uploadImageToImgBB(file);
+      updatePopup({ imageUrl: res.url });
+    } catch (err) {
+      console.error('Popup image upload failed:', err);
+    } finally {
+      setIsUploadingImg(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-neutral-900 font-editorial">
+            Website Popup Notice Manager
+          </h2>
+          <p className="text-xs text-neutral-500">
+            Activate or deactivate a welcome popup modal with a custom-sized image, bilingual title, subtitle, and expandable "Read More" scrolling for long announcements.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onSaveLocal(bData)}
+            className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
+          >
+            <Save className="w-3.5 h-3.5" />
+            <span>Save Draft</span>
+          </button>
+          <button
+            onClick={() => onSaveLive(bData)}
+            className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5"
+          >
+            <CloudUpload className="w-3.5 h-3.5" />
+            <span>Global Live Push</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Activate / Deactivate Toggle Banner */}
+      <div
+        className={`p-5 rounded-2xl border flex flex-wrap items-center justify-between gap-4 transition-colors ${
+          popup.active
+            ? 'bg-emerald-50 border-emerald-300'
+            : 'bg-white border-neutral-200'
+        }`}
+      >
+        <div className="flex items-center gap-3.5">
+          <div
+            className={`w-11 h-11 rounded-2xl flex items-center justify-center ${
+              popup.active ? 'bg-emerald-700 text-white' : 'bg-neutral-200 text-neutral-600'
+            }`}
+          >
+            <Bell className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-sm text-neutral-900">
+                Popup Status:
+              </span>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase ${
+                  popup.active
+                    ? 'bg-emerald-700 text-white'
+                    : 'bg-neutral-200 text-neutral-700'
+                }`}
+              >
+                {popup.active ? 'ACTIVE ON WEBSITE' : 'DEACTIVATED (HIDDEN)'}
+              </span>
+            </div>
+            <p className="text-xs text-neutral-600 mt-0.5">
+              Toggle the switch to immediately activate or deactivate the popup on the homepage.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => updatePopup({ active: !popup.active })}
+          className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs ${
+            popup.active
+              ? 'bg-rose-600 hover:bg-rose-700 text-white'
+              : 'bg-emerald-700 hover:bg-emerald-800 text-white'
+          }`}
+        >
+          {popup.active ? 'Deactivate Popup' : 'Activate Popup Now'}
+        </button>
+      </div>
+
+      {/* Custom-Sized Image Configuration */}
+      <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs space-y-5">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800 font-mono">
+          1. Popup Image & Custom Size Controls
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <label className="block text-xs font-bold text-neutral-700">
+              Upload Popup Image from Device or Paste URL
+            </label>
+            <div className="flex items-center gap-2">
+              <label className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold cursor-pointer flex items-center gap-1.5 shrink-0">
+                <Upload className="w-3.5 h-3.5" />
+                <span>{isUploadingImg ? 'Uploading...' : 'Upload Image'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleUploadPopupImage(f);
+                  }}
+                />
+              </label>
+              {popup.imageUrl && (
+                <button
+                  type="button"
+                  onClick={() => updatePopup({ imageUrl: '' })}
+                  className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold"
+                >
+                  Remove Image
+                </button>
+              )}
+            </div>
+
+            <input
+              type="text"
+              value={popup.imageUrl || ''}
+              onChange={(e) => updatePopup({ imageUrl: e.target.value })}
+              placeholder="https://i.ibb.co/... or /assets/images/..."
+              className="w-full p-2.5 text-xs border border-neutral-300 rounded-xl font-mono"
+            />
+          </div>
+
+          <div className="space-y-3">
+            <label className="block text-xs font-bold text-neutral-700">
+              Image Display Size Preset or Custom Dimensions
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {(['small', 'medium', 'large', 'full', 'custom'] as const).map((sz) => (
+                <button
+                  key={sz}
+                  type="button"
+                  onClick={() => updatePopup({ imageSize: sz })}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold uppercase font-mono border transition-colors ${
+                    popup.imageSize === sz
+                      ? 'bg-emerald-800 text-white border-emerald-800'
+                      : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100'
+                  }`}
+                >
+                  {sz}
+                </button>
+              ))}
+            </div>
+
+            {popup.imageSize === 'custom' && (
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <div>
+                  <label className="block text-[11px] font-semibold text-neutral-600 mb-1">
+                    Custom Width (px)
+                  </label>
+                  <input
+                    type="number"
+                    min={120}
+                    max={900}
+                    value={popup.customWidthPx || 520}
+                    onChange={(e) => updatePopup({ customWidthPx: Number(e.target.value) || 520 })}
+                    className="w-full p-2 text-xs border rounded-lg font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-neutral-600 mb-1">
+                    Custom Height (px)
+                  </label>
+                  <input
+                    type="number"
+                    min={100}
+                    max={700}
+                    value={popup.customHeightPx || 280}
+                    onChange={(e) => updatePopup({ customHeightPx: Number(e.target.value) || 280 })}
+                    className="w-full p-2 text-xs border rounded-lg font-mono"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 pt-1">
+              <span className="text-xs font-semibold text-neutral-600">Image Fit:</span>
+              {(['cover', 'contain'] as const).map((fit) => (
+                <button
+                  key={fit}
+                  type="button"
+                  onClick={() => updatePopup({ imageObjectFit: fit })}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold uppercase border ${
+                    (popup.imageObjectFit || 'cover') === fit
+                      ? 'bg-neutral-900 text-white border-neutral-900'
+                      : 'bg-white text-neutral-600 border-neutral-300'
+                  }`}
+                >
+                  {fit}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Title, Subtitle & Long Text with Automatic "Read More" Scrolling */}
+      <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-xs space-y-5">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-800 font-mono">
+          2. Popup Title, Subtitle & Detailed Content (Auto Read-More Scroll for Long Text)
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 mb-1">
+              Popup Title (English)
+            </label>
+            <input
+              type="text"
+              value={popup.titleEn || ''}
+              onChange={(e) => updatePopup({ titleEn: e.target.value })}
+              placeholder="Special Health Camp & Notice"
+              className="w-full p-2.5 text-xs border border-neutral-300 rounded-xl"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 mb-1">
+              Popup Title (Nepali Unicode)
+            </label>
+            <input
+              type="text"
+              value={popup.titleNp || ''}
+              onChange={(e) => updatePopup({ titleNp: e.target.value })}
+              placeholder="विशेष स्वास्थ्य शिविर तथा सूचना"
+              className="w-full p-2.5 text-xs border border-neutral-300 rounded-xl font-nepali"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 mb-1">
+              Popup Subtitle (English)
+            </label>
+            <input
+              type="text"
+              value={popup.subtitleEn || ''}
+              onChange={(e) => updatePopup({ subtitleEn: e.target.value })}
+              placeholder="Subtitle or date/venue summary"
+              className="w-full p-2.5 text-xs border border-neutral-300 rounded-xl"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 mb-1">
+              Popup Subtitle (Nepali Unicode)
+            </label>
+            <input
+              type="text"
+              value={popup.subtitleNp || ''}
+              onChange={(e) => updatePopup({ subtitleNp: e.target.value })}
+              placeholder="नेपाली उपशीर्षक वा मिति/स्थान"
+              className="w-full p-2.5 text-xs border border-neutral-300 rounded-xl font-nepali"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <UniversalRichTextEditor
+            label="Popup Body Content (English — Long text automatically enables 'Read More' & scrolling)"
+            value={popup.bodyEn || ''}
+            onChange={(val) => updatePopup({ bodyEn: val })}
+            minHeight={160}
+          />
+          <UniversalRichTextEditor
+            label="Popup Body Content (Nepali — लामो पाठ हुँदा स्वतः 'थप पढ्नुहोस्' स्क्रोल विकल्प देखिन्छ)"
+            value={popup.bodyNp || ''}
+            onChange={(val) => updatePopup({ bodyNp: val })}
+            isNepali={true}
+            minHeight={160}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-neutral-100">
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 mb-1">
+              Action Button Label (English)
+            </label>
+            <input
+              type="text"
+              value={popup.ctaTextEn || ''}
+              onChange={(e) => updatePopup({ ctaTextEn: e.target.value })}
+              placeholder="Book Appointment Now"
+              className="w-full p-2 text-xs border rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 mb-1">
+              Action Button Label (Nepali)
+            </label>
+            <input
+              type="text"
+              value={popup.ctaTextNp || ''}
+              onChange={(e) => updatePopup({ ctaTextNp: e.target.value })}
+              placeholder="अपोइन्टमेन्ट बुक गर्नुहोस्"
+              className="w-full p-2 text-xs border rounded-lg font-nepali"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 mb-1">
+              Action Button Link / Target
+            </label>
+            <input
+              type="text"
+              value={popup.ctaLink || ''}
+              onChange={(e) => updatePopup({ ctaLink: e.target.value })}
+              placeholder="#appointment or https://..."
+              className="w-full p-2 text-xs border rounded-lg font-mono"
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -3718,6 +4173,8 @@ const LogoFlagManager: React.FC<{
     });
   };
 
+  const ytPreview = parseYouTubeUrl(data.youtubeEmbedUrl);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -3726,13 +4183,33 @@ const LogoFlagManager: React.FC<{
             Logo, Flag & YouTube Video Embed
           </h2>
           <p className="text-xs text-neutral-500">
-            Upload custom doctor logo/favicon, Nepal national flag, and paste your own YouTube video embed URL.
+            Upload custom doctor logo/favicon, Nepal national flag, and paste any YouTube video link (automatically converted to embed format).
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={() => onSaveLocal(data)} className="px-4 py-2 bg-neutral-200 text-xs font-bold rounded-xl">Save Draft</button>
-          <button onClick={() => onSaveLive(data)} className="px-5 py-2 bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs">Global Live Push</button>
+          <button
+            onClick={() =>
+              onSaveLocal({
+                ...data,
+                youtubeEmbedUrl: ytPreview.videoId ? ytPreview.embedUrl : data.youtubeEmbedUrl
+              })
+            }
+            className="px-4 py-2 bg-neutral-200 text-xs font-bold rounded-xl"
+          >
+            Save Draft
+          </button>
+          <button
+            onClick={() =>
+              onSaveLive({
+                ...data,
+                youtubeEmbedUrl: ytPreview.videoId ? ytPreview.embedUrl : data.youtubeEmbedUrl
+              })
+            }
+            className="px-5 py-2 bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs"
+          >
+            Global Live Push
+          </button>
         </div>
       </div>
 
@@ -3774,21 +4251,49 @@ const LogoFlagManager: React.FC<{
           </label>
         </div>
 
-        {/* Custom YouTube Video Embed */}
-        <div className="space-y-2">
+        {/* Custom YouTube Video Embed (Auto-converts watch?v=, youtu.be/, shorts/, etc.) */}
+        <div className="space-y-3">
           <label className="block text-xs font-bold text-neutral-800">
-            Featured YouTube Video Embed URL (e.g. https://www.youtube.com/embed/VIDEO_ID)
+            Featured YouTube Video Link (Paste ANY YouTube URL: watch?v=..., youtu.be/..., shorts/..., or embed/...)
           </label>
           <input
             type="text"
             value={data.youtubeEmbedUrl || ''}
             onChange={(e) => setData({ ...data, youtubeEmbedUrl: e.target.value })}
-            placeholder="https://www.youtube.com/embed/..."
+            placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
             className="w-full p-2.5 text-xs border rounded-xl font-mono"
           />
-          <p className="text-[11px] text-neutral-400">
-            Paste any YouTube embed link here to show your clinical health lecture on the public site gallery.
-          </p>
+          {ytPreview.videoId ? (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3 text-xs text-emerald-900">
+              <div className="flex items-center gap-3 min-w-0">
+                <img
+                  src={ytPreview.thumbnailUrl}
+                  alt="YouTube thumbnail preview"
+                  className="w-20 h-12 rounded-lg object-cover border border-emerald-300 shrink-0"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="min-w-0">
+                  <span className="font-bold block">✓ Valid YouTube Video ID Detected: {ytPreview.videoId}</span>
+                  <span className="text-[11px] font-mono text-emerald-700 truncate block">
+                    Normalized Embed: {ytPreview.embedUrl}
+                  </span>
+                </div>
+              </div>
+              <a
+                href={ytPreview.watchUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-white border border-emerald-300 rounded-lg font-bold text-emerald-800 flex items-center gap-1 shrink-0"
+              >
+                <span>Test</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          ) : (
+            <p className="text-[11px] text-neutral-500">
+              Paste any standard YouTube watch URL, share link, or embed URL. It is automatically converted so visitors never see "www.youtube.com refused to connect".
+            </p>
+          )}
         </div>
       </div>
     </div>
