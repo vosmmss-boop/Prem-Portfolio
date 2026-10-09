@@ -5,12 +5,16 @@
  * Ensures fb:app_id is injected and Cache-Control: no-cache, no-store, must-revalidate is set.
  */
 
+const CSP_HEADER_VALUE =
+  "default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: https://connect.facebook.net https://*.facebook.com; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; connect-src 'self' https: wss: https://*.facebook.com https://*.facebook.net https://graph.facebook.com https://*.fbcdn.net; img-src 'self' data: blob: https:; frame-src 'self' https: https://*.facebook.com https://*.facebook.net;";
+
 function withNoCacheHtmlHeaders(response) {
   const headers = new Headers(response.headers);
   headers.set('Content-Type', 'text/html; charset=utf-8');
   headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   headers.set('Pragma', 'no-cache');
   headers.set('Expires', '0');
+  headers.set('Content-Security-Policy', CSP_HEADER_VALUE);
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -58,6 +62,7 @@ export async function onRequest(context) {
     headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     headers.set('Pragma', 'no-cache');
     headers.set('Expires', '0');
+    headers.set('Content-Security-Policy', CSP_HEADER_VALUE);
 
     return new Response(html, {
       status: rootResponse.status,

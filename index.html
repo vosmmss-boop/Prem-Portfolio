@@ -3,6 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self' https:;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https: https://connect.facebook.net https://*.facebook.com;
+      style-src 'self' 'unsafe-inline' https:;
+      font-src 'self' data: https:;
+      connect-src 'self' https: wss: https://*.facebook.com https://*.facebook.net https://graph.facebook.com https://*.fbcdn.net;
+      img-src 'self' data: blob: https:;
+      frame-src 'self' https: https://*.facebook.com https://*.facebook.net;
+    " />
     <base href="/" />
     <title>Dr. Prem Raj Joshi - BAMS, IOM, TU | Ayurvedic Physician</title>
     <meta name="description" content="Official medical portal and Ayurvedic healthcare practice of Dr. Prem Raj Joshi (BAMS, IOM, TU). Integrative consultations, health blogs, patient inquiries, and holistic medicine in Nepal." />
