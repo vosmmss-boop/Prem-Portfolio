@@ -1,0 +1,254 @@
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+  <meta charset="utf-8">
+  <title>CMS & Inquiries Portal User Manual - Dr. Prem Raj Joshi</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForBrowser/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
+  <style>
+    body {
+      font-family: 'Calibri', 'Arial', sans-serif;
+      color: #1f2937;
+      line-height: 1.6;
+      font-size: 11pt;
+      margin: 1in;
+    }
+    h1 {
+      color: #065f46;
+      font-size: 22pt;
+      border-bottom: 2px solid #065f46;
+      padding-bottom: 6pt;
+      margin-bottom: 12pt;
+    }
+    h2 {
+      color: #047857;
+      font-size: 15pt;
+      margin-top: 20pt;
+      margin-bottom: 8pt;
+      background-color: #ecfdf5;
+      padding: 6pt 10pt;
+      border-left: 4px solid #059669;
+    }
+    h3 {
+      color: #111827;
+      font-size: 12.5pt;
+      margin-top: 14pt;
+      margin-bottom: 4pt;
+    }
+    p {
+      margin-top: 4pt;
+      margin-bottom: 8pt;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12pt 0;
+    }
+    th, td {
+      border: 1px solid #d1d5db;
+      padding: 8pt 10pt;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background-color: #065f46;
+      color: #ffffff;
+      font-weight: bold;
+    }
+    .credentials-box {
+      background-color: #f8fafc;
+      border: 1.5px solid #059669;
+      padding: 12pt;
+      margin: 12pt 0;
+    }
+    .tip-box {
+      background-color: #fffbeb;
+      border-left: 4px solid #d97706;
+      padding: 10pt;
+      margin: 10pt 0;
+    }
+    ul, ol {
+      margin-top: 4pt;
+      margin-bottom: 10pt;
+    }
+    li {
+      margin-bottom: 4pt;
+    }
+    code {
+      font-family: 'Consolas', 'Courier New', monospace;
+      background-color: #f3f4f6;
+      padding: 2pt 4pt;
+      font-weight: bold;
+      color: #b91c1c;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Official Website Administration & Patient Inquiries Manual</h1>
+  <p><strong>Client:</strong> Dr. Prem Raj Joshi (BAMS, IOM, TU | Ayurvedic Physician)<br/>
+  <strong>Official Website:</strong> <a href="https://www.drpremrajjoshi.com.np">https://www.drpremrajjoshi.com.np</a><br/>
+  <strong>Document Purpose:</strong> Complete step-by-step guide for managing website contents via the CMS Portal and handling patient consultations via the Inquiries Portal.</p>
+
+  <h2>1. Portal Access & Login Credentials</h2>
+  <p>Your website includes two dedicated, password-protected portals: the <strong>CMS Management Portal</strong> (for editing website content, blogs, photos, and branding) and the <strong>Patient Inquiries Portal</strong> (for reviewing patient health inquiries and sending medical responses).</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Portal Name</th>
+        <th>Direct Access URL</th>
+        <th>Primary Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>CMS Management Portal</strong></td>
+        <td><code>https://www.drpremrajjoshi.com.np/admin</code><br/><em>(or <code>/webadminprem</code>)</em></td>
+        <td>Update website text, bilingual content (English/Nepali), blog posts, sliders, gallery, PDF downloads, and branding.</td>
+      </tr>
+      <tr>
+        <td><strong>Patient Inquiries Portal</strong></td>
+        <td><code>https://www.drpremrajjoshi.com.np/inq-prem</code></td>
+        <td>View patient consultation requests, update case status, write clinical notes, and reply directly to patients.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="credentials-box">
+    <h3>Master Login Credentials (Valid for Both Portals)</h3>
+    <ul>
+      <li><strong>Username / Email:</strong> <code>admin@prem</code> &nbsp;<em>(Alternative accepted emails: <code>admin@prem.com</code> or <code>drpremrajjoshi@gmail.com</code>)</em></li>
+      <li><strong>Password:</strong> <code>Prem@admin</code> &nbsp;<em>(Case-sensitive — capital "P")</em></li>
+    </ul>
+  </div>
+
+  <h2>2. Managing Website Content in the CMS Portal (/admin)</h2>
+  <p>Once logged into the CMS Management Portal, you will see a top status bar and a left-hand navigation menu containing <strong>13 specialized modules</strong>. Every module automatically syncs live to your global Firebase Realtime Database when you click its <strong>Save</strong> button.</p>
+
+  <h3>Top Toolbar Controls</h3>
+  <ul>
+    <li><strong>Global Live Synced Badge:</strong> Confirms that your changes are immediately published worldwide across all phones and computers.</li>
+    <li><strong>Sync All to Live Button:</strong> Pushes all 13 website modules simultaneously to the live database.</li>
+    <li><strong>Download Backup (Cloud Icon):</strong> Downloads a complete <code>.json</code> backup file of your entire website content to your computer.</li>
+    <li><strong>Restore Backup (Upload Icon):</strong> Restores your website from a previously downloaded <code>.json</code> backup file.</li>
+    <li><strong>Public Site Button:</strong> Returns you to the public website view at any time.</li>
+  </ul>
+
+  <h3>Step-by-Step Guide to the 13 CMS Modules</h3>
+
+  <ol>
+    <li>
+      <strong>Active Live Feed:</strong>
+      <p>Displays a real-time overview of your live website sections and allows you to verify what visitors currently see.</p>
+    </li>
+    <li>
+      <strong>Profile, Location &amp; Stats:</strong>
+      <p>Update your doctor title, NMC registration number, contact phone numbers, email address, clinic address, Google Maps coordinates/embed link, consultation hours, and homepage statistics counters (e.g., Patients Treated, Years of Experience).</p>
+    </li>
+    <li>
+      <strong>Social Media &amp; Feed:</strong>
+      <p>Manage your official Facebook, Instagram, YouTube, LinkedIn, Twitter/X, WhatsApp, and TikTok links, as well as embedded social posts shown on the website.</p>
+    </li>
+    <li>
+      <strong>Hero Sliders:</strong>
+      <p>Add, edit, reorder, or delete the large banner slides at the top of your homepage. For each slide, you can upload a high-resolution photo directly from your device and enter both English and Nepali titles and subtitles.</p>
+    </li>
+    <li>
+      <strong>Autobiography (EN/NP):</strong>
+      <p>Edit your detailed biography, clinical philosophy, vision, and personal background in both English and Nepali using the rich-text editor.</p>
+    </li>
+    <li>
+      <strong>Education Journey:</strong>
+      <p>Add or modify academic degrees (such as BAMS, IOM, TU), institutions, graduation years, and academic highlights.</p>
+    </li>
+    <li>
+      <strong>Experience Deployment:</strong>
+      <p>Record your hospital postings, leadership roles, clinical appointments, start/end dates, and key responsibilities.</p>
+    </li>
+    <li>
+      <strong>Blogs &amp; Slugs (Health Articles):</strong>
+      <p>Publish new Ayurvedic and medical articles or edit existing ones:</p>
+      <ul>
+        <li>Click <strong>+ New Blog Article</strong> to start a new post.</li>
+        <li>Enter the <strong>Title</strong> (English &amp; Nepali) and customize the URL <strong>Slug</strong> (e.g., <code>ayurvedic-digestive-care</code>) for clean social sharing links.</li>
+        <li>Upload a <strong>Cover Image</strong> from your computer or phone (automatically hosted for fast global loading and Facebook/WhatsApp link previews).</li>
+        <li>Use the <strong>Rich Text Editor</strong> to format headings, bold text, bullet points, links, and images inside the article body.</li>
+        <li>Click <strong>Save &amp; Sync Blogs</strong> to publish immediately.</li>
+      </ul>
+    </li>
+    <li>
+      <strong>FAQ Manager:</strong>
+      <p>Add or update Frequently Asked Questions and answers in both English and Nepali to help patients understand Ayurvedic treatments and clinic procedures.</p>
+    </li>
+    <li>
+      <strong>Useful Links:</strong>
+      <p>Maintain a curated list of external medical councils, health ministries, research portals, and reference links.</p>
+    </li>
+    <li>
+      <strong>Downloads (PDF Upload):</strong>
+      <p>Upload downloadable patient guides, diet charts, forms, or research PDFs and set their titles and descriptions.</p>
+    </li>
+    <li>
+      <strong>Logo, Flag &amp; YouTube:</strong>
+      <p>Upload your official website <strong>Logo</strong> (automatically updates browser tab favicons, headers, and social sharing previews), configure the Nepal national flag icon, and set featured YouTube health videos.</p>
+    </li>
+    <li>
+      <strong>Gallery Albums:</strong>
+      <p>Upload photos from medical camps, conferences, clinic events, and awards, organized by category with captions.</p>
+    </li>
+  </ol>
+
+  <div class="tip-box">
+    <strong>Important Tip — Saving Your Work:</strong> Always click the green <strong>Save &amp; Sync</strong> button at the bottom or top of the section you are editing, or click <strong>Sync All to Live</strong> in the top header before closing the browser tab.
+  </div>
+
+  <h2>3. Managing Patient Consultations in the Inquiries Portal (/inq-prem)</h2>
+  <p>When a patient submits a health inquiry on your website, they receive a unique <strong>Tracking ID</strong> (e.g., <code>PJ-XXXXXX</code>) so they can check your response on the website. You can manage all incoming inquiries from <code>https://www.drpremrajjoshi.com.np/inq-prem</code>.</p>
+
+  <h3>Step 1: Filtering &amp; Searching Patient Records</h3>
+  <ul>
+    <li><strong>Status Tabs:</strong> Filter inquiries by clicking <em>All</em>, <em>Pending</em>, <em>In Review</em>, <em>Confirmed</em>, <em>Completed</em>, or <em>Cancelled</em>.</li>
+    <li><strong>Instant Search Box:</strong> Search for any patient by their <strong>Tracking ID</strong>, <strong>Full Name</strong>, <strong>Phone Number</strong>, <strong>District</strong>, or symptoms.</li>
+  </ul>
+
+  <h3>Step 2: Reviewing a Patient Card</h3>
+  <ul>
+    <li>Click on any patient inquiry card to open the full <strong>Clinical Consultation Modal</strong>.</li>
+    <li>Review the patient's age, gender, phone number, address/district, department, preferred date, detailed problem description, and any attached medical reports/prescriptions.</li>
+  </ul>
+
+  <h3>Step 3: Updating Status, Clinical Notes &amp; Prescribed Advice</h3>
+  <ol>
+    <li><strong>Inquiry Status:</strong> Change the dropdown status from <em>Pending</em> to <em>In Review</em>, <em>Confirmed</em>, <em>Completed</em>, or <em>Cancelled</em>.</li>
+    <li><strong>Doctor Clinical Notes:</strong> Enter your observations or assessment notes.</li>
+    <li><strong>Prescribed Ayurvedic Advice / Next Steps:</strong> Write dietary instructions, lifestyle advice, or follow-up instructions that the patient will see when they check their Tracking ID.</li>
+    <li>Click <strong>Save Patient Record</strong> to sync these updates live.</li>
+  </ol>
+
+  <h3>Step 4: Direct Two-Way Messaging with the Patient</h3>
+  <ul>
+    <li>Inside the patient's inquiry window, scroll to the <strong>Direct Patient-Doctor Consultation Thread</strong>.</li>
+    <li>Type your message in the reply box and click <strong>Send to Patient</strong>.</li>
+    <li>The message will immediately appear on the patient's live tracking portal when they look up their Tracking ID, and you can also see any follow-up replies sent by the patient.</li>
+  </ul>
+
+  <h3>Step 5: Printing or Deleting Records</h3>
+  <ul>
+    <li><strong>Print Case Sheet:</strong> Click the <em>Print</em> icon inside a patient record to generate a clean, printable clinical case sheet for clinic filing.</li>
+    <li><strong>Delete Record:</strong> Click the red <em>Trash</em> icon if you need to permanently remove a test or spam entry.</li>
+  </ul>
+
+  <hr style="margin-top: 28pt; border: none; border-top: 1px solid #d1d5db;" />
+  <p style="font-size: 9.5pt; color: #6b7280; text-align: center;">
+    Dr. Prem Raj Joshi Official Digital Portal — Administrative Documentation
+  </p>
+
+</body>
+</html>

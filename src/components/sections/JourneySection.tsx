@@ -41,31 +41,31 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
   };
 
   return (
-    <section id="journey" className="py-20 md:py-28 bg-neutral-50 border-b border-neutral-200">
+    <section id="journey" className="py-14 sm:py-20 md:py-28 bg-neutral-50 border-b border-neutral-200">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-16">
+        <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-16">
           <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider font-mono">
             {t('sec_journey_kicker')}
           </span>
-          <h2 className="text-3xl sm:text-4xl font-bold text-neutral-900 tracking-tight mt-1 font-editorial">
+          <h2 className="text-2xl sm:text-4xl font-bold text-neutral-900 tracking-tight mt-1 font-editorial">
             {t('sec_journey_title')}
           </h2>
-          <p className="text-sm text-neutral-600 mt-2">
+          <p className="text-xs sm:text-sm text-neutral-600 mt-2">
             Academic rigor and specialized medical curricula across Nepal's premier academic institutions.
           </p>
         </div>
 
         {/* Timeline Layout */}
-        <div className="relative border-l-2 border-emerald-200 pl-6 md:pl-10 ml-4 md:ml-12 space-y-12">
+        <div className="relative border-l-2 border-emerald-200 pl-6 sm:pl-8 md:pl-10 ml-3 sm:ml-6 md:ml-12 space-y-8 sm:space-y-12">
           {education.map((item) => (
             <div key={item.id} className="relative group">
               {/* Timeline marker node */}
-              <div className="absolute -left-[35px] md:-left-[51px] top-1.5 w-10 h-10 rounded-full bg-white border-2 border-emerald-600 flex items-center justify-center text-emerald-700 shadow-sm group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all">
-                <GraduationCap className="w-5 h-5" />
+              <div className="absolute -left-[33px] sm:-left-[41px] md:-left-[51px] top-1.5 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white border-2 border-emerald-600 flex items-center justify-center text-emerald-700 shadow-sm group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition-all">
+                <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
 
               {/* Card Container */}
-              <div className="bg-white border border-neutral-200/90 rounded-2xl p-6 md:p-8 shadow-xs hover:shadow-md transition-shadow">
+              <div className="bg-white border border-neutral-200/90 rounded-2xl p-4 sm:p-6 md:p-8 shadow-xs hover:shadow-md transition-shadow">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                   <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 font-mono">
                     <Calendar className="w-3.5 h-3.5" />

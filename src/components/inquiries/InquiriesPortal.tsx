@@ -268,25 +268,25 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
   return (
     <div className="min-h-screen bg-neutral-100 flex flex-col">
       {/* Header with synchronized avatar */}
-      <header className="bg-neutral-900 text-white px-6 py-4 flex items-center justify-between border-b border-neutral-800">
-        <div className="flex items-center gap-3">
+      <header className="bg-neutral-900 text-white px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2 border-b border-neutral-800">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={onBackToSite}
-            className="p-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
+            className="p-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Public Site</span>
+            <span className="hidden sm:inline">Public Site</span>
           </button>
-          <div className="h-5 w-px bg-neutral-700" />
-          <div className="flex items-center gap-2.5">
+          <div className="h-5 w-px bg-neutral-700 shrink-0" />
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-full overflow-hidden border border-emerald-400 bg-white shrink-0">
               <img src={doctorPhoto} alt="Dr. Joshi" className="w-full h-full object-cover" />
             </div>
-            <div>
-              <h1 className="text-sm sm:text-base font-bold tracking-tight font-editorial leading-tight">
+            <div className="min-w-0">
+              <h1 className="text-xs sm:text-base font-bold tracking-tight font-editorial leading-tight truncate">
                 Patient Inquiries & Consultation Desk
               </h1>
-              <p className="text-[10px] text-emerald-400 font-mono">
+              <p className="text-[10px] text-emerald-400 font-mono truncate">
                 Live Connected · /inq-prem
               </p>
             </div>
@@ -295,7 +295,7 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
 
         <button
           onClick={logout}
-          className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer"
+          className="px-2.5 sm:px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer shrink-0"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>Exit</span>

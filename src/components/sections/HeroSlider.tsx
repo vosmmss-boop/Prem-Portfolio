@@ -77,32 +77,32 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
       <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/60 to-black/30 pointer-events-none" />
 
       {/* Content Container */}
-      <div className="relative z-10 max-w-7xl mx-auto h-full px-6 sm:px-8 flex flex-col justify-end pb-16 md:pb-24">
-        <div className="max-w-3xl space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 key={currentIndex}">
+      <div className="relative z-10 max-w-7xl mx-auto h-full px-4 sm:px-8 flex flex-col justify-end pb-6 sm:pb-12 md:pb-20">
+        <div className="max-w-3xl space-y-3 sm:space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
           {/* Main Title (Bilingual) */}
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.15] font-editorial text-balance drop-shadow-md">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.15] font-editorial text-balance drop-shadow-md">
             {language === 'np' ? currentSlide.titleNp : currentSlide.titleEn}
           </h1>
 
           {/* Subtitle (Bilingual) */}
-          <p className="text-base sm:text-lg md:text-xl text-neutral-200/90 leading-relaxed max-w-2xl text-balance">
+          <p className="text-sm sm:text-lg md:text-xl text-neutral-200/90 leading-relaxed max-w-2xl text-balance line-clamp-3 sm:line-clamp-none">
             {language === 'np' ? currentSlide.subtitleNp : currentSlide.subtitleEn}
           </p>
 
           {/* Action CTAs */}
-          <div className="pt-2 flex flex-wrap items-center gap-4">
+          <div className="pt-1 sm:pt-2 flex flex-wrap items-center gap-2.5 sm:gap-4">
             <button
               onClick={onOpenAppointment}
-              className="px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-emerald-600/30 flex items-center gap-2.5 active:scale-95"
+              className="px-4 sm:px-6 py-2.5 sm:py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-emerald-600/30 flex items-center gap-2 active:scale-95"
             >
-              <Stethoscope className="w-4 h-4" />
+              <Stethoscope className="w-4 h-4 shrink-0" />
               <span>{language === 'np' ? currentSlide.ctaTextNp : currentSlide.ctaTextEn}</span>
             </button>
 
             <a
               href="#about"
-              className="px-6 py-3.5 bg-white/10 hover:bg-white/20 text-white text-sm font-semibold rounded-xl backdrop-blur-md border border-white/20 transition-all duration-200 active:scale-95"
+              className="px-4 sm:px-6 py-2.5 sm:py-3.5 bg-white/10 hover:bg-white/20 text-white text-xs sm:text-sm font-semibold rounded-xl backdrop-blur-md border border-white/20 transition-all duration-200 active:scale-95"
             >
               {language === 'np' ? 'मेरो बारेमा' : 'About Me'}
             </a>
@@ -110,35 +110,37 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
         </div>
 
         {/* Carousel Navigation Arrows & Indicators */}
-        <div className="absolute bottom-8 right-6 sm:right-8 flex items-center gap-3 z-20">
-          <button
-            onClick={handlePrev}
-            className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 text-white border border-white/20 flex items-center justify-center transition-colors backdrop-blur-xs"
-            aria-label="Previous Slide"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
+        <div className="mt-5 sm:mt-0 sm:absolute sm:bottom-8 sm:right-8 flex items-center justify-between sm:justify-end gap-2 sm:gap-3 z-20">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrev}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/70 text-white border border-white/20 flex items-center justify-center transition-colors backdrop-blur-xs"
+              aria-label="Previous Slide"
+            >
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
 
-          <div className="flex items-center gap-1.5 px-2">
-            {slides.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrentIndex(i)}
-                className={`h-2 rounded-full transition-all ${
-                  i === currentIndex ? 'w-8 bg-emerald-400' : 'w-2 bg-white/40 hover:bg-white/70'
-                }`}
-                aria-label={`Go to slide ${i + 1}`}
-              />
-            ))}
+            <div className="flex items-center gap-1.5 px-1.5">
+              {slides.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentIndex(i)}
+                  className={`h-2 rounded-full transition-all ${
+                    i === currentIndex ? 'w-6 sm:w-8 bg-emerald-400' : 'w-2 bg-white/40 hover:bg-white/70'
+                  }`}
+                  aria-label={`Go to slide ${i + 1}`}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={handleNext}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/70 text-white border border-white/20 flex items-center justify-center transition-colors backdrop-blur-xs"
+              aria-label="Next Slide"
+            >
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
           </div>
-
-          <button
-            onClick={handleNext}
-            className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 text-white border border-white/20 flex items-center justify-center transition-colors backdrop-blur-xs"
-            aria-label="Next Slide"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
 
           <button
             onClick={() =>
@@ -148,7 +150,7 @@ export const HeroSlider: React.FC<HeroSliderProps> = ({
                 subtitle: language === 'np' ? currentSlide.subtitleNp : currentSlide.subtitleEn
               })
             }
-            className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/70 text-white border border-white/20 flex items-center justify-center transition-colors backdrop-blur-xs cursor-pointer ml-1"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/70 text-white border border-white/20 flex items-center justify-center transition-colors backdrop-blur-xs cursor-pointer"
             title="View Fullscreen"
           >
             <Maximize2 className="w-4 h-4" />

@@ -71,6 +71,7 @@ import {
 } from 'lucide-react';
 import { adjustAndProcessUploadedImage } from '../../utils/imageAdjuster';
 import { FullScreenImageViewer } from '../common/FullScreenImageViewer';
+import { downloadAdminUserManualDoc } from '../../utils/adminManualGenerator';
 
 interface AdminPortalProps {
   branding: Branding;
@@ -468,27 +469,36 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   return (
     <div className="min-h-screen bg-neutral-100 flex flex-col">
       {/* Top Admin Header */}
-      <header className="bg-neutral-900 text-white px-6 py-3.5 flex flex-wrap items-center justify-between gap-3 border-b border-neutral-800">
-        <div className="flex items-center gap-3">
+      <header className="bg-neutral-900 text-white px-3 sm:px-6 py-3 sm:py-3.5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 border-b border-neutral-800">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={onBackToSite}
-            className="p-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-semibold"
+            className="p-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-semibold shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Public Site</span>
+            <span className="hidden sm:inline">Public Site</span>
           </button>
-          <div className="h-5 w-px bg-neutral-700" />
-          <div>
-            <h1 className="text-sm font-bold tracking-tight">
+          <div className="h-5 w-px bg-neutral-700 shrink-0" />
+          <div className="min-w-0">
+            <h1 className="text-xs sm:text-sm font-bold tracking-tight truncate">
               Dr. Prem Raj Joshi — CMS Management Portal
             </h1>
-            <p className="text-[10px] text-emerald-400 font-mono">
+            <p className="text-[10px] text-emerald-400 font-mono truncate">
               Pure Content Engine · Slug: /webadminprem
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center flex-wrap gap-1.5 sm:gap-2.5">
+          {/* Download Client User Manual (.doc) */}
+          <button
+            onClick={downloadAdminUserManualDoc}
+            className="px-2.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-emerald-300 hover:text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 border border-neutral-700 transition-colors cursor-pointer"
+            title="Download complete CMS & Inquiries Portal User Manual in Word (.doc) format"
+          >
+            <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span>User Manual (.doc)</span>
+          </button>
           {/* Real-time Global Sync Status Badge */}
           {firebaseStatus === 'connected' ? (
             <span className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-mono bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-500/40">
@@ -664,33 +674,35 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
       {/* Main Admin Layout: Sidebar + Workspace */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* Sidebar */}
-        <aside className="w-full md:w-64 bg-white border-r border-neutral-200 p-3 space-y-1 overflow-y-auto">
-          <div className="px-3 py-2 text-[11px] font-bold text-neutral-400 uppercase tracking-wider font-mono">
+        {/* Sidebar: Horizontal scrollable tabs on mobile, vertical sidebar on desktop */}
+        <aside className="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-neutral-200 p-2.5 md:p-3 md:space-y-1 overflow-x-auto md:overflow-y-auto shrink-0">
+          <div className="hidden md:block px-3 py-2 text-[11px] font-bold text-neutral-400 uppercase tracking-wider font-mono">
             Content Modules
           </div>
-          {cmsTabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full px-3 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2.5 transition-colors ${
-                  isActive
-                    ? 'bg-emerald-800 text-white shadow-xs'
-                    : 'text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+          <div className="flex md:flex-col gap-1.5 md:gap-1 min-w-max md:min-w-0">
+            {cmsTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-3 py-2 md:py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 md:gap-2.5 whitespace-nowrap transition-colors ${
+                    isActive
+                      ? 'bg-emerald-800 text-white shadow-xs'
+                      : 'bg-neutral-50 md:bg-transparent text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900'
+                  }`}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </aside>
 
         {/* Content Area */}
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto bg-neutral-100">
+        <main className="flex-1 p-3 sm:p-6 md:p-8 overflow-y-auto bg-neutral-100">
           {toast && (
             <div
               className={`mb-6 p-4 rounded-xl shadow-lg flex items-center gap-2 text-xs font-semibold animate-in fade-in ${

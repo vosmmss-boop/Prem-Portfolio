@@ -343,17 +343,17 @@ export const NamasteWidget: React.FC<NamasteWidgetProps> = ({
   return (
     <>
       {/* 1. Sticky Floating Action Badge on Bottom Right */}
-      <div className="fixed bottom-6 right-6 z-40 print:hidden flex flex-col items-end">
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 print:hidden flex flex-col items-end">
         <button
           onClick={() => {
             setActiveTab('book');
             setIsOpen(true);
           }}
-          className="group relative flex items-center gap-3 bg-gradient-to-r from-emerald-800 to-teal-700 text-white pl-3.5 pr-5 py-2.5 rounded-full shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 border-2 border-emerald-400/40 cursor-pointer"
+          className="group relative flex items-center gap-2.5 sm:gap-3 bg-gradient-to-r from-emerald-800 to-teal-700 text-white pl-2.5 pr-4 sm:pl-3.5 sm:pr-5 py-2 sm:py-2.5 rounded-full shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 border-2 border-emerald-400/40 cursor-pointer"
           aria-label={t('namaste_badge_text')}
         >
           {/* Synchronized doctor thumbnail on badge */}
-          <div className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-emerald-300 bg-white shadow-xs shrink-0">
+          <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border-2 border-emerald-300 bg-white shadow-xs shrink-0">
             <img
               src={currentDoctorPhoto}
               alt="Dr. Prem Raj Joshi"
@@ -362,10 +362,10 @@ export const NamasteWidget: React.FC<NamasteWidgetProps> = ({
           </div>
 
           <div className="text-left">
-            <span className="text-[10px] uppercase tracking-wider text-emerald-200 block font-semibold leading-none mb-0.5">
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-emerald-200 block font-semibold leading-none mb-0.5">
               Dr. Prem Raj Joshi
             </span>
-            <span className="text-sm font-semibold tracking-tight text-white block leading-tight font-nepali">
+            <span className="text-xs sm:text-sm font-semibold tracking-tight text-white block leading-tight font-nepali">
               {t('namaste_badge_text')}
             </span>
           </div>
@@ -374,28 +374,28 @@ export const NamasteWidget: React.FC<NamasteWidgetProps> = ({
 
       {/* 2. Interactive Appointment & Status Tracking Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/65 backdrop-blur-xs animate-in fade-in duration-200">
           <div
-            className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden border border-neutral-200 max-h-[94vh] flex flex-col"
+            className="relative w-full max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden border border-neutral-200 max-h-[92vh] sm:max-h-[94vh] flex flex-col"
             role="dialog"
             aria-modal="true"
           >
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-900 text-white px-6 py-4 flex items-center justify-between border-b border-emerald-800/60">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-400 bg-white shadow-xs shrink-0">
+            <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-900 text-white px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between border-b border-emerald-800/60">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border-2 border-emerald-400 bg-white shadow-xs shrink-0">
                   <img
                     src={currentDoctorPhoto}
                     alt="Dr. Prem Raj Joshi"
                     className="w-full h-full object-cover"
                   />
                 </div>
-                <div>
-                  <div className="flex items-center gap-1.5 text-emerald-300 text-[11px] font-semibold tracking-wider uppercase font-mono">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                    <span>Dr. Prem Raj Joshi · BAMS, IOM, TU</span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 text-emerald-300 text-[10px] sm:text-[11px] font-semibold tracking-wider uppercase font-mono truncate">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                    <span className="truncate">Dr. Prem Raj Joshi · BAMS, IOM, TU</span>
                   </div>
-                  <h3 className="text-lg sm:text-xl font-bold tracking-tight font-editorial leading-tight">
+                  <h3 className="text-base sm:text-xl font-bold tracking-tight font-editorial leading-tight truncate">
                     {activeTab === 'book' ? t('namaste_modal_title') : 'Patient Appointment & Inquiry Tracker'}
                   </h3>
                 </div>
@@ -406,7 +406,7 @@ export const NamasteWidget: React.FC<NamasteWidgetProps> = ({
                   setIsOpen(false);
                   if (onCloseExternal) onCloseExternal();
                 }}
-                className="p-1.5 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                className="p-2 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -414,37 +414,37 @@ export const NamasteWidget: React.FC<NamasteWidgetProps> = ({
             </div>
 
             {/* Tab Navigation: Keep normal appointment + Add Track your status */}
-            <div className="flex border-b border-neutral-200 bg-neutral-50 px-6 pt-3 gap-2">
+            <div className="flex border-b border-neutral-200 bg-neutral-50 px-3 sm:px-6 pt-2.5 sm:pt-3 gap-1.5 sm:gap-2 overflow-x-auto">
               <button
                 onClick={() => {
                   setActiveTab('book');
                   setSubmittedSuccess(false);
                 }}
-                className={`pb-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+                className={`pb-2.5 sm:pb-3 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap transition-all cursor-pointer ${
                   activeTab === 'book'
                     ? 'border-emerald-700 text-emerald-800 bg-white rounded-t-xl shadow-2xs'
                     : 'border-transparent text-neutral-500 hover:text-neutral-800'
                 }`}
               >
-                <Stethoscope className="w-4 h-4 text-emerald-600" />
+                <Stethoscope className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>{language === 'np' ? 'परामर्श फारम' : 'Book Consultation'}</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('track')}
-                className={`pb-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+                className={`pb-2.5 sm:pb-3 px-3 sm:px-4 text-xs font-bold border-b-2 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap transition-all cursor-pointer ${
                   activeTab === 'track'
                     ? 'border-emerald-700 text-emerald-800 bg-white rounded-t-xl shadow-2xs'
                     : 'border-transparent text-neutral-500 hover:text-neutral-800'
                 }`}
               >
-                <Search className="w-4 h-4 text-emerald-600" />
-                <span>{language === 'np' ? 'स्थिति ट्र्याक गर्नुहोस्' : 'Track Your Appointment Status'}</span>
+                <Search className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{language === 'np' ? 'स्थिति ट्र्याक गर्नुहोस्' : 'Track Status'}</span>
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-5 sm:space-y-6 flex-1">
               {/* TAB 1: Normal Appointment Booking Form */}
               {activeTab === 'book' && (
                 <>

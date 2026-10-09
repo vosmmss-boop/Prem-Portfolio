@@ -41,9 +41,9 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
     : autobiography.specialties.en;
 
   return (
-    <section id="about" className="py-20 md:py-28 bg-white border-b border-neutral-200">
+    <section id="about" className="py-14 sm:py-20 md:py-28 bg-white border-b border-neutral-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12 lg:gap-16 items-center">
           {/* Left Column: Doctor Portrait & Trust Badge */}
           <div className="lg:col-span-5 flex flex-col items-center">
             <div
@@ -75,24 +75,24 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
                     subtitle: "BAMS · IOM, TU · NMC Reg. 1824"
                   });
                 }}
-                className="absolute top-4 right-4 z-20 p-2 bg-neutral-900/80 hover:bg-neutral-900 text-white rounded-xl backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity shadow-lg cursor-pointer"
+                className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 p-2 bg-neutral-900/80 hover:bg-neutral-900 text-white rounded-xl backdrop-blur-md sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-lg cursor-pointer"
                 title="View Fullscreen Portrait"
               >
                 <Maximize2 className="w-4 h-4" />
               </button>
 
               {/* Bottom badge overlay */}
-              <div className="absolute bottom-4 left-4 right-4 p-3.5 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg border border-neutral-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-bold text-neutral-950 text-sm font-editorial">
+              <div className="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4 p-3 sm:p-3.5 bg-white/95 backdrop-blur-md rounded-2xl shadow-lg border border-neutral-100">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-neutral-950 text-xs sm:text-sm font-editorial truncate">
                       {doctorName}
                     </h4>
-                    <p className="text-[11px] text-emerald-800 font-medium">
+                    <p className="text-[10px] sm:text-[11px] text-emerald-800 font-medium truncate">
                       BAMS · Maharajgunj Medical Campus, IOM, TU
                     </p>
                   </div>
-                  <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-lg shrink-0">
+                  <span className="px-2 sm:px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-lg shrink-0">
                     NMC 1824
                   </span>
                 </div>
@@ -101,33 +101,33 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
 
             {/* Quick trust metrics (Fully manageable from CMS, hides when cleared) */}
             {(branding.stats?.stat1Value || branding.stats?.stat2Value || branding.stats?.stat3Value) && (
-              <div className="grid grid-cols-3 gap-3 w-full max-w-md mt-6 text-center">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full max-w-md mt-4 sm:mt-6 text-center">
                 {branding.stats?.stat1Value && (
-                  <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80">
-                    <span className="block text-xl font-bold text-emerald-800 font-mono">
+                  <div className="p-2.5 sm:p-3 bg-neutral-50 rounded-xl border border-neutral-200/80">
+                    <span className="block text-base sm:text-xl font-bold text-emerald-800 font-mono">
                       {branding.stats.stat1Value}
                     </span>
-                    <span className="text-[11px] text-neutral-600 leading-tight block mt-0.5">
+                    <span className="text-[10px] sm:text-[11px] text-neutral-600 leading-tight block mt-0.5">
                       {language === 'np' ? (branding.stats?.stat1LabelNp || '') : (branding.stats?.stat1LabelEn || '')}
                     </span>
                   </div>
                 )}
                 {branding.stats?.stat2Value && (
-                  <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80">
-                    <span className="block text-xl font-bold text-emerald-800 font-mono">
+                  <div className="p-2.5 sm:p-3 bg-neutral-50 rounded-xl border border-neutral-200/80">
+                    <span className="block text-base sm:text-xl font-bold text-emerald-800 font-mono">
                       {branding.stats.stat2Value}
                     </span>
-                    <span className="text-[11px] text-neutral-600 leading-tight block mt-0.5">
+                    <span className="text-[10px] sm:text-[11px] text-neutral-600 leading-tight block mt-0.5">
                       {language === 'np' ? (branding.stats?.stat2LabelNp || '') : (branding.stats?.stat2LabelEn || '')}
                     </span>
                   </div>
                 )}
                 {branding.stats?.stat3Value && (
-                  <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80">
-                    <span className="block text-xl font-bold text-emerald-800 font-mono">
+                  <div className="p-2.5 sm:p-3 bg-neutral-50 rounded-xl border border-neutral-200/80">
+                    <span className="block text-base sm:text-xl font-bold text-emerald-800 font-mono">
                       {branding.stats.stat3Value}
                     </span>
-                    <span className="text-[11px] text-neutral-600 leading-tight block mt-0.5">
+                    <span className="text-[10px] sm:text-[11px] text-neutral-600 leading-tight block mt-0.5">
                       {language === 'np' ? (branding.stats?.stat3LabelNp || '') : (branding.stats?.stat3LabelEn || '')}
                     </span>
                   </div>

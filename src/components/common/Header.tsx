@@ -96,10 +96,10 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
 
   return (
     <header className="sticky top-0 z-40 bg-white/98 backdrop-blur-md border-b border-neutral-200 shadow-2xs transition-colors">
-      <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 py-2.5">
-        <div className="flex items-center justify-between gap-2.5 xl:gap-4">
-          {/* Brand Identity: Bold Doctor Name & Flickering Degree Title (Guaranteed Single Line) */}
-          <div className="flex items-center shrink-0">
+      <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-6 py-2 sm:py-2.5">
+        <div className="flex items-center justify-between gap-2 xl:gap-4">
+          {/* Brand Identity: Bold Doctor Name & Flickering Degree Title */}
+          <div className="flex items-center min-w-0 flex-1 lg:flex-initial">
             <a
               href="#home"
               onClick={(e) => {
@@ -108,9 +108,9 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
                   onNavigate('main');
                 }
               }}
-              className="flex items-center gap-2.5 sm:gap-3 group shrink-0"
+              className="flex items-center gap-2 sm:gap-3 group min-w-0"
             >
-              <div className="relative w-11 h-11 sm:w-12 sm:h-12 md:w-13 md:h-13 rounded-full overflow-hidden border-2 border-emerald-600 shadow-sm shrink-0">
+              <div className="relative w-9 h-9 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-full overflow-hidden border-2 border-emerald-600 shadow-sm shrink-0">
                 <img
                   src={branding.logoUrl}
                   alt={language === 'np' ? (branding.doctorName?.np || 'डा. प्रेम राज जोशी') : (branding.doctorName?.en || 'Dr. Prem Raj Joshi')}
@@ -119,11 +119,11 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
                 />
               </div>
 
-              <div className="shrink-0">
-                <h1 className="text-base sm:text-lg md:text-xl xl:text-[22px] font-black tracking-tight text-neutral-950 font-editorial uppercase leading-tight whitespace-nowrap">
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-lg md:text-xl xl:text-[22px] font-black tracking-tight text-neutral-950 font-editorial uppercase leading-tight truncate">
                   {language === 'np' ? (branding.doctorName?.np || 'डा. प्रेम राज जोशी') : (branding.doctorName?.en || 'DR. PREM RAJ JOSHI')}
                 </h1>
-                <div className="text-[10px] sm:text-[11px] xl:text-xs font-extrabold tracking-wide uppercase font-mono animate-flicker text-emerald-800 leading-tight mt-0.5 whitespace-nowrap">
+                <div className="text-[9px] sm:text-[11px] xl:text-xs font-extrabold tracking-wide uppercase font-mono animate-flicker text-emerald-800 leading-tight mt-0.5 truncate">
                   {language === 'np' ? (branding.degreeTitle?.np || 'बीएएमएस, आइओएम, टियु · आयुर्वेदिक चिकित्सक') : (branding.degreeTitle?.en || 'BAMS, IOM, TU · AYURVEDIC PHYSICIAN')}
                 </div>
               </div>
@@ -227,13 +227,13 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
           </nav>
 
           {/* Action Buttons: Language Switcher & Consultation CTA */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={toggleLanguage}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-neutral-300 text-xs font-bold text-neutral-800 hover:text-emerald-700 hover:border-emerald-500 bg-neutral-50 hover:bg-emerald-50/50 transition-all shadow-2xs whitespace-nowrap"
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 min-h-[36px] sm:min-h-[38px] rounded-lg border border-neutral-300 text-[11px] sm:text-xs font-bold text-neutral-800 hover:text-emerald-700 hover:border-emerald-500 bg-neutral-50 hover:bg-emerald-50/50 transition-all shadow-2xs whitespace-nowrap"
               aria-label="Switch Language"
             >
-              <Globe className="w-3.5 h-3.5 text-emerald-600" />
+              <Globe className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>{language === 'en' ? 'नेपाली' : 'EN'}</span>
             </button>
 
@@ -244,7 +244,7 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
                 window.history.pushState(null, '', '/track');
                 window.dispatchEvent(new PopStateEvent('popstate'));
               }}
-              className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors shadow-2xs whitespace-nowrap cursor-pointer"
+              className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 min-h-[38px] text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors shadow-2xs whitespace-nowrap cursor-pointer"
               title="Track your appointment status with Tracking ID or Phone"
             >
               <Search className="w-3.5 h-3.5 text-emerald-700" />
@@ -258,16 +258,16 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
                 window.history.pushState(null, '', '/appointment');
                 window.dispatchEvent(new PopStateEvent('popstate'));
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition-colors shadow-xs whitespace-nowrap cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] sm:min-h-[38px] text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition-colors shadow-xs whitespace-nowrap cursor-pointer"
             >
-              <Stethoscope className="w-3.5 h-3.5" />
+              <Stethoscope className="w-3.5 h-3.5 shrink-0" />
               <span className="hidden sm:inline">{language === 'np' ? 'परामर्श लिनुहोस्' : 'Appointment'}</span>
             </a>
 
             {/* Mobile hamburger menu */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-1.5 rounded-lg text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
+              className="lg:hidden p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 transition-colors"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -275,9 +275,9 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
           </div>
         </div>
 
-        {/* Tablet / Mobile Sub-Bar: Nepali Date & Time */}
-        <div className="xl:hidden mt-2 pt-2 border-t border-neutral-100 flex items-center justify-between text-[11px] font-mono">
-          <div className="flex items-center gap-2">
+        {/* Tablet Sub-Bar: Nepali Date & Time (Shown on sm-lg, tucked into drawer on tiny phones to save vertical sticky height) */}
+        <div className="hidden sm:flex xl:hidden mt-2 pt-1.5 border-t border-neutral-100 items-center justify-between text-[11px] font-mono">
+          <div className="flex items-center gap-2.5">
             {activeSocialLinks.facebook && activeSocialLinks.facebook.trim() && (
               <a href={activeSocialLinks.facebook} target="_blank" rel="noreferrer" className="text-neutral-600 hover:text-blue-600" title="Facebook"><Facebook className="w-3.5 h-3.5" /></a>
             )}
@@ -308,7 +308,36 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-white border-b border-neutral-200 px-6 py-4 space-y-3 animate-in fade-in">
+        <div className="lg:hidden bg-white border-b border-neutral-200 px-4 py-4 space-y-3 animate-in fade-in shadow-lg">
+          {/* Mobile Nepal Date & Time + Social Strip */}
+          <div className="sm:hidden flex items-center justify-between pb-3 border-b border-neutral-100 text-[10px] font-mono">
+            <div className="flex items-center gap-2.5">
+              {activeSocialLinks.facebook && activeSocialLinks.facebook.trim() && (
+                <a href={activeSocialLinks.facebook} target="_blank" rel="noreferrer" className="p-1 text-neutral-600 hover:text-blue-600" title="Facebook"><Facebook className="w-4 h-4" /></a>
+              )}
+              {activeSocialLinks.tiktok && activeSocialLinks.tiktok.trim() && (
+                <a href={activeSocialLinks.tiktok} target="_blank" rel="noreferrer" className="p-1 text-neutral-600 hover:text-neutral-950" title="TikTok"><TikTokIcon className="w-4 h-4" /></a>
+              )}
+              {activeSocialLinks.instagram && activeSocialLinks.instagram.trim() && (
+                <a href={activeSocialLinks.instagram} target="_blank" rel="noreferrer" className="p-1 text-neutral-600 hover:text-pink-600" title="Instagram"><Instagram className="w-4 h-4" /></a>
+              )}
+              {activeSocialLinks.twitter && activeSocialLinks.twitter.trim() && (
+                <a href={activeSocialLinks.twitter} target="_blank" rel="noreferrer" className="p-1 text-neutral-600 hover:text-neutral-950" title="X (Twitter)"><XLogoIcon className="w-4 h-4" /></a>
+              )}
+              {activeSocialLinks.youtube && activeSocialLinks.youtube.trim() && (
+                <a href={activeSocialLinks.youtube} target="_blank" rel="noreferrer" className="p-1 text-neutral-600 hover:text-red-600" title="YouTube"><Youtube className="w-4 h-4" /></a>
+              )}
+            </div>
+            <div className="flex items-center gap-1 whitespace-nowrap">
+              <span className="font-black text-neutral-900 bg-neutral-200/70 px-1.5 py-0.5 rounded">
+                {language === 'np' ? nptTime.asojDateNp : nptTime.asojDateEn}
+              </span>
+              <span className="font-black text-emerald-800 bg-emerald-100/70 px-1.5 py-0.5 rounded">
+                {language === 'np' ? nptTime.time12Np : nptTime.time12En}
+              </span>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-2 text-xs font-bold">
             {navLinks.map((link) => (
               <a
@@ -323,11 +352,14 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
                     }, 100);
                   }
                 }}
-                className="py-2 px-3 rounded-lg text-neutral-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
+                className="py-2.5 px-3 rounded-xl text-neutral-700 bg-neutral-50 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
               >
                 {link.label}
               </a>
             ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 pt-1">
             <a
               href="/track"
               onClick={(e) => {
@@ -336,10 +368,24 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
                 window.history.pushState(null, '', '/track');
                 window.dispatchEvent(new PopStateEvent('popstate'));
               }}
-              className="py-2 px-3 rounded-lg text-emerald-800 bg-emerald-50 hover:bg-emerald-100 font-bold transition-colors flex items-center gap-1.5"
+              className="py-2.5 px-3 rounded-xl text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
             >
-              <Search className="w-3.5 h-3.5 text-emerald-700" />
+              <Search className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
               <span>{language === 'np' ? 'ट्र्याक गर्नुहोस्' : 'Track Status'}</span>
+            </a>
+
+            <a
+              href="/appointment"
+              onClick={(e) => {
+                e.preventDefault();
+                setMobileMenuOpen(false);
+                window.history.pushState(null, '', '/appointment');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              className="py-2.5 px-3 rounded-xl text-white bg-emerald-700 hover:bg-emerald-800 font-bold text-xs transition-colors flex items-center justify-center gap-1.5"
+            >
+              <Stethoscope className="w-3.5 h-3.5 shrink-0" />
+              <span>{language === 'np' ? 'परामर्श लिनुहोस्' : 'Appointment'}</span>
             </a>
           </div>
         </div>
