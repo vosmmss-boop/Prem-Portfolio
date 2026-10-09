@@ -495,8 +495,18 @@ export function AppContent() {
       checkAllLoaded
     );
 
+    // Listen for cross-tab localStorage updates so inquiries submitted in another tab appear immediately
+    const handleStorageSync = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEYS.INQUIRIES) {
+        const latest = getLocal<PatientInquiry[]>(STORAGE_KEYS.INQUIRIES, initialPatientInquiries);
+        setInquiries(latest);
+      }
+    };
+    window.addEventListener('storage', handleStorageSync);
+
     return () => {
       clearTimeout(fallbackTimer);
+      window.removeEventListener('storage', handleStorageSync);
       unsubBranding();
       unsubSliders();
       unsubBio();

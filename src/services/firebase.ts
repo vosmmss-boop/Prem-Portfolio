@@ -638,19 +638,27 @@ export function subscribeToNode<T>(
 
             // If there are pending local edits that failed to push to Firebase (e.g. Permission Denied),
             // merge or preserve local edits so newly added blogs/items never disappear!
-            if (hasPendingLocal) {
+            if (hasPendingLocal || storageKey === STORAGE_KEYS.INQUIRIES) {
               const localCurrent = getLocal<T>(storageKey, initialFallback);
               if (Array.isArray(localCurrent) && Array.isArray(normalized)) {
                 // Merge any local items not in remote snapshot at the front
                 const remoteIds = new Set(normalized.map((item: any) => item?.id));
                 const localOnly = localCurrent.filter((item: any) => item?.id && !remoteIds.has(item.id));
-                const merged = [...localOnly, ...normalized] as unknown as T;
-                setLocal(storageKey, merged, false);
-                onData(merged);
+                // Sort inquiries newest first when merging
+                const merged = [...localOnly, ...normalized];
+                if (storageKey === STORAGE_KEYS.INQUIRIES) {
+                  merged.sort((a: any, b: any) =>
+                    String(b?.createdAt || '').localeCompare(String(a?.createdAt || ''))
+                  );
+                }
+                setLocal(storageKey, merged as unknown as T, false);
+                onData(merged as unknown as T);
                 return;
               }
-              onData(localCurrent);
-              return;
+              if (hasPendingLocal) {
+                onData(localCurrent);
+                return;
+              }
             }
 
             setLocal(storageKey, normalized, false);
@@ -867,23 +875,45 @@ export async function pushAllContentToFirebase(allData: {
  * Submit Patient Inquiry (to /patient_inquiries in Firebase)
  */
 export async function submitPatientInquiry(inquiry: PatientInquiry): Promise<boolean> {
-  // Save locally
+  const cleanInquiry = sanitizeForFirebase(inquiry);
+
+  // Save locally first and mark pending until Firebase confirms write
   const current = getLocal<PatientInquiry[]>(STORAGE_KEYS.INQUIRIES, initialPatientInquiries);
-  const updated = [inquiry, ...current.filter((i) => i.id !== inquiry.id)];
-  setLocal(STORAGE_KEYS.INQUIRIES, updated);
+  const updated = [cleanInquiry, ...current.filter((i) => i.id !== cleanInquiry.id)];
+  locallyModifiedPendingSync.add(STORAGE_KEYS.INQUIRIES);
+  try {
+    localStorage.setItem(`${STORAGE_KEYS.INQUIRIES}_pending_sync`, 'true');
+  } catch {
+    // ignore
+  }
+  setLocal(STORAGE_KEYS.INQUIRIES, updated, true);
 
   trackEvent('patient_inquiry_submitted', {
-    inquiry_id: inquiry.id,
-    request_type: inquiry.requestType
+    inquiry_id: cleanInquiry.id,
+    request_type: cleanInquiry.requestType
   });
 
   if (database) {
     try {
-      const inquiriesRef = ref(database, `patient_inquiries/${inquiry.id}`);
-      await set(inquiriesRef, inquiry);
+      const inquiriesRef = ref(database, `patient_inquiries/${cleanInquiry.id}`);
+      await set(inquiriesRef, cleanInquiry);
+      locallyModifiedPendingSync.delete(STORAGE_KEYS.INQUIRIES);
+      try {
+        localStorage.removeItem(`${STORAGE_KEYS.INQUIRIES}_pending_sync`);
+      } catch {
+        // ignore
+      }
       return true;
     } catch (err) {
-      console.warn("Firebase inquiry submission fallback to local storage:", err);
+      console.warn('Firebase single inquiry write failed, attempting full node sync:', err);
+      try {
+        const rootInqRef = ref(database, 'patient_inquiries');
+        await set(rootInqRef, sanitizeForFirebase(updated));
+        locallyModifiedPendingSync.delete(STORAGE_KEYS.INQUIRIES);
+        localStorage.removeItem(`${STORAGE_KEYS.INQUIRIES}_pending_sync`);
+      } catch (fallbackErr) {
+        console.warn('Firebase inquiry submission fallback to local storage:', fallbackErr);
+      }
       return true;
     }
   }
@@ -894,17 +924,34 @@ export async function submitPatientInquiry(inquiry: PatientInquiry): Promise<boo
  * Update an existing Patient Inquiry (status, notes, doctor message, patient review)
  */
 export async function updatePatientInquiry(inquiry: PatientInquiry): Promise<boolean> {
+  const cleanInquiry = sanitizeForFirebase(inquiry);
   const current = getLocal<PatientInquiry[]>(STORAGE_KEYS.INQUIRIES, initialPatientInquiries);
-  const updated = current.map((item) => (item.id === inquiry.id ? inquiry : item));
-  setLocal(STORAGE_KEYS.INQUIRIES, updated);
+  const exists = current.some((item) => item.id === cleanInquiry.id);
+  const updated = exists
+    ? current.map((item) => (item.id === cleanInquiry.id ? cleanInquiry : item))
+    : [cleanInquiry, ...current];
+
+  locallyModifiedPendingSync.add(STORAGE_KEYS.INQUIRIES);
+  try {
+    localStorage.setItem(`${STORAGE_KEYS.INQUIRIES}_pending_sync`, 'true');
+  } catch {
+    // ignore
+  }
+  setLocal(STORAGE_KEYS.INQUIRIES, updated, true);
 
   if (database) {
     try {
-      const inquiriesRef = ref(database, `patient_inquiries/${inquiry.id}`);
-      await set(inquiriesRef, inquiry);
+      const inquiriesRef = ref(database, `patient_inquiries/${cleanInquiry.id}`);
+      await set(inquiriesRef, cleanInquiry);
+      locallyModifiedPendingSync.delete(STORAGE_KEYS.INQUIRIES);
+      try {
+        localStorage.removeItem(`${STORAGE_KEYS.INQUIRIES}_pending_sync`);
+      } catch {
+        // ignore
+      }
       return true;
     } catch (err) {
-      console.warn("Firebase inquiry update fallback to local storage:", err);
+      console.warn('Firebase inquiry update fallback to local storage:', err);
       return true;
     }
   }

@@ -57,8 +57,8 @@ export const initialBranding: Branding = {
   youtubeVideos: [
     {
       id: 'yt-1',
-      titleEn: 'Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi',
-      titleNp: 'आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी',
+      titleEn: '',
+      titleNp: '',
       kickerEn: 'Featured Health Lecture',
       kickerNp: 'विशेष स्वास्थ्य प्रवचन',
       url: 'https://www.youtube.com/embed/dQw4w9WgXcQ'

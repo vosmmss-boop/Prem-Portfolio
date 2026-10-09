@@ -24,14 +24,26 @@ export const GallerySection: React.FC<GallerySectionProps> = ({
   // Resolve list of embedded YouTube videos (supports multiple videos with custom titles + fallback to single youtubeEmbedUrl)
   const youtubeVideos: YouTubeVideoItem[] = useMemo(() => {
     if (branding.youtubeVideos && branding.youtubeVideos.length > 0) {
-      return branding.youtubeVideos.filter((v) => v && v.url && v.url.trim());
+      return branding.youtubeVideos
+        .filter((v) => v && v.url && v.url.trim())
+        .map((v) => ({
+          ...v,
+          titleEn:
+            v.titleEn === 'Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi'
+              ? ''
+              : v.titleEn,
+          titleNp:
+            v.titleNp === 'आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी'
+              ? ''
+              : v.titleNp
+        }));
     }
     if (branding.youtubeEmbedUrl && branding.youtubeEmbedUrl.trim()) {
       return [
         {
           id: 'yt-default-1',
-          titleEn: 'Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi',
-          titleNp: 'आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी',
+          titleEn: '',
+          titleNp: '',
           kickerEn: 'Featured Health Lecture',
           kickerNp: 'विशेष स्वास्थ्य प्रवचन',
           url: branding.youtubeEmbedUrl
@@ -84,8 +96,8 @@ export const GallerySection: React.FC<GallerySectionProps> = ({
               const isPlaying = Boolean(playingVideoIds[vidKey]);
               const videoTitle =
                 language === 'np'
-                  ? vid.titleNp || vid.titleEn || 'आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी'
-                  : vid.titleEn || vid.titleNp || 'Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi';
+                  ? (vid.titleNp || vid.titleEn || '').trim()
+                  : (vid.titleEn || vid.titleNp || '').trim();
               const videoKicker =
                 language === 'np'
                   ? vid.kickerNp || vid.kickerEn || 'विशेष स्वास्थ्य प्रवचन'
@@ -102,9 +114,11 @@ export const GallerySection: React.FC<GallerySectionProps> = ({
                         <Play className="w-3.5 h-3.5 fill-emerald-400 shrink-0" />
                         <span className="truncate">{videoKicker}</span>
                       </span>
-                      <h3 className="text-base sm:text-lg md:text-xl font-bold text-white font-editorial mt-1 leading-snug">
-                        {videoTitle}
-                      </h3>
+                      {videoTitle && (
+                        <h3 className="text-base sm:text-lg md:text-xl font-bold text-white font-editorial mt-1 leading-snug">
+                          {videoTitle}
+                        </h3>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
                       <a

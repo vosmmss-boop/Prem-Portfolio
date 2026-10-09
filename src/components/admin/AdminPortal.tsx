@@ -4165,14 +4165,24 @@ const LogoFlagManager: React.FC<{
   // Resolve YouTube videos list (migrating legacy single youtubeEmbedUrl if youtubeVideos array is not yet set)
   const videos: YouTubeVideoItem[] = React.useMemo(() => {
     if (data.youtubeVideos && data.youtubeVideos.length > 0) {
-      return data.youtubeVideos;
+      return data.youtubeVideos.map((v) => ({
+        ...v,
+        titleEn:
+          v.titleEn === 'Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi'
+            ? ''
+            : v.titleEn,
+        titleNp:
+          v.titleNp === 'आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी'
+            ? ''
+            : v.titleNp
+      }));
     }
     if (data.youtubeEmbedUrl && data.youtubeEmbedUrl.trim()) {
       return [
         {
           id: 'yt-1',
-          titleEn: 'Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi',
-          titleNp: 'आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी',
+          titleEn: '',
+          titleNp: '',
           kickerEn: 'Featured Health Lecture',
           kickerNp: 'विशेष स्वास्थ्य प्रवचन',
           url: data.youtubeEmbedUrl
@@ -4197,11 +4207,11 @@ const LogoFlagManager: React.FC<{
   const handleAddVideo = () => {
     const newVideo: YouTubeVideoItem = {
       id: `yt-${Date.now()}`,
-      titleEn: 'Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi',
-      titleNp: 'आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी',
+      titleEn: '',
+      titleNp: '',
       kickerEn: 'Featured Health Lecture',
       kickerNp: 'विशेष स्वास्थ्य प्रवचन',
-      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+      url: ''
     };
     updateVideosList([...videos, newVideo]);
   };
@@ -4364,26 +4374,26 @@ const LogoFlagManager: React.FC<{
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-bold text-neutral-700 mb-1">
-                          Video Title (English)
+                          Video Title (English — Optional)
                         </label>
                         <input
                           type="text"
                           value={vid.titleEn}
                           onChange={(e) => handleUpdateVideo(vid.id, { titleEn: e.target.value })}
-                          placeholder="Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi"
+                          placeholder="Enter custom video title (or leave blank)"
                           className="w-full p-2.5 text-xs border border-neutral-300 rounded-xl bg-white"
                         />
                       </div>
 
                       <div>
                         <label className="block text-xs font-bold text-neutral-700 mb-1">
-                          Video Title (Nepali Unicode)
+                          Video Title (Nepali Unicode — Optional)
                         </label>
                         <input
                           type="text"
                           value={vid.titleNp || ''}
                           onChange={(e) => handleUpdateVideo(vid.id, { titleNp: e.target.value })}
-                          placeholder="आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी"
+                          placeholder="भिडियोको शीर्षक लेख्नुहोस् (वा खाली छोड्नुहोस्)"
                           className="w-full p-2.5 text-xs border border-neutral-300 rounded-xl bg-white font-nepali"
                         />
                       </div>
