@@ -1,8 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PatientInquiry, InquiryStatus, Branding, InquiryMessage } from '../../types';
-import { saveNodeData } from '../../services/firebase';
+import {
+  updatePatientInquiry,
+  deletePatientInquiry,
+  getLocal,
+  mergeAndNormalizeInquiries,
+  STORAGE_KEYS
+} from '../../services/firebase';
+import { initialPatientInquiries } from '../../data/initialData';
 import {
   Inbox,
   User,
@@ -84,15 +91,47 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
     }
   };
 
-  // Filter inquiries
-  const filteredInquiries = inquiries.filter((inq) => {
-    const matchesStatus = statusFilter === 'all' || inq.status === statusFilter;
+  // Ensure any local inquiries in localStorage are merged on mount or tab focus so nothing is ever hidden
+  useEffect(() => {
+    const syncLatestLocal = () => {
+      const localList = getLocal<PatientInquiry[]>(STORAGE_KEYS.INQUIRIES, initialPatientInquiries);
+      const merged = mergeAndNormalizeInquiries(localList, inquiries);
+      if (merged.length !== inquiries.length) {
+        onUpdateInquiries(merged);
+      }
+    };
+    syncLatestLocal();
+    window.addEventListener('focus', syncLatestLocal);
+    return () => window.removeEventListener('focus', syncLatestLocal);
+  }, [inquiries, onUpdateInquiries]);
+
+  // Normalize all inquiries safely so missing properties never hide a card
+  const safeInquiries = React.useMemo(
+    () => mergeAndNormalizeInquiries(inquiries, []),
+    [inquiries]
+  );
+
+  // Filter inquiries safely with null-coalescing
+  const filteredInquiries = safeInquiries.filter((inq) => {
+    const itemStatus = inq.status || 'Pending';
+    const matchesStatus = statusFilter === 'all' || itemStatus === statusFilter;
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return matchesStatus;
+
+    const fullName = String(inq.fullName || '').toLowerCase();
+    const phone = String(inq.phone || '').toLowerCase();
+    const trackingId = String(inq.trackingId || inq.id || '').toLowerCase();
+    const district = String(inq.district || '').toLowerCase();
+    const province = String(inq.province || '').toLowerCase();
+    const problemDetails = String(inq.problemDetails || '').toLowerCase();
+
     const matchesSearch =
-      inq.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inq.phone.includes(searchTerm) ||
-      (inq.trackingId && inq.trackingId.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      inq.district.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inq.problemDetails.toLowerCase().includes(searchTerm.toLowerCase());
+      fullName.includes(q) ||
+      phone.includes(q) ||
+      trackingId.includes(q) ||
+      district.includes(q) ||
+      province.includes(q) ||
+      problemDetails.includes(q);
     return matchesStatus && matchesSearch;
   });
 
@@ -100,7 +139,7 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
     setSelectedCard(inq);
     setDoctorNotes(inq.doctorNotes || '');
     setPrescribedAdvice(inq.prescribedAdvice || '');
-    setEditStatus(inq.status);
+    setEditStatus(inq.status || 'Pending');
     setDoctorMessageInput('');
   };
 
@@ -112,11 +151,9 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
       prescribedAdvice,
       status: editStatus
     };
-    const updated = inquiries.map((item) =>
-      item.id === selectedCard.id ? updatedCard : item
-    );
+    const updated = mergeAndNormalizeInquiries([updatedCard], safeInquiries);
     onUpdateInquiries(updated);
-    const result = await saveNodeData('patient_inquiries', 'dr_joshi_patient_inquiries', updated);
+    const result = await updatePatientInquiry(updatedCard);
     setSelectedCard(updatedCard);
     if (result.syncedToFirebase) {
       showToast('✓ Patient record saved & synced globally to Firebase!');
@@ -148,12 +185,9 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
       messages: [...(selectedCard.messages || []), newMsg]
     };
 
-    const updated = inquiries.map((item) =>
-      item.id === selectedCard.id ? updatedCard : item
-    );
-
+    const updated = mergeAndNormalizeInquiries([updatedCard], safeInquiries);
     onUpdateInquiries(updated);
-    const result = await saveNodeData('patient_inquiries', 'dr_joshi_patient_inquiries', updated);
+    const result = await updatePatientInquiry(updatedCard);
     setSelectedCard(updatedCard);
     setDoctorMessageInput('');
     setIsSendingMessage(false);
@@ -167,9 +201,9 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
 
   const handleDelete = async (id: string) => {
     if (confirm('Delete this patient record permanently?')) {
-      const updated = inquiries.filter((i) => i.id !== id);
+      const updated = safeInquiries.filter((i) => i.id !== id && i.trackingId !== id);
       onUpdateInquiries(updated);
-      const result = await saveNodeData('patient_inquiries', 'dr_joshi_patient_inquiries', updated);
+      const result = await deletePatientInquiry(id);
       if (selectedCard?.id === id) setSelectedCard(null);
       if (result.syncedToFirebase) {
         showToast('✓ Record deleted locally and removed globally from Firebase.');
@@ -314,19 +348,25 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
         {/* Filter and Search Bar */}
         <div className="bg-white p-4 rounded-2xl border border-neutral-200/90 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
-            {['all', 'Pending', 'In Review', 'Confirmed', 'Completed', 'Cancelled'].map((st) => (
-              <button
-                key={st}
-                onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                  statusFilter === st
-                    ? 'bg-emerald-800 text-white'
-                    : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
-                }`}
-              >
-                {st === 'all' ? `All (${inquiries.length})` : st}
-              </button>
-            ))}
+            {['all', 'Pending', 'In Review', 'Confirmed', 'Completed', 'Cancelled'].map((st) => {
+              const count =
+                st === 'all'
+                  ? safeInquiries.length
+                  : safeInquiries.filter((i) => (i.status || 'Pending') === st).length;
+              return (
+                <button
+                  key={st}
+                  onClick={() => setStatusFilter(st)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                    statusFilter === st
+                      ? 'bg-emerald-800 text-white'
+                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                  }`}
+                >
+                  {st === 'all' ? `All (${count})` : `${st} (${count})`}
+                </button>
+              );
+            })}
           </div>
 
           <div className="relative w-full md:w-80">

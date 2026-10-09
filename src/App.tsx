@@ -29,7 +29,12 @@ import {
   initialPatientInquiries,
   initialSocialLinks
 } from './data/initialData';
-import { subscribeToNode, getLocal, STORAGE_KEYS } from './services/firebase';
+import {
+  subscribeToNode,
+  getLocal,
+  mergeAndNormalizeInquiries,
+  STORAGE_KEYS
+} from './services/firebase';
 import { sanitizeSlug } from './utils/slugify';
 
 import { Header } from './components/common/Header';
@@ -491,22 +496,30 @@ export function AppContent() {
       'patient_inquiries',
       'dr_joshi_patient_inquiries',
       initialPatientInquiries,
-      setInquiries,
+      (incoming) => {
+        setInquiries((prev) => mergeAndNormalizeInquiries(incoming, prev));
+      },
       checkAllLoaded
     );
 
-    // Listen for cross-tab localStorage updates so inquiries submitted in another tab appear immediately
+    // Listen for cross-tab localStorage updates and same-window custom events so inquiries appear immediately and never drop
     const handleStorageSync = (e: StorageEvent) => {
       if (e.key === STORAGE_KEYS.INQUIRIES) {
         const latest = getLocal<PatientInquiry[]>(STORAGE_KEYS.INQUIRIES, initialPatientInquiries);
-        setInquiries(latest);
+        setInquiries((prev) => mergeAndNormalizeInquiries(latest, prev));
       }
     };
+    const handleCustomInquiriesUpdate = () => {
+      const latest = getLocal<PatientInquiry[]>(STORAGE_KEYS.INQUIRIES, initialPatientInquiries);
+      setInquiries((prev) => mergeAndNormalizeInquiries(latest, prev));
+    };
     window.addEventListener('storage', handleStorageSync);
+    window.addEventListener('inquiries-updated', handleCustomInquiriesUpdate);
 
     return () => {
       clearTimeout(fallbackTimer);
       window.removeEventListener('storage', handleStorageSync);
+      window.removeEventListener('inquiries-updated', handleCustomInquiriesUpdate);
       unsubBranding();
       unsubSliders();
       unsubBio();
@@ -690,12 +703,10 @@ export function AppContent() {
               }
             }}
             onInquirySubmitted={(newInquiry) => {
-              setInquiries((prev) => [newInquiry, ...prev.filter((i) => i.id !== newInquiry.id)]);
+              setInquiries((prev) => mergeAndNormalizeInquiries([newInquiry], prev));
             }}
             onInquiryUpdated={(updatedInquiry) => {
-              setInquiries((prev) =>
-                prev.map((i) => (i.id === updatedInquiry.id ? updatedInquiry : i))
-              );
+              setInquiries((prev) => mergeAndNormalizeInquiries([updatedInquiry], prev));
             }}
           />
 

@@ -515,8 +515,130 @@ export const STORAGE_KEYS = {
   LINKS: 'dr_joshi_links',
   DOWNLOADS: 'dr_joshi_downloads',
   GALLERY: 'dr_joshi_gallery',
-  INQUIRIES: 'dr_joshi_patient_inquiries'
+  INQUIRIES: 'dr_joshi_patient_inquiries',
+  DELETED_INQUIRIES: 'dr_joshi_deleted_inquiries'
 };
+
+/**
+ * Normalize and validate a raw patient inquiry object so missing fields never cause it to be hidden or crash filters
+ */
+export function normalizePatientInquiry(raw: any, fallbackId?: string): PatientInquiry | null {
+  if (!raw || typeof raw !== 'object') return null;
+  if (raw._emptyList) return null;
+
+  const id = String(raw.id || raw.firebaseKey || fallbackId || '').trim();
+  const trackingId = String(raw.trackingId || '').trim();
+  const fullName = String(raw.fullName || '').trim();
+  const phone = String(raw.phone || '').trim();
+
+  // Ignore corrupted/empty objects that are not real inquiries
+  if (!id && !trackingId && !fullName && !phone) return null;
+
+  const validStatuses = ['Pending', 'In Review', 'Confirmed', 'Completed', 'Cancelled'];
+  const rawStatus = String(raw.status || 'Pending').trim();
+  const status = (validStatuses.includes(rawStatus) ? rawStatus : 'Pending') as PatientInquiry['status'];
+
+  let messages: any[] = [];
+  if (Array.isArray(raw.messages)) {
+    messages = raw.messages.filter(Boolean);
+  } else if (raw.messages && typeof raw.messages === 'object') {
+    messages = Object.values(raw.messages).filter(Boolean);
+  }
+
+  return {
+    ...raw,
+    id: id || `inq-${trackingId || Date.now()}`,
+    trackingId: trackingId || id || 'PRJ-000000',
+    createdAt: String(raw.createdAt || new Date().toISOString()),
+    fullName: fullName || 'Patient',
+    age: String(raw.age ?? 'N/A'),
+    gender: String(raw.gender || 'Other'),
+    phone: phone || 'N/A',
+    email: String(raw.email || ''),
+    province: String(raw.province || 'Nepal'),
+    district: String(raw.district || ''),
+    municipality: String(raw.municipality || ''),
+    wardNo: String(raw.wardNo || ''),
+    toleName: String(raw.toleName || ''),
+    requestType: (raw.requestType || 'Appointment') as PatientInquiry['requestType'],
+    problemDetails: String(raw.problemDetails || ''),
+    preferredDate: String(raw.preferredDate || ''),
+    status,
+    doctorNotes: raw.doctorNotes ? String(raw.doctorNotes) : undefined,
+    prescribedAdvice: raw.prescribedAdvice ? String(raw.prescribedAdvice) : undefined,
+    messages
+  };
+}
+
+function getDeletedInquiryIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.DELETED_INQUIRIES);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return new Set(parsed.map(String));
+    }
+  } catch {
+    // ignore
+  }
+  return new Set<string>();
+}
+
+function markInquiryDeletedLocally(id: string): void {
+  try {
+    const deleted = getDeletedInquiryIds();
+    deleted.add(id);
+    localStorage.setItem(STORAGE_KEYS.DELETED_INQUIRIES, JSON.stringify(Array.from(deleted)));
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Deduplicate and merge two lists of patient inquiries without ever dropping or hiding any valid inquiry
+ */
+export function mergeAndNormalizeInquiries(
+  primaryList: any[],
+  secondaryList: any[] = []
+): PatientInquiry[] {
+  const deletedIds = getDeletedInquiryIds();
+  const byKey = new Map<string, PatientInquiry>();
+
+  // Process secondary list first (e.g. remote or older cache), then primary list (newer updates) overrides or enriches
+  const combined = [...(Array.isArray(secondaryList) ? secondaryList : []), ...(Array.isArray(primaryList) ? primaryList : [])];
+
+  for (const rawItem of combined) {
+    const norm = normalizePatientInquiry(rawItem);
+    if (!norm) continue;
+    if (deletedIds.has(norm.id) || (norm.trackingId && deletedIds.has(norm.trackingId))) {
+      continue;
+    }
+
+    const key = String(norm.id || norm.trackingId || '');
+    if (!key) continue;
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, norm);
+    } else {
+      // Keep the version with more messages, doctor notes, or newer status
+      const existingMsgs = existing.messages?.length || 0;
+      const normMsgs = norm.messages?.length || 0;
+      const mergedMessages = normMsgs >= existingMsgs ? norm.messages : existing.messages;
+      byKey.set(key, {
+        ...existing,
+        ...norm,
+        doctorNotes: norm.doctorNotes ?? existing.doctorNotes,
+        prescribedAdvice: norm.prescribedAdvice ?? existing.prescribedAdvice,
+        patientReview: norm.patientReview ?? existing.patientReview,
+        attachment: norm.attachment ?? existing.attachment,
+        messages: mergedMessages
+      });
+    }
+  }
+
+  const result = Array.from(byKey.values());
+  result.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  return result;
+}
 
 export function getLocal<T>(key: string, fallback: T): T {
   try {
@@ -636,29 +758,46 @@ export function subscribeToNode<T>(
           if (parsedData !== null && parsedData !== undefined) {
             const normalized = normalizeAssetUrls(parsedData);
 
+            // Special handling for Patient Inquiries: NEVER drop or hide local or remote inquiries!
+            if (storageKey === STORAGE_KEYS.INQUIRIES) {
+              const localCurrent = getLocal<PatientInquiry[]>(storageKey, initialFallback as unknown as PatientInquiry[]);
+              const remoteArray = Array.isArray(normalized) ? normalized : [];
+              const mergedInquiries = mergeAndNormalizeInquiries(localCurrent, remoteArray);
+
+              setLocal(storageKey, mergedInquiries as unknown as T, false);
+              onData(mergedInquiries as unknown as T);
+
+              // If there are local inquiries that aren't in Firebase yet, push them individually so remote stays in sync
+              const remoteIds = new Set(
+                remoteArray
+                  .map((r: any) => String(r?.id || r?.firebaseKey || ''))
+                  .filter(Boolean)
+              );
+              const missingInRemote = mergedInquiries.filter((inq) => inq.id && !remoteIds.has(inq.id));
+              if (missingInRemote.length > 0 && database) {
+                missingInRemote.forEach((missingInq) => {
+                  const childRef = ref(database!, `patient_inquiries/${missingInq.id}`);
+                  set(childRef, sanitizeForFirebase(missingInq)).catch(() => {});
+                });
+              }
+              return;
+            }
+
             // If there are pending local edits that failed to push to Firebase (e.g. Permission Denied),
             // merge or preserve local edits so newly added blogs/items never disappear!
-            if (hasPendingLocal || storageKey === STORAGE_KEYS.INQUIRIES) {
+            if (hasPendingLocal) {
               const localCurrent = getLocal<T>(storageKey, initialFallback);
               if (Array.isArray(localCurrent) && Array.isArray(normalized)) {
                 // Merge any local items not in remote snapshot at the front
                 const remoteIds = new Set(normalized.map((item: any) => item?.id));
                 const localOnly = localCurrent.filter((item: any) => item?.id && !remoteIds.has(item.id));
-                // Sort inquiries newest first when merging
                 const merged = [...localOnly, ...normalized];
-                if (storageKey === STORAGE_KEYS.INQUIRIES) {
-                  merged.sort((a: any, b: any) =>
-                    String(b?.createdAt || '').localeCompare(String(a?.createdAt || ''))
-                  );
-                }
                 setLocal(storageKey, merged as unknown as T, false);
                 onData(merged as unknown as T);
                 return;
               }
-              if (hasPendingLocal) {
-                onData(localCurrent);
-                return;
-              }
+              onData(localCurrent);
+              return;
             }
 
             setLocal(storageKey, normalized, false);
@@ -872,14 +1011,16 @@ export async function pushAllContentToFirebase(allData: {
 }
 
 /**
- * Submit Patient Inquiry (to /patient_inquiries in Firebase)
+ * Submit Patient Inquiry (to /patient_inquiries/{id} in Firebase)
  */
 export async function submitPatientInquiry(inquiry: PatientInquiry): Promise<boolean> {
-  const cleanInquiry = sanitizeForFirebase(inquiry);
+  const normalizedInquiry = normalizePatientInquiry(inquiry) || inquiry;
+  const cleanInquiry = sanitizeForFirebase(normalizedInquiry);
 
-  // Save locally first and mark pending until Firebase confirms write
+  // Save locally first and merge with existing inquiries so nothing is ever lost
   const current = getLocal<PatientInquiry[]>(STORAGE_KEYS.INQUIRIES, initialPatientInquiries);
-  const updated = [cleanInquiry, ...current.filter((i) => i.id !== cleanInquiry.id)];
+  const updated = mergeAndNormalizeInquiries([cleanInquiry], current);
+
   locallyModifiedPendingSync.add(STORAGE_KEYS.INQUIRIES);
   try {
     localStorage.setItem(`${STORAGE_KEYS.INQUIRIES}_pending_sync`, 'true');
@@ -887,6 +1028,11 @@ export async function submitPatientInquiry(inquiry: PatientInquiry): Promise<boo
     // ignore
   }
   setLocal(STORAGE_KEYS.INQUIRIES, updated, true);
+
+  // Dispatch a custom same-window event so any mounted listener refreshes immediately
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('inquiries-updated', { detail: updated }));
+  }
 
   trackEvent('patient_inquiry_submitted', {
     inquiry_id: cleanInquiry.id,
@@ -905,10 +1051,16 @@ export async function submitPatientInquiry(inquiry: PatientInquiry): Promise<boo
       }
       return true;
     } catch (err) {
-      console.warn('Firebase single inquiry write failed, attempting full node sync:', err);
+      console.warn('Firebase single inquiry write failed, attempting child map update:', err);
       try {
         const rootInqRef = ref(database, 'patient_inquiries');
-        await set(rootInqRef, sanitizeForFirebase(updated));
+        const mapPayload: Record<string, any> = {};
+        updated.forEach((item) => {
+          if (item && item.id) {
+            mapPayload[item.id] = sanitizeForFirebase(item);
+          }
+        });
+        await update(rootInqRef, mapPayload);
         locallyModifiedPendingSync.delete(STORAGE_KEYS.INQUIRIES);
         localStorage.removeItem(`${STORAGE_KEYS.INQUIRIES}_pending_sync`);
       } catch (fallbackErr) {
@@ -922,14 +1074,17 @@ export async function submitPatientInquiry(inquiry: PatientInquiry): Promise<boo
 
 /**
  * Update an existing Patient Inquiry (status, notes, doctor message, patient review)
+ * Writes directly to /patient_inquiries/{id} so concurrent patient submissions are never overwritten!
  */
-export async function updatePatientInquiry(inquiry: PatientInquiry): Promise<boolean> {
-  const cleanInquiry = sanitizeForFirebase(inquiry);
+export async function updatePatientInquiry(inquiry: PatientInquiry): Promise<{
+  success: boolean;
+  syncedToFirebase: boolean;
+  isPermissionDenied?: boolean;
+}> {
+  const normalizedInquiry = normalizePatientInquiry(inquiry) || inquiry;
+  const cleanInquiry = sanitizeForFirebase(normalizedInquiry);
   const current = getLocal<PatientInquiry[]>(STORAGE_KEYS.INQUIRIES, initialPatientInquiries);
-  const exists = current.some((item) => item.id === cleanInquiry.id);
-  const updated = exists
-    ? current.map((item) => (item.id === cleanInquiry.id ? cleanInquiry : item))
-    : [cleanInquiry, ...current];
+  const updated = mergeAndNormalizeInquiries([cleanInquiry], current);
 
   locallyModifiedPendingSync.add(STORAGE_KEYS.INQUIRIES);
   try {
@@ -938,6 +1093,10 @@ export async function updatePatientInquiry(inquiry: PatientInquiry): Promise<boo
     // ignore
   }
   setLocal(STORAGE_KEYS.INQUIRIES, updated, true);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('inquiries-updated', { detail: updated }));
+  }
 
   if (database) {
     try {
@@ -949,13 +1108,44 @@ export async function updatePatientInquiry(inquiry: PatientInquiry): Promise<boo
       } catch {
         // ignore
       }
-      return true;
-    } catch (err) {
-      console.warn('Firebase inquiry update fallback to local storage:', err);
-      return true;
+      return { success: true, syncedToFirebase: true };
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      const isPermissionDenied = /permission_denied|permission denied/i.test(msg);
+      console.warn('Firebase inquiry update fallback to local storage:', msg);
+      return { success: true, syncedToFirebase: false, isPermissionDenied };
     }
   }
-  return true;
+  return { success: true, syncedToFirebase: false };
+}
+
+/**
+ * Delete a single Patient Inquiry permanently without overwriting other inquiries
+ */
+export async function deletePatientInquiry(id: string): Promise<{
+  success: boolean;
+  syncedToFirebase: boolean;
+}> {
+  markInquiryDeletedLocally(id);
+  const current = getLocal<PatientInquiry[]>(STORAGE_KEYS.INQUIRIES, initialPatientInquiries);
+  const updated = current.filter((item) => item.id !== id && item.trackingId !== id);
+  setLocal(STORAGE_KEYS.INQUIRIES, updated, true);
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('inquiries-updated', { detail: updated }));
+  }
+
+  if (database) {
+    try {
+      const itemRef = ref(database, `patient_inquiries/${id}`);
+      await remove(itemRef);
+      return { success: true, syncedToFirebase: true };
+    } catch (err) {
+      console.warn('Firebase inquiry delete fallback to local storage:', err);
+      return { success: true, syncedToFirebase: false };
+    }
+  }
+  return { success: true, syncedToFirebase: false };
 }
 
 /**
