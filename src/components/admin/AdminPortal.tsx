@@ -24,6 +24,8 @@ import {
   checkFirebaseConnection,
   pushAllContentToFirebase,
   uploadImageToFirebaseStorage,
+  uploadImageToImgBB,
+  isValidHttpsImageUrl,
   validateImageFile,
   sanitizeStorageFileName,
   formatFirebaseStorageError
@@ -94,42 +96,28 @@ interface AdminPortalProps {
   onBackToSite: () => void;
 }
 
-// Device file reader & automatic image adjuster helper
+// Device file uploader helper (uploads images to ImgBB HTTPS URL without FileReader/readAsDataURL)
 function readFileAsDataUrl(
   file: File,
   callback: (url: string, name: string, size: string) => void
 ) {
-  // If file is an image, auto-adjust dimensions and optimize
+  const size =
+    file.size > 1024 * 1024
+      ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+      : `${Math.round(file.size / 1024)} KB`;
+
   if (file.type.startsWith('image/')) {
-    adjustAndProcessUploadedImage(file)
+    uploadImageToImgBB(file)
       .then((res) => {
-        callback(res.dataUrl, res.name, res.size);
+        callback(res.url, file.name, size);
       })
-      .catch(() => {
-        // Fallback to standard reader if image canvas processing fails
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const url = e.target?.result as string;
-          const size =
-            file.size > 1024 * 1024
-              ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
-              : `${Math.round(file.size / 1024)} KB`;
-          callback(url, file.name, size);
-        };
-        reader.readAsDataURL(file);
+      .catch((err) => {
+        console.error('Image upload failed:', err);
       });
   } else {
     // Non-image files (e.g. PDF downloads)
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const url = e.target?.result as string;
-      const size =
-        file.size > 1024 * 1024
-          ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
-          : `${Math.round(file.size / 1024)} KB`;
-      callback(url, file.name, size);
-    };
-    reader.readAsDataURL(file);
+    const objectUrl = URL.createObjectURL(file);
+    callback(objectUrl, file.name, size);
   }
 }
 
@@ -2537,9 +2525,23 @@ const ExperienceManager: React.FC<{
 };
 
 // ==========================================
-// 6. BLOGS & SLUGS (With Firebase Storage Cover Image Upload & Rich Text Editor)
+// 6. BLOGS & SLUGS (Multi-Option Cover Image Selection: ImgBB PC Upload + Direct HTTPS URL)
 // ==========================================
-const DEFAULT_BLOG_COVER = '/assets/images/hero_ayurveda_clinic_1791392890876.jpg';
+const DEFAULT_BLOG_COVER = 'https://drpremrajjoshi.com.np/assets/images/hero_ayurveda_clinic_1791392890876.jpg';
+
+/**
+ * Sanitize cover URL so base64 data:image/ strings are NEVER assigned to cover_image or coverImage
+ */
+function sanitizeBlogCoverHttpsUrl(rawUrl: string | undefined | null): string {
+  const trimmed = (rawUrl || '').trim();
+  if (!trimmed || trimmed.toLowerCase().startsWith('data:')) {
+    return DEFAULT_BLOG_COVER;
+  }
+  if (trimmed.startsWith('/')) {
+    return `https://drpremrajjoshi.com.np${trimmed}`;
+  }
+  return isValidHttpsImageUrl(trimmed) ? trimmed : DEFAULT_BLOG_COVER;
+}
 
 const BlogsManager: React.FC<{
   blogs: BlogArticle[];
@@ -2549,13 +2551,13 @@ const BlogsManager: React.FC<{
 }> = ({ blogs, onSaveLocal, onSaveLive, onNotify }) => {
   const [items, setItems] = useState<BlogArticle[]>(blogs);
   const [editingBlog, setEditingBlog] = useState<BlogArticle | null>(null);
+  const [coverOptionTab, setCoverOptionTab] = useState<'upload_pc' | 'enter_url'>('upload_pc');
+  const [manualCoverUrlInput, setManualCoverUrlInput] = useState<string>('');
   const [slugError, setSlugError] = useState<string | null>(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
   const [coverUploadProgress, setCoverUploadProgress] = useState<number>(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [showCorsGuide, setShowCorsGuide] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ url: string; title?: string } | null>(null);
-  const activeCoverTaskRef = React.useRef<UploadTask | null>(null);
 
   React.useEffect(() => {
     setItems(blogs);
@@ -2581,16 +2583,18 @@ const BlogsManager: React.FC<{
       cover_image: DEFAULT_BLOG_COVER
     };
     setEditingBlog(newBlog);
+    setManualCoverUrlInput(DEFAULT_BLOG_COVER);
+    setCoverOptionTab('upload_pc');
     setSlugError(null);
     setUploadError(null);
     setCoverUploadProgress(0);
   };
 
-  const handleUploadCover = async (file: File) => {
+  // Option A: Upload Image from PC via ImgBB API (https://api.imgbb.com/1/upload?key=...)
+  const handleUploadCoverFromPC = async (file: File) => {
     if (!editingBlog) return;
 
-    // 1. Validate file type & size before starting upload
-    const validation = validateImageFile(file, 10);
+    const validation = validateImageFile(file, 32);
     if (!validation.valid) {
       const msg = validation.error || 'Invalid image file.';
       setUploadError(msg);
@@ -2599,67 +2603,131 @@ const BlogsManager: React.FC<{
     }
 
     setIsUploadingCover(true);
-    setCoverUploadProgress(25);
+    setCoverUploadProgress(30);
     setUploadError(null);
-    setShowCorsGuide(false);
 
     try {
-      // 2. Upload immediately to Firebase Storage using ref, uploadBytes, and getDownloadURL
-      // Never use FileReader or readAsDataURL() for cover_image
-      const activeStorage = storage || (app ? getStorage(app) : getStorage());
-      const storageRef = ref(activeStorage, `blog_covers/${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
-      setCoverUploadProgress(90);
-      const downloadURL = await getDownloadURL(storageRef);
-      setCoverUploadProgress(100);
+      const IMGBB_API_KEY =
+        (import.meta.env.VITE_IMGBB_API_KEY || '').trim() ||
+        '6d207e02198a847aa98d0a2a901485a5';
 
-      // 3. Save HTTPS download URL into both cover_image and coverImage
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch(
+        `https://api.imgbb.com/1/upload?key=${encodeURIComponent(IMGBB_API_KEY)}`,
+        {
+          method: 'POST',
+          body: formData
+        }
+      );
+
+      setCoverUploadProgress(80);
+      const json = await response.json().catch(() => null);
+
+      if (!response.ok || !json || !json.success || !json.data?.url) {
+        const apiError =
+          json?.error?.message ||
+          json?.status_txt ||
+          `ImgBB upload failed (HTTP ${response.status}). Please verify your ImgBB API key or use Option B: "Enter Image URL".`;
+        throw new Error(apiError);
+      }
+
+      const httpsUrl: string = json.data.url;
+      if (!isValidHttpsImageUrl(httpsUrl)) {
+        throw new Error('ImgBB did not return a valid https:// image link.');
+      }
+
+      setCoverUploadProgress(100);
+      setManualCoverUrlInput(httpsUrl);
+
+      // Update both cover_image and coverImage with the direct https://i.ibb.co/... URL
       setEditingBlog((prev) =>
         prev
           ? {
               ...prev,
-              cover_image: downloadURL,
-              coverImage: downloadURL
+              cover_image: httpsUrl,
+              coverImage: httpsUrl
             }
           : null
       );
 
       if (onNotify) {
-        onNotify('✓ Cover image uploaded to Firebase Storage (`blog_covers/`)!', 'success');
+        onNotify(`✓ Cover image uploaded to ImgBB (${httpsUrl})!`, 'success');
       }
     } catch (err: any) {
-      console.error('Firebase Storage cover upload failed:', err);
-      const formatted = formatFirebaseStorageError(err);
-      if (!formatted.isCanceled) {
-        setUploadError(formatted.message);
-        if (formatted.isCorsOr404) {
-          setShowCorsGuide(true);
-        }
-        if (onNotify) {
-          onNotify(`⚠️ ${formatted.message}`, 'error');
-        }
+      console.error('ImgBB cover image upload error:', err);
+      const errMsg =
+        err?.message ||
+        'Failed to upload image to ImgBB. Please check your connection or use Option B ("Enter Image URL").';
+      setUploadError(errMsg);
+      if (onNotify) {
+        onNotify(`⚠️ ${errMsg}`, 'error');
       }
     } finally {
-      activeCoverTaskRef.current = null;
       setIsUploadingCover(false);
       setCoverUploadProgress(0);
     }
   };
 
-  const handleCancelCoverUpload = () => {
-    if (activeCoverTaskRef.current) {
-      try {
-        activeCoverTaskRef.current.cancel();
-      } catch {
-        // ignore
-      }
+  // Option B: Direct HTTPS Image URL input handler
+  const handleManualUrlChange = (rawInput: string) => {
+    setManualCoverUrlInput(rawInput);
+    const trimmed = rawInput.trim();
+
+    if (!trimmed) {
+      setUploadError(null);
+      return;
     }
-    activeCoverTaskRef.current = null;
-    setIsUploadingCover(false);
-    setCoverUploadProgress(0);
+
+    if (trimmed.toLowerCase().startsWith('data:')) {
+      const msg = 'Base64 data URLs (data:image/...) are not allowed. Please enter a valid https:// image link.';
+      setUploadError(msg);
+      return;
+    }
+
+    if (!isValidHttpsImageUrl(trimmed)) {
+      setUploadError('Please enter a valid image URL starting with https:// (e.g., https://example.com/image.jpg).');
+      return;
+    }
+
+    setUploadError(null);
+    setEditingBlog((prev) =>
+      prev
+        ? {
+            ...prev,
+            cover_image: trimmed,
+            coverImage: trimmed
+          }
+        : null
+    );
+  };
+
+  const handleApplyManualUrl = () => {
+    const trimmed = manualCoverUrlInput.trim();
+    if (!isValidHttpsImageUrl(trimmed)) {
+      const msg = 'Invalid image link! Please provide a valid URL starting with https:// (never base64 data:image/...).';
+      setUploadError(msg);
+      if (onNotify) onNotify(`⚠️ ${msg}`, 'error');
+      return;
+    }
+    setUploadError(null);
+    setEditingBlog((prev) =>
+      prev
+        ? {
+            ...prev,
+            cover_image: trimmed,
+            coverImage: trimmed
+          }
+        : null
+    );
+    if (onNotify) {
+      onNotify('✓ Direct HTTPS cover image URL applied!', 'success');
+    }
   };
 
   const handleRemoveCoverImage = () => {
+    setManualCoverUrlInput(DEFAULT_BLOG_COVER);
     setEditingBlog((prev) =>
       prev
         ? {
@@ -2672,19 +2740,37 @@ const BlogsManager: React.FC<{
     setUploadError(null);
   };
 
-  const buildUpdatedBlogsList = ( closeEditor = true ): BlogArticle[] | null => {
-    let baseList: BlogArticle[] = items.map((b) => ({
-      ...b,
-      cover_image: b.cover_image || b.coverImage || DEFAULT_BLOG_COVER,
-      coverImage: b.cover_image || b.coverImage || DEFAULT_BLOG_COVER
-    }));
+  const buildUpdatedBlogsList = (closeEditor = true): BlogArticle[] | null => {
+    let baseList: BlogArticle[] = items.map((b) => {
+      const cleanCover = sanitizeBlogCoverHttpsUrl(b.cover_image || b.coverImage);
+      return {
+        ...b,
+        cover_image: cleanCover,
+        coverImage: cleanCover
+      };
+    });
 
     if (editingBlog) {
+      const currentCover = (editingBlog.cover_image || editingBlog.coverImage || '').trim();
+      if (currentCover.toLowerCase().startsWith('data:')) {
+        const msg = 'Base64 data URLs are not permitted for cover_image. Please upload via ImgBB or enter an https:// URL.';
+        setUploadError(msg);
+        if (onNotify) onNotify(`⚠️ ${msg}`, 'error');
+        return null;
+      }
+
+      if (currentCover && !isValidHttpsImageUrl(currentCover) && !currentCover.startsWith('/')) {
+        const msg = 'Invalid cover image URL. Please enter a valid https:// image link.';
+        setUploadError(msg);
+        if (onNotify) onNotify(`⚠️ ${msg}`, 'error');
+        return null;
+      }
+
       const candidateSlug = (editingBlog.slug || generateSlug(editingBlog.titleEn || `article-${Date.now()}`)).trim();
       const isUnique = checkSlugUniqueness(candidateSlug, baseList, editingBlog.id);
       const finalSlug = isUnique ? candidateSlug : `${candidateSlug}-${Date.now().toString(36).slice(-4)}`;
 
-      const finalCoverUrl = editingBlog.cover_image || editingBlog.coverImage || DEFAULT_BLOG_COVER;
+      const finalCoverUrl = sanitizeBlogCoverHttpsUrl(currentCover);
       const normalizedBlog: BlogArticle = {
         ...editingBlog,
         slug: finalSlug,
@@ -2734,6 +2820,10 @@ const BlogsManager: React.FC<{
     onSaveLive(updated);
   };
 
+  const activeCoverUrl = editingBlog
+    ? sanitizeBlogCoverHttpsUrl(editingBlog.cover_image || editingBlog.coverImage)
+    : DEFAULT_BLOG_COVER;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -2742,7 +2832,7 @@ const BlogsManager: React.FC<{
             Health Blogs & Unique Slugs
           </h2>
           <p className="text-xs text-neutral-500">
-            Publish articles with the Word-like Rich Text Editor, upload PC cover photos directly to Firebase Storage, and auto-verify unique slug keys.
+            Publish articles with the Word-like Rich Text Editor, select cover photos via PC Upload (ImgBB HTTPS) or Direct HTTPS Image URL, and auto-verify unique slug keys.
           </p>
         </div>
 
@@ -2852,34 +2942,87 @@ const BlogsManager: React.FC<{
               </div>
             </div>
 
-            {/* Direct PC Cover Image Upload via Firebase Storage with Progress, Cancel, Remove & Error Alert */}
-            <div className="md:col-span-2 space-y-2">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-neutral-50 p-3.5 rounded-xl border border-neutral-200">
+            {/* Multi-Option Cover Image Selection System (Option A: ImgBB PC Upload | Option B: Enter HTTPS Image URL) */}
+            <div className="md:col-span-2 space-y-3 bg-neutral-50 p-4 rounded-xl border border-neutral-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-200 pb-3">
+                <div>
+                  <span className="text-xs font-bold text-neutral-900 block">
+                    Article Cover Image (`cover_image` / `coverImage` — HTTPS URL Only)
+                  </span>
+                  <span className="text-[11px] text-neutral-500">
+                    Choose how to set the article cover image: upload from your PC (ImgBB HTTPS link) or paste any direct `https://` image URL.
+                  </span>
+                </div>
+
+                {/* Option Tabs */}
+                <div className="inline-flex rounded-lg bg-neutral-200/80 p-1 shrink-0 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCoverOptionTab('upload_pc');
+                      setUploadError(null);
+                    }}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      coverOptionTab === 'upload_pc'
+                        ? 'bg-emerald-700 text-white shadow-2xs'
+                        : 'text-neutral-700 hover:text-neutral-900'
+                    }`}
+                  >
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Option A: Upload Image from PC</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCoverOptionTab('enter_url');
+                      setManualCoverUrlInput(editingBlog.cover_image || editingBlog.coverImage || '');
+                      setUploadError(null);
+                    }}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      coverOptionTab === 'enter_url'
+                        ? 'bg-emerald-700 text-white shadow-2xs'
+                        : 'text-neutral-700 hover:text-neutral-900'
+                    }`}
+                  >
+                    <Link2 className="w-3.5 h-3.5" />
+                    <span>Option B: Enter Image URL</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                {/* Live Preview Thumbnail */}
                 <div
-                  className="w-24 h-16 rounded-xl overflow-hidden bg-neutral-900 shrink-0 relative group cursor-pointer border border-neutral-300 shadow-2xs"
+                  className="w-28 h-20 rounded-xl overflow-hidden bg-neutral-900 shrink-0 relative group cursor-pointer border border-neutral-300 shadow-2xs"
                   onClick={() =>
                     !isUploadingCover &&
                     setPreviewImage({
-                      url: editingBlog.cover_image || editingBlog.coverImage,
+                      url: activeCoverUrl,
                       title: editingBlog.titleEn
                     })
                   }
-                  title="Click to view full screen"
+                  title="Click to preview full screen"
                 >
-                  <img
-                    src={editingBlog.cover_image || editingBlog.coverImage}
-                    alt="cover"
-                    className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${
-                      isUploadingCover ? 'opacity-40' : ''
-                    }`}
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      if (!target.dataset.fallbackApplied) {
-                        target.dataset.fallbackApplied = 'true';
-                        target.src = DEFAULT_BLOG_COVER;
-                      }
-                    }}
-                  />
+                  {isValidHttpsImageUrl(activeCoverUrl) ? (
+                    <img
+                      src={activeCoverUrl}
+                      alt="Cover preview"
+                      className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${
+                        isUploadingCover ? 'opacity-40' : ''
+                      }`}
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (!target.dataset.fallbackApplied) {
+                          target.dataset.fallbackApplied = 'true';
+                          target.src = DEFAULT_BLOG_COVER;
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[10px] text-neutral-400 text-center p-2">
+                      No HTTPS Image
+                    </div>
+                  )}
                   {isUploadingCover ? (
                     <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white">
                       <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
@@ -2892,36 +3035,99 @@ const BlogsManager: React.FC<{
                   )}
                 </div>
 
-                <div className="flex-1 min-w-0 space-y-1">
-                  <span className="text-xs font-bold text-neutral-800 block">
-                    Article Cover Photo (Firebase Storage `cover_image`):
-                  </span>
-                  {isUploadingCover ? (
-                    <div className="space-y-1">
-                      <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1.5">
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Uploading to `blog_covers/...` ({coverUploadProgress}%)</span>
-                      </span>
-                      <div className="w-full max-w-xs h-1.5 bg-emerald-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-emerald-700 transition-all duration-200"
-                          style={{ width: `${coverUploadProgress}%` }}
-                        />
+                {/* Active Option Controls */}
+                <div className="flex-1 min-w-0 space-y-2">
+                  {coverOptionTab === 'upload_pc' ? (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="space-y-0.5 min-w-0 flex-1">
+                          <span className="text-xs font-bold text-neutral-800 block">
+                            Option A: Upload Image from PC (ImgBB Cloud Hosting)
+                          </span>
+                          {isUploadingCover ? (
+                            <div className="space-y-1">
+                              <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1.5">
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                <span>Uploading to ImgBB (`https://api.imgbb.com/1/upload`)... {coverUploadProgress}%</span>
+                              </span>
+                              <div className="w-full max-w-xs h-1.5 bg-emerald-200 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-emerald-700 transition-all duration-200"
+                                  style={{ width: `${coverUploadProgress}%` }}
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-emerald-800 font-mono truncate block">
+                              Active HTTPS URL: {activeCoverUrl}
+                            </span>
+                          )}
+                        </div>
+
+                        <label
+                          className={`px-3.5 py-2 bg-emerald-700 text-white rounded-lg text-xs font-bold shrink-0 flex items-center gap-1.5 transition-colors shadow-2xs ${
+                            isUploadingCover
+                              ? 'opacity-60 cursor-not-allowed'
+                              : 'hover:bg-emerald-800 cursor-pointer'
+                          }`}
+                        >
+                          {isUploadingCover ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>Uploading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>Select Image from PC</span>
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            disabled={isUploadingCover}
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleUploadCoverFromPC(f);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
                       </div>
                     </div>
                   ) : (
-                    <span className="text-[10px] text-neutral-500 font-mono truncate block">
-                      {editingBlog.cover_image || editingBlog.coverImage}
-                    </span>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-neutral-800 block">
+                        Option B: Enter Direct HTTPS Image URL
+                      </label>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <input
+                          type="text"
+                          value={manualCoverUrlInput}
+                          onChange={(e) => handleManualUrlChange(e.target.value)}
+                          placeholder="https://example.com/image.jpg"
+                          className="flex-1 px-3 py-2 text-xs border border-neutral-300 rounded-lg font-mono bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleApplyManualUrl}
+                          className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg shrink-0 cursor-pointer"
+                        >
+                          Apply HTTPS URL
+                        </button>
+                      </div>
+                    </div>
                   )}
 
+                  {/* Preview & Reset Actions */}
                   <div className="flex flex-wrap items-center gap-3 pt-0.5">
                     <button
                       type="button"
                       disabled={isUploadingCover}
                       onClick={() =>
                         setPreviewImage({
-                          url: editingBlog.cover_image || editingBlog.coverImage,
+                          url: activeCoverUrl,
                           title: editingBlog.titleEn
                         })
                       }
@@ -2931,95 +3137,37 @@ const BlogsManager: React.FC<{
                       <span>Preview Full Screen</span>
                     </button>
 
-                    {(editingBlog.cover_image || editingBlog.coverImage) !== DEFAULT_BLOG_COVER && !isUploadingCover && (
+                    {activeCoverUrl !== DEFAULT_BLOG_COVER && !isUploadingCover && (
                       <button
                         type="button"
                         onClick={handleRemoveCoverImage}
                         className="text-[11px] text-rose-600 font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
                       >
                         <Trash2 className="w-3 h-3" />
-                        <span>Remove Cover Image</span>
-                      </button>
-                    )}
-
-                    {isUploadingCover && (
-                      <button
-                        type="button"
-                        onClick={handleCancelCoverUpload}
-                        className="text-[11px] text-rose-700 font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
-                      >
-                        <X className="w-3 h-3" />
-                        <span>Cancel Upload</span>
+                        <span>Reset to Default Cover</span>
                       </button>
                     )}
                   </div>
                 </div>
-
-                <label
-                  className={`px-3 py-1.5 bg-white border border-neutral-300 text-neutral-700 rounded-lg text-xs font-bold shrink-0 flex items-center gap-1.5 transition-colors shadow-2xs ${
-                    isUploadingCover
-                      ? 'opacity-60 cursor-not-allowed'
-                      : 'hover:bg-neutral-100 cursor-pointer'
-                  }`}
-                >
-                  {isUploadingCover ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 text-emerald-700 animate-spin" />
-                      <span>Uploading...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Upload PC Cover</span>
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    disabled={isUploadingCover}
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) handleUploadCover(f);
-                      e.target.value = '';
-                    }}
-                  />
-                </label>
               </div>
 
               {uploadError && (
                 <div
                   role="alert"
-                  className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs space-y-2"
+                  className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-start justify-between gap-2"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                      <span>{uploadError}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setUploadError(null)}
-                      className="text-rose-500 hover:text-rose-800 p-0.5"
-                      aria-label="Dismiss upload error"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span>{uploadError}</span>
                   </div>
-
-                  {showCorsGuide && (
-                    <div className="p-2.5 bg-white border border-rose-200 rounded-lg text-[11px] text-neutral-800 space-y-1.5">
-                      <p className="font-bold text-neutral-900">
-                        How to apply Firebase Storage CORS for `https://hi.drpremrajjoshi.com.np`:
-                      </p>
-                      <p>
-                        Run this command in Google Cloud Shell or your terminal using the included <code className="font-mono font-bold">cors.json</code> file:
-                      </p>
-                      <pre className="bg-neutral-900 text-emerald-300 p-2 rounded font-mono text-[10px] overflow-x-auto">
-{`gcloud storage buckets update gs://${firebaseConfig.storageBucket} --cors-file=cors.json`}
-                      </pre>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setUploadError(null)}
+                    className="text-rose-500 hover:text-rose-800 p-0.5"
+                    aria-label="Dismiss upload error"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
             </div>
@@ -3087,7 +3235,6 @@ const BlogsManager: React.FC<{
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={() => {
-                handleCancelCoverUpload();
                 setEditingBlog(null);
                 setUploadError(null);
               }}
@@ -3110,7 +3257,7 @@ const BlogsManager: React.FC<{
       {/* Blog list */}
       <div className="space-y-3">
         {items.map((b) => {
-          const itemCover = b.cover_image || b.coverImage || DEFAULT_BLOG_COVER;
+          const itemCover = sanitizeBlogCoverHttpsUrl(b.cover_image || b.coverImage);
           return (
             <div key={b.id} className="bg-white p-4 rounded-xl border flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
@@ -3156,6 +3303,7 @@ const BlogsManager: React.FC<{
                       cover_image: itemCover,
                       coverImage: itemCover
                     });
+                    setManualCoverUrlInput(itemCover);
                     setUploadError(null);
                   }}
                   className="p-1.5 rounded-lg bg-neutral-100 text-neutral-700 hover:bg-emerald-100 cursor-pointer"

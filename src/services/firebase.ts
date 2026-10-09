@@ -234,6 +234,75 @@ export interface StorageUploadResult {
 }
 
 /**
+ * Validate that an image URL is a valid HTTPS URL (never a base64 data:image/ URL)
+ */
+export function isValidHttpsImageUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (trimmed.toLowerCase().startsWith('data:')) return false;
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Upload an image file from PC to ImgBB API (`https://api.imgbb.com/1/upload?key=...`)
+ * Returns a direct `https://i.ibb.co/...` image URL without using FileReader or readAsDataURL().
+ */
+export async function uploadImageToImgBB(
+  file: File,
+  customApiKey?: string
+): Promise<{ url: string; displayUrl?: string; deleteUrl?: string }> {
+  const validation = validateImageFile(file, 32);
+  if (!validation.valid) {
+    throw new Error(validation.error || 'Invalid image file.');
+  }
+
+  const envKey = (import.meta.env.VITE_IMGBB_API_KEY || '').trim();
+  const storedKey =
+    typeof window !== 'undefined' ? (localStorage.getItem('dr_joshi_imgbb_api_key') || '').trim() : '';
+  const apiKey = (customApiKey || envKey || storedKey || '6d207e02198a847aa98d0a2a901485a5').trim();
+
+  if (!apiKey || apiKey === 'YOUR_IMGBB_API_KEY') {
+    throw new Error(
+      'ImgBB API key is not configured. Please set VITE_IMGBB_API_KEY or use the "Enter Image URL" tab to paste an https:// image link.'
+    );
+  }
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const response = await fetch(`https://api.imgbb.com/1/upload?key=${encodeURIComponent(apiKey)}`, {
+    method: 'POST',
+    body: formData
+  });
+
+  const result = await response.json().catch(() => null);
+
+  if (!response.ok || !result || !result.success || !result.data?.url) {
+    const errMsg =
+      result?.error?.message ||
+      result?.status_txt ||
+      `ImgBB upload failed with HTTP ${response.status}.`;
+    throw new Error(errMsg);
+  }
+
+  const directUrl: string = result.data.url || result.data.display_url;
+  if (!isValidHttpsImageUrl(directUrl)) {
+    throw new Error('ImgBB did not return a valid https:// image URL.');
+  }
+
+  return {
+    url: directUrl,
+    displayUrl: result.data.display_url,
+    deleteUrl: result.data.delete_url
+  };
+}
+
+/**
  * Helper to attempt a Firebase Storage upload against a specific bucket URL with a fast timeout
  */
 async function tryFirebaseBucketUpload(
@@ -350,36 +419,48 @@ export async function uploadImageToFirebaseStorage(
     throw new Error(validation.error);
   }
 
-  // Ensure Firebase Auth token is attached if available
-  await ensureFirebaseAdminAuth();
-
   const fileName = options.customFileName || `${Date.now()}_${file.name}`;
   const storagePath = `${folder}/${fileName}`;
 
   if (options.onProgress) {
-    options.onProgress(15);
+    options.onProgress(20);
   }
 
-  const activeStorage = storage || (app ? getStorage(app) : getStorage());
-  const storageRef = storageRefBuilder(activeStorage, storagePath);
+  // Primary: Upload via ImgBB API to return an instant https://i.ibb.co/... URL without CORS blocks or base64
+  try {
+    const imgbbRes = await uploadImageToImgBB(file);
+    if (options.onProgress) {
+      options.onProgress(100);
+    }
+    return {
+      downloadURL: imgbbRes.url,
+      storagePath,
+      bucket: 'imgbb'
+    };
+  } catch (imgbbErr) {
+    // Fallback: Direct Firebase Storage upload (never base64)
+    await ensureFirebaseAdminAuth();
+    const activeStorage = storage || (app ? getStorage(app) : getStorage());
+    const storageRef = storageRefBuilder(activeStorage, storagePath);
 
-  await uploadBytes(storageRef, file);
+    await uploadBytes(storageRef, file);
 
-  if (options.onProgress) {
-    options.onProgress(85);
+    if (options.onProgress) {
+      options.onProgress(85);
+    }
+
+    const downloadURL = await getDownloadURL(storageRef);
+
+    if (options.onProgress) {
+      options.onProgress(100);
+    }
+
+    return {
+      downloadURL,
+      storagePath,
+      bucket: firebaseConfig.storageBucket
+    };
   }
-
-  const downloadURL = await getDownloadURL(storageRef);
-
-  if (options.onProgress) {
-    options.onProgress(100);
-  }
-
-  return {
-    downloadURL,
-    storagePath,
-    bucket: firebaseConfig.storageBucket
-  };
 }
 
 /**
@@ -409,7 +490,15 @@ export function normalizeAssetUrls<T>(data: T): T {
   if (typeof data === 'object') {
     const out: Record<string, any> = {};
     for (const [k, v] of Object.entries(data as Record<string, any>)) {
-      out[k] = normalizeAssetUrls(v);
+      if (
+        (k === 'cover_image' || k === 'coverImage') &&
+        typeof v === 'string' &&
+        v.trim().toLowerCase().startsWith('data:')
+      ) {
+        out[k] = 'https://drpremrajjoshi.com.np/assets/images/hero_ayurveda_clinic_1791392890876.jpg';
+      } else {
+        out[k] = normalizeAssetUrls(v);
+      }
     }
     return out as T;
   }
