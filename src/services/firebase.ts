@@ -742,6 +742,28 @@ export async function saveNodeData<T>(
         Array.isArray(cleanData) && cleanData.length === 0 ? { _emptyList: true } : cleanData;
       await set(nodeRef, dataToPersist);
 
+      // If saving the 'branding' node, also mirror logoUrl and title to '/settings'
+      // so Cloudflare Pages Functions (/settings/logo.json and /branding.json) always stay in sync.
+      if (nodePath === 'branding' && cleanData && typeof cleanData === 'object') {
+        const b = cleanData as Record<string, any>;
+        if (b.logoUrl) {
+          try {
+            const settingsRef = ref(database, 'settings');
+            await update(settingsRef, {
+              logo: b.logoUrl,
+              logoUrl: b.logoUrl,
+              title:
+                b.doctorName?.en && b.degreeTitle?.en
+                  ? `${b.doctorName.en} - ${b.degreeTitle.en}`
+                  : 'Dr. Prem Raj Joshi - BAMS, IOM, TU | Ayurvedic Physician',
+              updatedAt: Date.now()
+            });
+          } catch {
+            // ignore if /settings rules are restricted
+          }
+        }
+      }
+
       // Write succeeded in Firebase; clear pending flag
       locallyModifiedPendingSync.delete(storageKey);
       try {

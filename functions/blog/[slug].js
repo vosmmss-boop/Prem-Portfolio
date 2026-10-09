@@ -74,10 +74,10 @@ export async function onRequest(context) {
     });
   }
 
-  // 4. Crawler requested /blog/:slug -> Fetch blog metadata from Firebase Realtime Database
+  // 4. Crawler requested /blog/:slug -> Fetch blog metadata & live logo fallback from Firebase Realtime Database
   const slug = params?.slug || pathname.split('/').filter(Boolean).pop();
   const origin = url.origin;
-  const defaultImage = `${origin}/logo.png`;
+  let defaultImage = `${origin}/logo.png`;
   const defaultTitle = 'Dr. Prem Raj Joshi - BAMS, IOM, TU | Ayurvedic Physician';
 
   const RTDB_URL =
@@ -85,6 +85,28 @@ export async function onRequest(context) {
     'https://drsaap-52b17-default-rtdb.asia-southeast1.firebasedatabase.app';
 
   let blogData = null;
+
+  try {
+    // Fetch live CMS logo fallback from /settings/logo.json or /branding.json in parallel with blog lookup
+    const [settingsLogoRes, brandingRes] = await Promise.allSettled([
+      fetch(`${RTDB_URL}/settings/logo.json`),
+      fetch(`${RTDB_URL}/branding/logoUrl.json`)
+    ]);
+
+    if (settingsLogoRes.status === 'fulfilled' && settingsLogoRes.value.ok) {
+      const logoVal = await settingsLogoRes.value.json();
+      if (typeof logoVal === 'string' && logoVal.startsWith('https://')) {
+        defaultImage = logoVal.trim();
+      }
+    } else if (brandingRes.status === 'fulfilled' && brandingRes.value.ok) {
+      const brandLogoVal = await brandingRes.value.json();
+      if (typeof brandLogoVal === 'string' && brandLogoVal.startsWith('https://')) {
+        defaultImage = brandLogoVal.trim();
+      }
+    }
+  } catch {
+    // keep defaultImage fallback
+  }
 
   try {
     const queryUrl = `${RTDB_URL}/blogs.json?orderBy="slug"&equalTo="${encodeURIComponent(slug)}"`;
@@ -189,6 +211,11 @@ export async function onRequest(context) {
     .on('title', {
       element(el) {
         el.setInnerContent(safeTitle);
+      }
+    })
+    .on('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]', {
+      element(el) {
+        el.setAttribute('href', defaultImage.replace(/"/g, '&quot;'));
       }
     })
     .on('head', {
