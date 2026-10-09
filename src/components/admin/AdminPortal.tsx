@@ -2599,30 +2599,21 @@ const BlogsManager: React.FC<{
     }
 
     setIsUploadingCover(true);
-    setCoverUploadProgress(1);
+    setCoverUploadProgress(25);
     setUploadError(null);
+    setShowCorsGuide(false);
 
     try {
-      // 2. Use the shared Firebase Storage instance & uploadBytesResumable / uploadBytes / getDownloadURL
+      // 2. Upload immediately to Firebase Storage using ref, uploadBytes, and getDownloadURL
+      // Never use FileReader or readAsDataURL() for cover_image
       const activeStorage = storage || (app ? getStorage(app) : getStorage());
-      const safeFileName = sanitizeStorageFileName(file.name);
-      const storagePath = `blog_covers/${Date.now()}_${safeFileName}`;
-      const storageRef = ref(activeStorage, storagePath);
+      const storageRef = ref(activeStorage, `blog_covers/${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      setCoverUploadProgress(90);
+      const downloadURL = await getDownloadURL(storageRef);
+      setCoverUploadProgress(100);
 
-      // Upload via resilient resumable upload helper with multi-bucket & RTDB cloud fallback
-      const uploadResult = await uploadImageToFirebaseStorage(file, 'blog_covers', {
-        maxSizeMB: 10,
-        customFileName: `${Date.now()}_${safeFileName}`,
-        onProgress: (pct) => setCoverUploadProgress(pct),
-        onTaskCreated: (task) => {
-          activeCoverTaskRef.current = task;
-        }
-      });
-
-      const downloadURL = uploadResult.downloadURL || (await getDownloadURL(storageRef));
-
-      // 3. Save download URL into both cover_image and coverImage using functional state update
-      // so concurrent edits in the Rich Text Editor are never overwritten!
+      // 3. Save HTTPS download URL into both cover_image and coverImage
       setEditingBlog((prev) =>
         prev
           ? {
@@ -2634,12 +2625,7 @@ const BlogsManager: React.FC<{
       );
 
       if (onNotify) {
-        onNotify(
-          uploadResult.usedFallback
-            ? '✓ Cover image optimized & saved directly to Firebase Realtime Database (Storage bucket 404/CORS bypassed)!'
-            : '✓ Cover image uploaded to Firebase Storage (`blog_covers/`)!',
-          'success'
-        );
+        onNotify('✓ Cover image uploaded to Firebase Storage (`blog_covers/`)!', 'success');
       }
     } catch (err: any) {
       console.error('Firebase Storage cover upload failed:', err);

@@ -353,70 +353,32 @@ export async function uploadImageToFirebaseStorage(
   // Ensure Firebase Auth token is attached if available
   await ensureFirebaseAdminAuth();
 
-  const safeName = options.customFileName || `${Date.now()}_${sanitizeStorageFileName(file.name)}`;
-  const storagePath = `${folder}/${safeName}`;
+  const fileName = options.customFileName || `${Date.now()}_${file.name}`;
+  const storagePath = `${folder}/${fileName}`;
 
   if (options.onProgress) {
-    options.onProgress(5);
+    options.onProgress(15);
   }
 
-  const primaryBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '';
+  const activeStorage = storage || (app ? getStorage(app) : getStorage());
+  const storageRef = storageRefBuilder(activeStorage, storagePath);
 
-  // 1. Only attempt direct Firebase Storage bucket upload if VITE_FIREBASE_STORAGE_BUCKET is explicitly set
-  // and not known to return 404 in this session, preventing console 404/CORS preflight errors!
-  if (primaryBucket && storage && !(window as any).__firebaseStorageBucketUnavailable) {
-    try {
-      storage.maxUploadRetryTime = 4000;
-      storage.maxOperationRetryTime = 4000;
-      return await tryFirebaseBucketUpload(storage, storagePath, file, primaryBucket, 3000, options);
-    } catch (primaryErr: any) {
-      if (primaryErr?.code === 'storage/canceled') {
-        throw primaryErr;
-      }
-      // Mark bucket unavailable for this browser session so subsequent uploads don't log 404s
-      (window as any).__firebaseStorageBucketUnavailable = true;
-    }
+  await uploadBytes(storageRef, file);
+
+  if (options.onProgress) {
+    options.onProgress(85);
   }
 
-  // 2. Direct Cloud Persistence: Optimize image via high-quality canvas compression and store directly
-  // in Firebase Realtime Database so the image works immediately across all devices with zero 404/400 errors!
-  if (options.onProgress) options.onProgress(65);
-  const { adjustAndProcessUploadedImage } = await import('../utils/imageAdjuster');
-  const processed = await adjustAndProcessUploadedImage(file, {
-    maxWidth: 1600,
-    maxHeight: 1000,
-    quality: 0.86
-  });
+  const downloadURL = await getDownloadURL(storageRef);
 
-  if (options.onProgress) options.onProgress(90);
-
-  // Also persist metadata/image record to Firebase Realtime Database `/cms_media` if connected
-  if (database) {
-    try {
-      const mediaKey = safeName.replace(/[.#$/[\]]/g, '_');
-      const mediaRef = ref(database, `cms_media/${folder}/${mediaKey}`);
-      await set(mediaRef, {
-        fileName: safeName,
-        folder,
-        mimeType: file.type,
-        width: processed.width,
-        height: processed.height,
-        size: processed.size,
-        url: processed.dataUrl,
-        uploadedAt: new Date().toISOString()
-      });
-    } catch {
-      // Ignore RTDB write warning; the returned URL will still be saved in the record itself
-    }
+  if (options.onProgress) {
+    options.onProgress(100);
   }
-
-  if (options.onProgress) options.onProgress(100);
 
   return {
-    downloadURL: processed.dataUrl,
+    downloadURL,
     storagePath,
-    bucket: 'firebase-rtdb-cloud',
-    usedFallback: true
+    bucket: firebaseConfig.storageBucket
   };
 }
 
