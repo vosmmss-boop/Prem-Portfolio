@@ -264,7 +264,7 @@ export async function uploadImageToImgBB(
   const envKey = (import.meta.env.VITE_IMGBB_API_KEY || '').trim();
   const storedKey =
     typeof window !== 'undefined' ? (localStorage.getItem('dr_joshi_imgbb_api_key') || '').trim() : '';
-  const apiKey = (customApiKey || envKey || storedKey || '6d207e02198a847aa98d0a2a901485a5').trim();
+  const apiKey = (customApiKey || envKey || storedKey || '174346727f10aa92bc9cc0ac744ef73e').trim();
 
   if (!apiKey || apiKey === 'YOUR_IMGBB_API_KEY') {
     throw new Error(

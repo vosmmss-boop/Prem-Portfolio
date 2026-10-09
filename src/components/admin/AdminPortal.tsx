@@ -2609,7 +2609,7 @@ const BlogsManager: React.FC<{
     try {
       const IMGBB_API_KEY =
         (import.meta.env.VITE_IMGBB_API_KEY || '').trim() ||
-        '6d207e02198a847aa98d0a2a901485a5';
+        '174346727f10aa92bc9cc0ac744ef73e';
 
       const formData = new FormData();
       formData.append('image', file);
