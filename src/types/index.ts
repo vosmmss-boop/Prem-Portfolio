@@ -11,6 +11,15 @@ export interface SocialChannelItem {
   active: boolean;
 }
 
+export interface YouTubeVideoItem {
+  id: string;
+  titleEn: string;
+  titleNp?: string;
+  url: string;
+  kickerEn?: string;
+  kickerNp?: string;
+}
+
 export interface SitePopupNotice {
   active: boolean;
   titleEn: string;
@@ -72,6 +81,7 @@ export interface Branding {
     stat3LabelNp: string;
   };
   youtubeEmbedUrl?: string;
+  youtubeVideos?: YouTubeVideoItem[];
   socialLinks?: {
     facebook?: string;
     instagram?: string;

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
-import { GalleryItem, Branding } from '../../types';
+import { GalleryItem, Branding, YouTubeVideoItem } from '../../types';
 import { CardsSkeleton } from '../common/SkeletonLoaders';
 import { Image, Play, X, Calendar, Maximize2, ExternalLink } from 'lucide-react';
 import { FullScreenImageViewer } from '../common/FullScreenImageViewer';
@@ -19,9 +19,27 @@ export const GallerySection: React.FC<GallerySectionProps> = ({
 }) => {
   const { language, t } = useLanguage();
   const [selectedPhoto, setSelectedPhoto] = useState<GalleryItem | null>(null);
-  const [isPlayingYoutube, setIsPlayingYoutube] = useState(false);
+  const [playingVideoIds, setPlayingVideoIds] = useState<Record<string, boolean>>({});
 
-  const ytInfo = parseYouTubeUrl(branding.youtubeEmbedUrl);
+  // Resolve list of embedded YouTube videos (supports multiple videos with custom titles + fallback to single youtubeEmbedUrl)
+  const youtubeVideos: YouTubeVideoItem[] = useMemo(() => {
+    if (branding.youtubeVideos && branding.youtubeVideos.length > 0) {
+      return branding.youtubeVideos.filter((v) => v && v.url && v.url.trim());
+    }
+    if (branding.youtubeEmbedUrl && branding.youtubeEmbedUrl.trim()) {
+      return [
+        {
+          id: 'yt-default-1',
+          titleEn: 'Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi',
+          titleNp: 'आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी',
+          kickerEn: 'Featured Health Lecture',
+          kickerNp: 'विशेष स्वास्थ्य प्रवचन',
+          url: branding.youtubeEmbedUrl
+        }
+      ];
+    }
+    return [];
+  }, [branding.youtubeVideos, branding.youtubeEmbedUrl]);
 
   if (isLoading) {
     return (
@@ -33,8 +51,8 @@ export const GallerySection: React.FC<GallerySectionProps> = ({
     );
   }
 
-  // If user deleted all gallery photos and there is no YouTube video, cleanly hide section
-  if ((!gallery || gallery.length === 0) && !branding.youtubeEmbedUrl) {
+  // If user deleted all gallery photos and there are no YouTube videos, cleanly hide section
+  if ((!gallery || gallery.length === 0) && youtubeVideos.length === 0) {
     return null;
   }
 
@@ -53,98 +71,128 @@ export const GallerySection: React.FC<GallerySectionProps> = ({
           </p>
         </div>
 
-        {/* Embedded YouTube Educational Video Banner */}
-        {branding.youtubeEmbedUrl && (
-          <div className="mb-14 bg-neutral-900 rounded-3xl overflow-hidden shadow-xl border border-neutral-800">
-            <div className="p-5 sm:p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-800">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 font-mono flex items-center gap-2">
-                  <Play className="w-3.5 h-3.5 fill-emerald-400" />
-                  Featured Health Lecture
-                </span>
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white font-editorial mt-1">
-                  {language === 'np'
-                    ? 'आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी'
-                    : 'Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi'}
-                </h3>
-              </div>
-              <div className="flex flex-wrap items-center gap-2.5 self-start md:self-auto">
-                <a
-                  href={ytInfo.watchUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold rounded-lg border border-neutral-700 transition-colors flex items-center gap-1.5"
-                >
-                  <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>{language === 'np' ? 'युट्युबमा खोल्नुहोस्' : 'Watch on YouTube'}</span>
-                </a>
-                <a
-                  href={branding.socialLinks?.youtube || 'https://youtube.com/@drpremrajjoshi'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5"
-                >
-                  <span>Subscribe on YouTube</span>
-                </a>
-              </div>
-            </div>
+        {/* Embedded YouTube Educational Videos (Supports 1 or Multiple Videos with Custom Titles) */}
+        {youtubeVideos.length > 0 && (
+          <div
+            className={`mb-14 grid gap-8 ${
+              youtubeVideos.length === 1 ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'
+            }`}
+          >
+            {youtubeVideos.map((vid, idx) => {
+              const ytInfo = parseYouTubeUrl(vid.url);
+              const vidKey = vid.id || `yt-${idx}`;
+              const isPlaying = Boolean(playingVideoIds[vidKey]);
+              const videoTitle =
+                language === 'np'
+                  ? vid.titleNp || vid.titleEn || 'आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी'
+                  : vid.titleEn || vid.titleNp || 'Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi';
+              const videoKicker =
+                language === 'np'
+                  ? vid.kickerNp || vid.kickerEn || 'विशेष स्वास्थ्य प्रवचन'
+                  : vid.kickerEn || vid.kickerNp || 'Featured Health Lecture';
 
-            <div className="aspect-video w-full max-h-[460px] bg-black relative">
-              {ytInfo.videoId ? (
-                isPlayingYoutube ? (
-                  <iframe
-                    src={`${ytInfo.embedUrl}&autoplay=1`}
-                    title="Dr. Prem Raj Joshi Health Video"
-                    className="w-full h-full border-0"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                  />
-                ) : (
-                  <div
-                    onClick={() => setIsPlayingYoutube(true)}
-                    className="w-full h-full relative cursor-pointer group flex items-center justify-center overflow-hidden"
-                  >
-                    <img
-                      src={ytInfo.thumbnailUrl}
-                      alt="Featured YouTube Lecture Thumbnail"
-                      className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-500"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        e.currentTarget.src = '/assets/images/hero_ayurveda_clinic_1791392890876.jpg';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/20" />
-                    <div className="relative z-10 flex flex-col items-center gap-3 text-center px-4">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-red-600 group-hover:bg-red-500 text-white flex items-center justify-center shadow-2xl group-hover:scale-110 transition-all">
-                        <Play className="w-8 h-8 sm:w-9 sm:h-9 fill-white ml-1" />
-                      </div>
-                      <span className="px-3.5 py-1.5 rounded-full bg-black/70 border border-white/20 text-white text-xs font-semibold backdrop-blur-xs">
-                        {language === 'np' ? 'भिडियो प्ले गर्न क्लिक गर्नुहोस्' : 'Click to Play Video Lecture'}
+              return (
+                <div
+                  key={vidKey}
+                  className="bg-neutral-900 rounded-3xl overflow-hidden shadow-xl border border-neutral-800 flex flex-col justify-between"
+                >
+                  <div className="p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-800">
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 font-mono flex items-center gap-2">
+                        <Play className="w-3.5 h-3.5 fill-emerald-400 shrink-0" />
+                        <span className="truncate">{videoKicker}</span>
                       </span>
+                      <h3 className="text-base sm:text-lg md:text-xl font-bold text-white font-editorial mt-1 leading-snug">
+                        {videoTitle}
+                      </h3>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
+                      <a
+                        href={ytInfo.watchUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold rounded-lg border border-neutral-700 transition-colors flex items-center gap-1.5"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>{language === 'np' ? 'युट्युबमा हेर्नुहोस्' : 'Watch on YouTube'}</span>
+                      </a>
+                      {idx === 0 && (
+                        <a
+                          href={branding.socialLinks?.youtube || 'https://youtube.com/@drpremrajjoshi'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5"
+                        >
+                          <span>Subscribe</span>
+                        </a>
+                      )}
                     </div>
                   </div>
-                )
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-neutral-300 space-y-3">
-                  <Play className="w-10 h-10 text-emerald-400" />
-                  <p className="text-sm font-semibold">
-                    {language === 'np'
-                      ? 'यो भिडियो सिधै युट्युबमा हेर्न तलको बटन थिच्नुहोस्'
-                      : 'Watch this featured health lecture directly on YouTube'}
-                  </p>
-                  <a
-                    href={ytInfo.watchUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-colors"
+
+                  <div
+                    className={`aspect-video w-full ${
+                      youtubeVideos.length === 1 ? 'max-h-[460px]' : ''
+                    } bg-black relative`}
                   >
-                    <ExternalLink className="w-4 h-4" />
-                    <span>Open Video on YouTube</span>
-                  </a>
+                    {ytInfo.videoId ? (
+                      isPlaying ? (
+                        <iframe
+                          src={`${ytInfo.embedUrl}&autoplay=1`}
+                          title={videoTitle}
+                          className="w-full h-full border-0"
+                          referrerPolicy="strict-origin-when-cross-origin"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <div
+                          onClick={() =>
+                            setPlayingVideoIds((prev) => ({ ...prev, [vidKey]: true }))
+                          }
+                          className="w-full h-full relative cursor-pointer group flex items-center justify-center overflow-hidden"
+                        >
+                          <img
+                            src={ytInfo.thumbnailUrl}
+                            alt={videoTitle}
+                            className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-500"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              e.currentTarget.src =
+                                '/assets/images/hero_ayurveda_clinic_1791392890876.jpg';
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/20" />
+                          <div className="relative z-10 flex flex-col items-center gap-3 text-center px-4">
+                            <div className="w-14 h-14 sm:w-18 sm:h-18 rounded-full bg-red-600 group-hover:bg-red-500 text-white flex items-center justify-center shadow-2xl group-hover:scale-110 transition-all">
+                              <Play className="w-7 h-7 sm:w-8 sm:h-8 fill-white ml-1" />
+                            </div>
+                            <span className="px-3.5 py-1.5 rounded-full bg-black/70 border border-white/20 text-white text-xs font-semibold backdrop-blur-xs">
+                              {language === 'np'
+                                ? 'भिडियो प्ले गर्न क्लिक गर्नुहोस्'
+                                : 'Click to Play Video Lecture'}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-neutral-300 space-y-3">
+                        <Play className="w-10 h-10 text-emerald-400" />
+                        <p className="text-sm font-semibold">{videoTitle}</p>
+                        <a
+                          href={ytInfo.watchUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 transition-colors"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          <span>Open Video on YouTube</span>
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
+              );
+            })}
           </div>
         )}
 

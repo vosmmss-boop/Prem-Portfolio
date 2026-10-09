@@ -13,7 +13,8 @@ import {
   DownloadItem,
   GalleryItem,
   SocialChannelItem,
-  SitePopupNotice
+  SitePopupNotice,
+  YouTubeVideoItem
 } from '../../types';
 import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL, UploadTask } from 'firebase/storage';
 import {
@@ -4148,7 +4149,7 @@ const PopupNoticeManager: React.FC<{
 };
 
 // ==========================================
-// 10. LOGO, FLAG & YOUTUBE VIDEO
+// 10. LOGO, FLAG & MULTIPLE YOUTUBE VIDEOS MANAGER
 // ==========================================
 const LogoFlagManager: React.FC<{
   branding: Branding;
@@ -4160,6 +4161,73 @@ const LogoFlagManager: React.FC<{
   React.useEffect(() => {
     setData(branding);
   }, [branding]);
+
+  // Resolve YouTube videos list (migrating legacy single youtubeEmbedUrl if youtubeVideos array is not yet set)
+  const videos: YouTubeVideoItem[] = React.useMemo(() => {
+    if (data.youtubeVideos && data.youtubeVideos.length > 0) {
+      return data.youtubeVideos;
+    }
+    if (data.youtubeEmbedUrl && data.youtubeEmbedUrl.trim()) {
+      return [
+        {
+          id: 'yt-1',
+          titleEn: 'Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi',
+          titleNp: 'आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी',
+          kickerEn: 'Featured Health Lecture',
+          kickerNp: 'विशेष स्वास्थ्य प्रवचन',
+          url: data.youtubeEmbedUrl
+        }
+      ];
+    }
+    return [];
+  }, [data.youtubeVideos, data.youtubeEmbedUrl]);
+
+  const updateVideosList = (nextVideos: YouTubeVideoItem[]) => {
+    const firstValid = nextVideos.find((v) => v.url && v.url.trim());
+    const firstParsed = firstValid ? parseYouTubeUrl(firstValid.url) : null;
+    setData({
+      ...data,
+      youtubeVideos: nextVideos,
+      youtubeEmbedUrl: firstParsed?.videoId
+        ? firstParsed.embedUrl
+        : firstValid?.url || ''
+    });
+  };
+
+  const handleAddVideo = () => {
+    const newVideo: YouTubeVideoItem = {
+      id: `yt-${Date.now()}`,
+      titleEn: 'Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi',
+      titleNp: 'आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी',
+      kickerEn: 'Featured Health Lecture',
+      kickerNp: 'विशेष स्वास्थ्य प्रवचन',
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+    };
+    updateVideosList([...videos, newVideo]);
+  };
+
+  const handleUpdateVideo = (id: string, patch: Partial<YouTubeVideoItem>) => {
+    updateVideosList(videos.map((v) => (v.id === id ? { ...v, ...patch } : v)));
+  };
+
+  const handleRemoveVideo = (id: string) => {
+    updateVideosList(videos.filter((v) => v.id !== id));
+  };
+
+  const prepareDataForSave = (): Branding => {
+    const normalizedVideos = videos.map((v) => {
+      const parsed = parseYouTubeUrl(v.url);
+      return {
+        ...v,
+        url: parsed.videoId ? parsed.embedUrl : v.url
+      };
+    });
+    return {
+      ...data,
+      youtubeVideos: normalizedVideos,
+      youtubeEmbedUrl: normalizedVideos[0]?.url || ''
+    };
+  };
 
   const handleUploadLogo = (file: File) => {
     readFileAsDataUrl(file, (dataUrl) => {
@@ -4173,53 +4241,43 @@ const LogoFlagManager: React.FC<{
     });
   };
 
-  const ytPreview = parseYouTubeUrl(data.youtubeEmbedUrl);
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-neutral-900 font-editorial">
-            Logo, Flag & YouTube Video Embed
+            Logo, Flag & Multiple YouTube Videos Manager
           </h2>
           <p className="text-xs text-neutral-500">
-            Upload custom doctor logo/favicon, Nepal national flag, and paste any YouTube video link (automatically converted to embed format).
+            Upload custom doctor logo/favicon, Nepal national flag, and embed one or multiple YouTube videos with custom titles.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() =>
-              onSaveLocal({
-                ...data,
-                youtubeEmbedUrl: ytPreview.videoId ? ytPreview.embedUrl : data.youtubeEmbedUrl
-              })
-            }
-            className="px-4 py-2 bg-neutral-200 text-xs font-bold rounded-xl"
+            onClick={() => onSaveLocal(prepareDataForSave())}
+            className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
           >
-            Save Draft
+            <Save className="w-3.5 h-3.5" />
+            <span>Save Draft</span>
           </button>
           <button
-            onClick={() =>
-              onSaveLive({
-                ...data,
-                youtubeEmbedUrl: ytPreview.videoId ? ytPreview.embedUrl : data.youtubeEmbedUrl
-              })
-            }
-            className="px-5 py-2 bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs"
+            onClick={() => onSaveLive(prepareDataForSave())}
+            className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5"
           >
-            Global Live Push
+            <CloudUpload className="w-3.5 h-3.5" />
+            <span>Global Live Push</span>
           </button>
         </div>
       </div>
 
       <div className="bg-white border rounded-2xl p-6 shadow-xs space-y-6">
         {/* Doctor Logo / Dynamic Favicon */}
-        <div className="flex items-center gap-4 p-4 bg-neutral-50 rounded-xl border">
+        <div className="flex flex-wrap items-center gap-4 p-4 bg-neutral-50 rounded-xl border">
           <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-600 bg-white shrink-0">
             <img src={data.logoUrl} alt="logo" className="w-full h-full object-cover" />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-[180px]">
             <span className="text-xs font-bold text-neutral-800 block">Doctor Profile Logo & Dynamic Favicon</span>
             <span className="text-[11px] text-neutral-500">Automatically links as &lt;link rel="icon"&gt; on browser tab</span>
           </div>
@@ -4234,11 +4292,11 @@ const LogoFlagManager: React.FC<{
         </div>
 
         {/* Nepal Flag */}
-        <div className="flex items-center gap-4 p-4 bg-neutral-50 rounded-xl border">
+        <div className="flex flex-wrap items-center gap-4 p-4 bg-neutral-50 rounded-xl border">
           <div className="w-14 h-14 p-1 bg-white border rounded-lg shrink-0 flex items-center justify-center">
             <img src={data.flagUrl} alt="flag" className="max-h-full max-w-full object-contain" />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-[180px]">
             <span className="text-xs font-bold text-neutral-800 block">Nepal National Flag Asset</span>
           </div>
           <label className="px-3.5 py-2 bg-white border border-neutral-300 rounded-lg text-xs font-bold text-neutral-700 cursor-pointer hover:bg-neutral-100 flex items-center gap-1.5">
@@ -4251,48 +4309,162 @@ const LogoFlagManager: React.FC<{
           </label>
         </div>
 
-        {/* Custom YouTube Video Embed (Auto-converts watch?v=, youtu.be/, shorts/, etc.) */}
-        <div className="space-y-3">
-          <label className="block text-xs font-bold text-neutral-800">
-            Featured YouTube Video Link (Paste ANY YouTube URL: watch?v=..., youtu.be/..., shorts/..., or embed/...)
-          </label>
-          <input
-            type="text"
-            value={data.youtubeEmbedUrl || ''}
-            onChange={(e) => setData({ ...data, youtubeEmbedUrl: e.target.value })}
-            placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
-            className="w-full p-2.5 text-xs border rounded-xl font-mono"
-          />
-          {ytPreview.videoId ? (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3 text-xs text-emerald-900">
-              <div className="flex items-center gap-3 min-w-0">
-                <img
-                  src={ytPreview.thumbnailUrl}
-                  alt="YouTube thumbnail preview"
-                  className="w-20 h-12 rounded-lg object-cover border border-emerald-300 shrink-0"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="min-w-0">
-                  <span className="font-bold block">✓ Valid YouTube Video ID Detected: {ytPreview.videoId}</span>
-                  <span className="text-[11px] font-mono text-emerald-700 truncate block">
-                    Normalized Embed: {ytPreview.embedUrl}
-                  </span>
-                </div>
-              </div>
-              <a
-                href={ytPreview.watchUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 bg-white border border-emerald-300 rounded-lg font-bold text-emerald-800 flex items-center gap-1 shrink-0"
-              >
-                <span>Test</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
+        {/* Multiple YouTube Videos Manager */}
+        <div className="space-y-4 pt-4 border-t border-neutral-200">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
+                <Video className="w-4 h-4 text-red-600" />
+                <span>Embedded YouTube Videos & Custom Titles ({videos.length})</span>
+              </h3>
+              <p className="text-[11px] text-neutral-500">
+                Customize the title (e.g., "Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi") and add as many YouTube videos as you want.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddVideo}
+              className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add YouTube Video</span>
+            </button>
+          </div>
+
+          {videos.length === 0 ? (
+            <div className="p-6 bg-neutral-50 border border-dashed border-neutral-300 rounded-2xl text-center space-y-2">
+              <p className="text-xs text-neutral-500">
+                No YouTube videos added yet. Click "Add YouTube Video" above to embed health lectures with custom titles.
+              </p>
             </div>
           ) : (
-            <p className="text-[11px] text-neutral-500">
-              Paste any standard YouTube watch URL, share link, or embed URL. It is automatically converted so visitors never see "www.youtube.com refused to connect".
-            </p>
+            <div className="space-y-4">
+              {videos.map((vid, idx) => {
+                const ytPreview = parseYouTubeUrl(vid.url);
+                return (
+                  <div
+                    key={vid.id}
+                    className="p-4 sm:p-5 bg-neutral-50 border border-neutral-200 rounded-2xl space-y-4"
+                  >
+                    <div className="flex items-center justify-between border-b border-neutral-200 pb-2.5">
+                      <span className="text-xs font-mono font-bold text-emerald-800">
+                        YouTube Video #{idx + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveVideo(vid.id)}
+                        className="text-rose-600 hover:text-rose-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Remove Video</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-neutral-700 mb-1">
+                          Video Title (English)
+                        </label>
+                        <input
+                          type="text"
+                          value={vid.titleEn}
+                          onChange={(e) => handleUpdateVideo(vid.id, { titleEn: e.target.value })}
+                          placeholder="Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi"
+                          className="w-full p-2.5 text-xs border border-neutral-300 rounded-xl bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-neutral-700 mb-1">
+                          Video Title (Nepali Unicode)
+                        </label>
+                        <input
+                          type="text"
+                          value={vid.titleNp || ''}
+                          onChange={(e) => handleUpdateVideo(vid.id, { titleNp: e.target.value })}
+                          placeholder="आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी"
+                          className="w-full p-2.5 text-xs border border-neutral-300 rounded-xl bg-white font-nepali"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-neutral-600 mb-1">
+                          Badge / Kicker Label (English — Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={vid.kickerEn ?? 'Featured Health Lecture'}
+                          onChange={(e) => handleUpdateVideo(vid.id, { kickerEn: e.target.value })}
+                          placeholder="Featured Health Lecture"
+                          className="w-full p-2 text-xs border border-neutral-300 rounded-lg bg-white font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-neutral-600 mb-1">
+                          Badge / Kicker Label (Nepali — Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={vid.kickerNp ?? 'विशेष स्वास्थ्य प्रवचन'}
+                          onChange={(e) => handleUpdateVideo(vid.id, { kickerNp: e.target.value })}
+                          placeholder="विशेष स्वास्थ्य प्रवचन"
+                          className="w-full p-2 text-xs border border-neutral-300 rounded-lg bg-white font-nepali"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2 space-y-2">
+                        <label className="block text-xs font-bold text-neutral-800">
+                          YouTube Video Link (Paste ANY YouTube URL: watch?v=..., youtu.be/..., shorts/..., or embed/...)
+                        </label>
+                        <input
+                          type="text"
+                          value={vid.url}
+                          onChange={(e) => handleUpdateVideo(vid.id, { url: e.target.value })}
+                          placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                          className="w-full p-2.5 text-xs border border-neutral-300 rounded-xl font-mono bg-white"
+                        />
+
+                        {ytPreview.videoId ? (
+                          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-3 text-xs text-emerald-900">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <img
+                                src={ytPreview.thumbnailUrl}
+                                alt={vid.titleEn}
+                                className="w-20 h-12 rounded-lg object-cover border border-emerald-300 shrink-0"
+                                referrerPolicy="no-referrer"
+                              />
+                              <div className="min-w-0">
+                                <span className="font-bold block truncate">
+                                  ✓ {vid.titleEn || `Video ID: ${ytPreview.videoId}`}
+                                </span>
+                                <span className="text-[11px] font-mono text-emerald-700 truncate block">
+                                  Embed Ready: {ytPreview.embedUrl}
+                                </span>
+                              </div>
+                            </div>
+                            <a
+                              href={ytPreview.watchUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 bg-white border border-emerald-300 rounded-lg font-bold text-emerald-800 flex items-center gap-1 shrink-0"
+                            >
+                              <span>Test</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-neutral-500">
+                            Paste any standard YouTube watch URL, share link, or embed URL. It is automatically converted so visitors never see "www.youtube.com refused to connect".
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>

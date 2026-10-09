@@ -54,6 +54,16 @@ export const initialBranding: Branding = {
     stat3LabelNp: 'निःशुल्क ग्रामीण स्वास्थ्य शिविर'
   },
   youtubeEmbedUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+  youtubeVideos: [
+    {
+      id: 'yt-1',
+      titleEn: 'Understanding Digestive Fire (Agni) & Longevity - Dr. Prem Raj Joshi',
+      titleNp: 'आयुर्वेदमा पाचन अग्नि र दीर्घ स्वास्थ्य रहस्य - डा. प्रेम राज जोशी',
+      kickerEn: 'Featured Health Lecture',
+      kickerNp: 'विशेष स्वास्थ्य प्रवचन',
+      url: 'https://www.youtube.com/embed/dQw4w9WgXcQ'
+    }
+  ],
   socialLinks: {
     facebook: 'https://facebook.com/drpremrajjoshi',
     instagram: 'https://instagram.com/drpremrajjoshi',
