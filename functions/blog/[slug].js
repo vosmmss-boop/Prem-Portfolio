@@ -39,8 +39,9 @@ export async function onRequest(context) {
 
   const origin = url.origin;
   const defaultImage = `${origin}/logo.png`;
+  const defaultTitle = 'Dr. Prem Raj Joshi - BAMS, IOM, TU | Ayurvedic Physician';
 
-  // If request is for root path ('/' or '/index.html'), ensure og:image and twitter:image use `${origin}/logo.png`
+  // If request is for root path ('/' or '/index.html'), ensure <title>, og:title, twitter:title, og:image, and twitter:image match exactly
   if (pathname === '/' || pathname === '' || pathname === '/index.html') {
     let rootResponse;
     if (env && env.ASSETS) {
@@ -54,6 +55,21 @@ export async function onRequest(context) {
     }
 
     return new HTMLRewriter()
+      .on('title', {
+        element(el) {
+          el.setInnerContent(defaultTitle);
+        }
+      })
+      .on('meta[property="og:title"]', {
+        element(el) {
+          el.setAttribute('content', defaultTitle);
+        }
+      })
+      .on('meta[name="twitter:title"]', {
+        element(el) {
+          el.setAttribute('content', defaultTitle);
+        }
+      })
       .on('meta[property="og:image"]', {
         element(el) {
           el.setAttribute('content', defaultImage);
@@ -114,13 +130,16 @@ export async function onRequest(context) {
   }
 
   // 2. Fallback Object Access
-  const title =
+  const rawBlogTitle =
     blogData?.title_en ||
     blogData?.titleEn ||
     blogData?.title ||
     blogData?.title_np ||
-    blogData?.titleNp ||
-    'Dr. Prem Raj Joshi | Ayurvedic Health & Medical Insights';
+    blogData?.titleNp;
+
+  const pageTitle = rawBlogTitle
+    ? `${rawBlogTitle} | Dr. Prem Raj Joshi`
+    : defaultTitle;
 
   const description =
     blogData?.summary_en ||
@@ -153,7 +172,7 @@ export async function onRequest(context) {
     }
   }
 
-  const safeTitle = title.replace(/"/g, '&quot;');
+  const safeTitle = pageTitle.replace(/"/g, '&quot;');
   const safeDesc = description.replace(/"/g, '&quot;');
   const safeImage = coverImage;
   const safeUrl = canonicalUrl;
@@ -183,7 +202,7 @@ export async function onRequest(context) {
     })
     .on('title', {
       element(el) {
-        el.setInnerContent(`${safeTitle} | Dr. Prem Raj Joshi`);
+        el.setInnerContent(safeTitle);
       }
     })
     .on('head', {

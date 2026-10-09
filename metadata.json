@@ -1,6 +1,6 @@
 {
-  "name": "Dr. Prem Raj Joshi - BAMS, IOM, TU",
-  "description": "Official medical portal and Ayurvedic healthcare website for Dr. Prem Raj Joshi (BAMS, IOM, TU). Bilingual patient consultations, appointment booking, health blogs, and CMS admin.",
+  "name": "Dr. Prem Raj Joshi - BAMS, IOM, TU | Ayurvedic Physician",
+  "description": "Official medical portal and Ayurvedic healthcare practice of Dr. Prem Raj Joshi (BAMS, IOM, TU). Integrative consultations, health blogs, patient inquiries, and holistic medicine in Nepal.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
