@@ -37,7 +37,35 @@ export async function onRequest(context) {
     }
   }
 
-  const origin = new URL(request.url).origin;
+  const origin = url.origin;
+  const defaultImage = `${origin}/logo.png`;
+
+  // If request is for root path ('/' or '/index.html'), ensure og:image and twitter:image use `${origin}/logo.png`
+  if (pathname === '/' || pathname === '' || pathname === '/index.html') {
+    let rootResponse;
+    if (env && env.ASSETS) {
+      rootResponse = await env.ASSETS.fetch(new Request(new URL('/', request.url), request));
+    } else {
+      try {
+        rootResponse = await fetch(new Request(new URL('/', request.url), request));
+      } catch {
+        rootResponse = await context.next();
+      }
+    }
+
+    return new HTMLRewriter()
+      .on('meta[property="og:image"]', {
+        element(el) {
+          el.setAttribute('content', defaultImage);
+        }
+      })
+      .on('meta[name="twitter:image"]', {
+        element(el) {
+          el.setAttribute('content', defaultImage);
+        }
+      })
+      .transform(rootResponse);
+  }
 
   // Firebase Realtime Database default endpoint
   // Works with both default regional domain and default rtdb
@@ -104,7 +132,6 @@ export async function onRequest(context) {
     blogData?.summaryNp ||
     'Integrative Ayurvedic medicine consultations, holistic wellness therapies, and lifestyle guidance by Dr. Prem Raj Joshi (BAMS, IOM, TU).';
 
-  const defaultImage = 'https://hi.drpremrajjoshi.com.np/logo.png';
   const coverImage =
     blogData?.cover_image ||
     blogData?.coverImage ||
@@ -139,6 +166,11 @@ export async function onRequest(context) {
         el.remove();
       }
     })
+    .on('meta[property="fb:app_id"]', {
+      element(el) {
+        el.remove();
+      }
+    })
     .on('meta[name^="twitter:"]', {
       element(el) {
         el.remove();
@@ -157,6 +189,7 @@ export async function onRequest(context) {
     .on('head', {
       element(el) {
         // Append dynamic Open Graph tags
+        el.append(`<meta property="fb:app_id" content="966242223397117" />`, { html: true });
         el.append(`<meta property="og:type" content="article" />`, { html: true });
         el.append(`<meta property="og:title" content="${safeTitle}" />`, { html: true });
         el.append(`<meta property="og:description" content="${safeDesc}" />`, { html: true });
