@@ -416,12 +416,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                Admin Username / Email
+                Username
               </label>
               <input
                 type="text"
                 required
-                placeholder="Enter admin username or email"
+                placeholder="webadmin_prem"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:outline-none"
@@ -435,7 +435,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <input
                 type="password"
                 required
-                placeholder="Enter admin password"
+                placeholder="••••••••"
                 value={loginPass}
                 onChange={(e) => setLoginPass(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-neutral-300 rounded-lg focus:ring-2 focus:ring-emerald-600 focus:outline-none"
@@ -2082,15 +2082,50 @@ const AutobiographyManager: React.FC<{
   onSaveLive: (a: Autobiography) => void;
 }> = ({ autobiography, onSaveLocal, onSaveLive }) => {
   const [data, setData] = useState<Autobiography>(autobiography);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const [avatarSuccess, setAvatarSuccess] = useState('');
 
   React.useEffect(() => {
     setData(autobiography);
   }, [autobiography]);
 
-  const handleAvatarUpload = (file: File) => {
-    readFileAsDataUrl(file, (dataUrl) => {
-      setData({ ...data, avatarUrl: dataUrl });
-    });
+  const handleAvatarUpload = async (file: File) => {
+    setAvatarError('');
+    setAvatarSuccess('');
+    setIsUploadingAvatar(true);
+    try {
+      const res = await uploadImageToImgBB(file);
+      if (res.url && res.url.startsWith('https://')) {
+        setData((prev) => ({ ...prev, avatarUrl: res.url }));
+        setAvatarSuccess('✓ Photo uploaded and converted to HTTPS URL via ImgBB!');
+      } else {
+        throw new Error('Valid HTTPS URL not received from ImgBB');
+      }
+    } catch (err: any) {
+      console.warn('ImgBB upload error, attempting Firebase fallback:', err);
+      try {
+        const fbRes = await uploadImageToFirebaseStorage(file, 'branding');
+        if (fbRes.downloadURL && fbRes.downloadURL.startsWith('https://')) {
+          setData((prev) => ({ ...prev, avatarUrl: fbRes.downloadURL }));
+          setAvatarSuccess('✓ Photo uploaded to cloud storage with HTTPS link!');
+        } else {
+          throw new Error(err.message || 'Image upload failed');
+        }
+      } catch (fbErr: any) {
+        setAvatarError(`Upload failed: ${fbErr.message || err.message || 'Please check network connection'}`);
+      }
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleSaveData = (saveFn: (a: Autobiography) => void) => {
+    if (data.avatarUrl && data.avatarUrl.trim().toLowerCase().startsWith('data:')) {
+      alert('Base64 images are not allowed. Please click "Add Image" to upload to ImgBB and convert it to an HTTPS URL.');
+      return;
+    }
+    saveFn(data);
   };
 
   return (
@@ -2107,14 +2142,14 @@ const AutobiographyManager: React.FC<{
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => onSaveLocal(data)}
-            className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 text-xs font-bold rounded-xl"
+            onClick={() => handleSaveData(onSaveLocal)}
+            className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 text-xs font-bold rounded-xl cursor-pointer"
           >
             Save Draft
           </button>
           <button
-            onClick={() => onSaveLive(data)}
-            className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs"
+            onClick={() => handleSaveData(onSaveLive)}
+            className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
           >
             Global Live Push
           </button>
@@ -2123,25 +2158,39 @@ const AutobiographyManager: React.FC<{
 
       <div className="bg-white border rounded-2xl p-6 shadow-xs space-y-5">
         {/* Profile Picture Upload */}
-        <div className="flex items-center gap-4 p-4 bg-neutral-50 rounded-xl border border-neutral-200">
-          <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-600 shrink-0">
+        <div className="flex flex-wrap items-center gap-4 p-4 bg-neutral-50 rounded-xl border border-neutral-200">
+          <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-600 shrink-0 bg-white shadow-xs">
             <img src={data.avatarUrl} alt="Dr. Joshi" className="w-full h-full object-cover" />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1.5 flex-1 min-w-[200px]">
             <span className="text-xs font-bold text-neutral-800 block">Doctor Profile Portrait</span>
-            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-neutral-300 rounded-lg text-xs font-bold text-neutral-700 cursor-pointer hover:bg-neutral-100">
-              <Upload className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Upload New Photo from Device</span>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleAvatarUpload(f);
-                }}
-              />
-            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-2xs">
+                {isUploadingAvatar ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Upload className="w-3.5 h-3.5" />
+                )}
+                <span>{isUploadingAvatar ? 'Uploading to ImgBB...' : 'Add Image (Auto Convert to ImgBB)'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  disabled={isUploadingAvatar}
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleAvatarUpload(f);
+                  }}
+                />
+              </label>
+            </div>
+            {data.avatarUrl?.toLowerCase().startsWith('data:') && (
+              <p className="text-[11px] text-amber-700 font-medium">
+                ⚠️ Current image is in base64 format. Click "Add Image" above to automatically convert it to a hosted HTTPS URL.
+              </p>
+            )}
+            {avatarSuccess && <p className="text-[11px] text-emerald-700 font-semibold">{avatarSuccess}</p>}
+            {avatarError && <p className="text-[11px] text-rose-700 font-semibold">{avatarError}</p>}
           </div>
         </div>
 
@@ -4224,7 +4273,21 @@ const LogoFlagManager: React.FC<{
     updateVideosList(videos.filter((v) => v.id !== id));
   };
 
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoError, setLogoError] = useState('');
+  const [logoSuccess, setLogoSuccess] = useState('');
+  const [copiedLogoUrl, setCopiedLogoUrl] = useState(false);
+
+  const [isUploadingFlag, setIsUploadingFlag] = useState(false);
+  const [flagError, setFlagError] = useState('');
+  const [flagSuccess, setFlagSuccess] = useState('');
+
   const prepareDataForSave = (): Branding => {
+    if (data.logoUrl && data.logoUrl.trim().toLowerCase().startsWith('data:')) {
+      alert('Base64 images are strictly not allowed for Logo or Favicon. Please click "Add Image" to upload to ImgBB and generate an HTTPS URL.');
+      throw new Error('Base64 logoUrl is rejected.');
+    }
+
     const normalizedVideos = videos.map((v) => {
       const parsed = parseYouTubeUrl(v.url);
       return {
@@ -4239,16 +4302,84 @@ const LogoFlagManager: React.FC<{
     };
   };
 
-  const handleUploadLogo = (file: File) => {
-    readFileAsDataUrl(file, (dataUrl) => {
-      setData({ ...data, logoUrl: dataUrl });
-    });
+  const handleUploadLogo = async (file: File) => {
+    setLogoError('');
+    setLogoSuccess('');
+    setIsUploadingLogo(true);
+    try {
+      const res = await uploadImageToImgBB(file);
+      if (res.url && res.url.startsWith('https://')) {
+        setData((prev) => ({ ...prev, logoUrl: res.url }));
+        setLogoSuccess('✓ Logo successfully converted and uploaded to ImgBB (HTTPS URL ready!)');
+        const fav = document.getElementById('dynamic-favicon') as HTMLLinkElement | null;
+        if (fav) fav.href = res.url;
+      } else {
+        throw new Error('Did not receive a valid HTTPS URL from image upload.');
+      }
+    } catch (err: any) {
+      console.warn('ImgBB upload error, attempting Firebase fallback:', err);
+      try {
+        const fbRes = await uploadImageToFirebaseStorage(file, 'branding');
+        if (fbRes.downloadURL && fbRes.downloadURL.startsWith('https://')) {
+          setData((prev) => ({ ...prev, logoUrl: fbRes.downloadURL }));
+          setLogoSuccess('✓ Logo successfully uploaded to secure cloud storage (HTTPS URL ready!)');
+          const fav = document.getElementById('dynamic-favicon') as HTMLLinkElement | null;
+          if (fav) fav.href = fbRes.downloadURL;
+        } else {
+          throw new Error(err.message || 'Image upload failed');
+        }
+      } catch (fbErr: any) {
+        setLogoError(`Upload failed: ${fbErr.message || err.message || 'Please check network connection'}`);
+      }
+    } finally {
+      setIsUploadingLogo(false);
+    }
   };
 
-  const handleUploadFlag = (file: File) => {
-    readFileAsDataUrl(file, (dataUrl) => {
-      setData({ ...data, flagUrl: dataUrl });
-    });
+  const handleUploadFlag = async (file: File) => {
+    setFlagError('');
+    setFlagSuccess('');
+    setIsUploadingFlag(true);
+    try {
+      const res = await uploadImageToImgBB(file);
+      if (res.url && res.url.startsWith('https://')) {
+        setData((prev) => ({ ...prev, flagUrl: res.url }));
+        setFlagSuccess('✓ Flag uploaded and converted to HTTPS URL!');
+      } else {
+        throw new Error('Invalid URL from ImgBB');
+      }
+    } catch (err: any) {
+      try {
+        const fbRes = await uploadImageToFirebaseStorage(file, 'branding');
+        setData((prev) => ({ ...prev, flagUrl: fbRes.downloadURL }));
+        setFlagSuccess('✓ Flag stored with HTTPS link!');
+      } catch (fbErr: any) {
+        setFlagError(`Upload failed: ${fbErr.message || err.message}`);
+      }
+    } finally {
+      setIsUploadingFlag(false);
+    }
+  };
+
+  const handleDirectLogoChange = (val: string) => {
+    const trimmed = val.trim();
+    if (trimmed.toLowerCase().startsWith('data:')) {
+      setLogoError('Base64 data URLs cannot be saved as logo or favicon. Click "Add Image" instead.');
+      return;
+    }
+    setLogoError('');
+    setData({ ...data, logoUrl: trimmed });
+    if (trimmed.startsWith('https://') || trimmed.startsWith('/')) {
+      const fav = document.getElementById('dynamic-favicon') as HTMLLinkElement | null;
+      if (fav) fav.href = trimmed;
+    }
+  };
+
+  const handleCopyLogoUrl = () => {
+    if (!data.logoUrl) return;
+    navigator.clipboard.writeText(data.logoUrl);
+    setCopiedLogoUrl(true);
+    setTimeout(() => setCopiedLogoUrl(false), 2000);
   };
 
   return (
@@ -4259,21 +4390,33 @@ const LogoFlagManager: React.FC<{
             Logo, Flag & Multiple YouTube Videos Manager
           </h2>
           <p className="text-xs text-neutral-500">
-            Upload custom doctor logo/favicon, Nepal national flag, and embed one or multiple YouTube videos with custom titles.
+            Upload custom doctor logo/favicon via ImgBB (HTTPS URL), Nepal national flag, and embed YouTube videos.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => onSaveLocal(prepareDataForSave())}
-            className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5"
+            onClick={() => {
+              try {
+                onSaveLocal(prepareDataForSave());
+              } catch {
+                // handled in prepareDataForSave
+              }
+            }}
+            className="px-4 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-800 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer"
           >
             <Save className="w-3.5 h-3.5" />
             <span>Save Draft</span>
           </button>
           <button
-            onClick={() => onSaveLive(prepareDataForSave())}
-            className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5"
+            onClick={() => {
+              try {
+                onSaveLive(prepareDataForSave());
+              } catch {
+                // handled in prepareDataForSave
+              }
+            }}
+            className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
             <CloudUpload className="w-3.5 h-3.5" />
             <span>Global Live Push</span>
@@ -4283,36 +4426,109 @@ const LogoFlagManager: React.FC<{
 
       <div className="bg-white border rounded-2xl p-6 shadow-xs space-y-6">
         {/* Doctor Logo / Dynamic Favicon */}
-        <div className="flex flex-wrap items-center gap-4 p-4 bg-neutral-50 rounded-xl border">
-          <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-600 bg-white shrink-0">
-            <img src={data.logoUrl} alt="logo" className="w-full h-full object-cover" />
+        <div className="p-5 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-emerald-600 bg-white shrink-0 shadow-xs relative">
+                <img src={data.logoUrl} alt="logo" className="w-full h-full object-cover" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-neutral-800 block">Doctor Profile Logo & Dynamic Favicon</span>
+                <span className="text-[11px] text-neutral-500 block">
+                  Automatically converted to ImgBB HTTPS and synchronized with &lt;link rel="icon"&gt; on browser tab.
+                </span>
+                {/* Live Favicon Preview Chip */}
+                <div className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-1 rounded-md bg-white border border-neutral-200 text-[10px] text-neutral-600">
+                  <span className="text-neutral-400">Favicon preview:</span>
+                  <div className="w-4 h-4 rounded-xs overflow-hidden border border-emerald-500 bg-white">
+                    <img src={data.logoUrl} alt="Favicon" className="w-full h-full object-cover" />
+                  </div>
+                  <span className="text-emerald-700 font-mono font-bold">tab.icon</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Explicit Add Image Button with automated ImgBB conversion */}
+            <div className="flex items-center gap-2">
+              <label className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors shadow-2xs flex items-center gap-2">
+                {isUploadingLogo ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                <span>{isUploadingLogo ? 'Converting & Uploading to ImgBB...' : 'Add Image (Auto Convert to ImgBB)'}</span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml,image/x-icon"
+                  disabled={isUploadingLogo}
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleUploadLogo(f);
+                  }}
+                />
+              </label>
+            </div>
           </div>
-          <div className="flex-1 min-w-[180px]">
-            <span className="text-xs font-bold text-neutral-800 block">Doctor Profile Logo & Dynamic Favicon</span>
-            <span className="text-[11px] text-neutral-500">Automatically links as &lt;link rel="icon"&gt; on browser tab</span>
+
+          {/* Stored HTTPS URL Display and Validator */}
+          <div className="space-y-1.5 pt-2 border-t border-neutral-200">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-semibold text-neutral-700">
+                Current HTTPS Image URL (ImgBB / Hosted):
+              </label>
+              {data.logoUrl?.startsWith('https://') && (
+                <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  <span>Valid HTTPS URL (No Base64)</span>
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={data.logoUrl || ''}
+                onChange={(e) => handleDirectLogoChange(e.target.value)}
+                placeholder="https://i.ibb.co/..."
+                className="flex-1 px-3 py-2 text-xs border border-neutral-300 rounded-xl bg-white font-mono focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleCopyLogoUrl}
+                disabled={!data.logoUrl}
+                className="px-3.5 py-2 bg-neutral-200 hover:bg-neutral-300 text-neutral-700 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                title="Copy URL"
+              >
+                {copiedLogoUrl ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedLogoUrl ? 'Copied' : 'Copy'}</span>
+              </button>
+            </div>
+
+            {data.logoUrl?.toLowerCase().startsWith('data:') && (
+              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs">
+                ⚠️ <strong>Base64 detected!</strong> Base64 data images cannot be used as logos or favicons. Click the green <strong>"Add Image"</strong> button above to upload and automatically convert this file into a hosted HTTPS URL on ImgBB.
+              </div>
+            )}
+            {logoSuccess && <p className="text-xs text-emerald-700 font-semibold">{logoSuccess}</p>}
+            {logoError && <p className="text-xs text-rose-700 font-semibold">{logoError}</p>}
           </div>
-          <label className="px-3.5 py-2 bg-white border border-neutral-300 rounded-lg text-xs font-bold text-neutral-700 cursor-pointer hover:bg-neutral-100 flex items-center gap-1.5">
-            <Upload className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Upload Device Logo</span>
-            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleUploadLogo(f);
-            }} />
-          </label>
         </div>
 
         {/* Nepal Flag */}
-        <div className="flex flex-wrap items-center gap-4 p-4 bg-neutral-50 rounded-xl border">
-          <div className="w-14 h-14 p-1 bg-white border rounded-lg shrink-0 flex items-center justify-center">
+        <div className="flex flex-wrap items-center gap-4 p-4 bg-neutral-50 rounded-xl border border-neutral-200">
+          <div className="w-14 h-14 p-1 bg-white border rounded-lg shrink-0 flex items-center justify-center shadow-2xs">
             <img src={data.flagUrl} alt="flag" className="max-h-full max-w-full object-contain" />
           </div>
           <div className="flex-1 min-w-[180px]">
             <span className="text-xs font-bold text-neutral-800 block">Nepal National Flag Asset</span>
+            <span className="text-[11px] text-neutral-500">Official national emblem displayed alongside doctor profile</span>
+            {flagSuccess && <p className="text-xs text-emerald-700 font-semibold mt-1">{flagSuccess}</p>}
+            {flagError && <p className="text-xs text-rose-700 font-semibold mt-1">{flagError}</p>}
           </div>
-          <label className="px-3.5 py-2 bg-white border border-neutral-300 rounded-lg text-xs font-bold text-neutral-700 cursor-pointer hover:bg-neutral-100 flex items-center gap-1.5">
-            <Upload className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Upload Flag</span>
-            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+          <label className="px-3.5 py-2 bg-white border border-neutral-300 rounded-xl text-xs font-bold text-neutral-700 cursor-pointer hover:bg-neutral-100 flex items-center gap-1.5 shadow-2xs">
+            {isUploadingFlag ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5 text-emerald-700" />}
+            <span>{isUploadingFlag ? 'Uploading...' : 'Add Flag Image'}</span>
+            <input type="file" accept="image/*" disabled={isUploadingFlag} className="hidden" onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) handleUploadFlag(f);
             }} />

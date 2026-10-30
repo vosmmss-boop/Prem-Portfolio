@@ -17,23 +17,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    // Check local fallback admin session first
-    const savedLocalSession = localStorage.getItem('dr_joshi_admin_session');
-    if (savedLocalSession) {
-      try {
-        const parsed = JSON.parse(savedLocalSession);
+    // Purge old persistent localStorage admin session to ensure visitors are prompted for password
+    try {
+      localStorage.removeItem('dr_joshi_admin_session');
+    } catch {
+      // ignore
+    }
+
+    // Check active sessionStorage for current tab session
+    try {
+      const savedSession = sessionStorage.getItem('dr_joshi_admin_session');
+      if (savedSession) {
+        const parsed = JSON.parse(savedSession);
         setUser(parsed);
         ensureFirebaseAdminAuth().catch(() => {});
-      } catch (e) {
-        // ignore
       }
+    } catch {
+      // ignore
     }
 
     if (auth) {
       const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
         if (firebaseUser) {
           setUser(firebaseUser);
-        } else if (!localStorage.getItem('dr_joshi_admin_session')) {
+        } else if (!sessionStorage.getItem('dr_joshi_admin_session')) {
           setUser(null);
         }
         setAuthLoading(false);
@@ -44,45 +51,64 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
-  const login = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
-    const cleanEmail = email.trim().toLowerCase();
+  const login = async (usernameOrEmail: string, pass: string): Promise<{ success: boolean; error?: string }> => {
+    const cleanUser = usernameOrEmail.trim().toLowerCase();
     const cleanPass = pass.trim();
 
-    // Default required credentials: admin@prem / Prem@admin
-    const isDefaultAdmin = (cleanEmail === 'admin@prem' || cleanEmail === 'admin@prem.com' || cleanEmail === 'drpremrajjoshi@gmail.com') && cleanPass === 'Prem@admin';
+    // Required credentials for both CMS and Inquiries Portal:
+    // Username: webadmin_prem
+    // Password: DrPrem@123
+    const isAuthorizedAdmin =
+      (cleanUser === 'webadmin_prem' || cleanUser === 'webadmin_prem@gmail.com') &&
+      cleanPass === 'DrPrem@123';
 
-    if (isDefaultAdmin) {
+    if (isAuthorizedAdmin) {
       const adminObj = {
-        email: 'admin@prem',
-        displayName: 'Dr. Prem Raj Joshi (Admin)'
+        email: 'webadmin_prem@drpremrajjoshi.com.np',
+        displayName: 'Dr. Prem Raj Joshi (Admin Desk)'
       };
       setUser(adminObj);
-      localStorage.setItem('dr_joshi_admin_session', JSON.stringify(adminObj));
+      sessionStorage.setItem('dr_joshi_admin_session', JSON.stringify(adminObj));
       await ensureFirebaseAdminAuth().catch(() => {});
       return { success: true };
     }
 
-    // Try Firebase Auth if configured
-    if (auth) {
+    // Fallback attempt to Firebase Auth if configured for this account
+    if (auth && cleanUser.includes('@')) {
       try {
-        const res = await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
+        const res = await signInWithEmailAndPassword(auth, cleanUser, cleanPass);
         setUser(res.user);
+        sessionStorage.setItem('dr_joshi_admin_session', JSON.stringify({
+          email: res.user.email || cleanUser,
+          displayName: res.user.displayName || 'Authorized Admin'
+        }));
         return { success: true };
       } catch (err: any) {
-        return { success: false, error: err.message || 'Invalid email or password' };
+        return {
+          success: false,
+          error: 'Invalid credentials. Access restricted to authorized medical desk.'
+        };
       }
     }
 
-    return { success: false, error: 'Invalid credentials. Default: admin@prem / Prem@admin' };
+    return {
+      success: false,
+      error: 'Invalid credentials. Please enter the correct Username and Password.'
+    };
   };
 
   const logout = async () => {
-    localStorage.removeItem('dr_joshi_admin_session');
+    try {
+      sessionStorage.removeItem('dr_joshi_admin_session');
+      localStorage.removeItem('dr_joshi_admin_session');
+    } catch {
+      // ignore
+    }
     setUser(null);
     if (auth) {
       try {
         await fbSignOut(auth);
-      } catch (e) {
+      } catch {
         // ignore
       }
     }

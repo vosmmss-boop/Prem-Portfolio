@@ -1,17 +1,13 @@
-// Live Nepal Time (NPT / NST: UTC+5:45)
-// Standardized format: English and pure Nepali Unicode (no Hindi terms)
-// Bikram Sambat Date: 2083/06/21 (Ashwin 21, 2083 BS)
+// Live Nepal Time (NPT: UTC+5:45) and Bikram Sambat (B.S.) Calendar Utility
+// Dynamic, real-time Bikram Sambat conversion with pure Nepali Unicode
+
+import NepaliDate from 'nepali-date-converter';
 
 const NEPALI_DIGITS = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
 
 export function toNepaliDigits(input: string | number): string {
   return String(input).replace(/[0-9]/g, (digit) => NEPALI_DIGITS[parseInt(digit, 10)] || digit);
 }
-
-const NEPALI_MONTHS_BS = [
-  'बैशाख', 'जेठ', 'असार', 'श्रावण', 'भाद्र', 'आश्विन',
-  'कार्तिक', 'मंसिर', 'पौष', 'माघ', 'फाल्गुन', 'चैत्र'
-];
 
 const NEPALI_DAYS = [
   'आइतबार', 'सोमबार', 'मंगलबार', 'बुधबार', 'बिहीबार', 'शुक्रबार', 'शनिबार'
@@ -24,74 +20,134 @@ export interface FormattedNepalTime {
   timeOnlyNp: string;
   time12En: string;
   time12Np: string;
-  bsDateEn: string; // "2083/06/22"
-  bsDateNp: string; // "२०८३/०६/२२"
-  asojDateEn: string; // "22 Asoj 2083"
-  asojDateNp: string; // "२२ असोज २०८३"
-  ddMmYyEn: string; // "22:06:83"
-  ddMmYyNp: string; // "२२:०६:८३"
-  hhMmSsEn: string; // "05:45:12 PM"
-  hhMmSsNp: string; // "०५:४५:१२ साँझ"
+  bsDateEn: string; // e.g. "2083/07/13"
+  bsDateNp: string; // e.g. "२०८३/०७/१३"
+  asojDateEn: string; // Dynamic formatted date in English (e.g. "13 Kartik 2083")
+  asojDateNp: string; // Dynamic formatted date in Nepali (e.g. "१३ कार्तिक २०८३")
+  bsDateFormattedEn: string; // "13 Kartik 2083"
+  bsDateFormattedNp: string; // "१३ कार्तिक २०८३"
+  ddMmYyEn: string; // e.g. "13:07:83"
+  ddMmYyNp: string; // e.g. "१३:०७:८३"
+  hhMmSsEn: string; // "08:15:20 PM"
+  hhMmSsNp: string; // "०८:१५:२० राती"
   nepaliDay: string;
   rawDate: Date;
 }
 
-export function getNepalCurrentDate(): Date {
-  // Current UTC time shifted by +5 hours 45 minutes
-  const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  const nepalOffsetMs = (5 * 60 + 45) * 60000;
-  return new Date(utc + nepalOffsetMs);
+/**
+ * Returns the exact current year, month, day, hour, minute, second in Asia/Kathmandu timezone (UTC+5:45)
+ */
+export function getNepalDateTimeParts(now = new Date()): {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+} {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kathmandu',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false
+    }).formatToParts(now);
+
+    const getPart = (type: string) => parseInt(parts.find((p) => p.type === type)?.value || '0', 10);
+    const year = getPart('year') || now.getFullYear();
+    const month = getPart('month') || now.getMonth() + 1;
+    const day = getPart('day') || now.getDate();
+    let hour = getPart('hour');
+    if (hour === 24) hour = 0;
+    const minute = getPart('minute');
+    const second = getPart('second');
+
+    return { year, month, day, hour, minute, second };
+  } catch {
+    // Fallback: UTC + 5 hours 45 minutes
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    const nepalDate = new Date(utcMs + (5 * 60 + 45) * 60000);
+    return {
+      year: nepalDate.getFullYear(),
+      month: nepalDate.getMonth() + 1,
+      day: nepalDate.getDate(),
+      hour: nepalDate.getHours(),
+      minute: nepalDate.getMinutes(),
+      second: nepalDate.getSeconds()
+    };
+  }
 }
 
-export function formatNepalTime(date = getNepalCurrentDate()): FormattedNepalTime {
-  const monthsEn = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-  ];
+export function getNepalCurrentDate(): Date {
+  const p = getNepalDateTimeParts();
+  return new Date(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+}
 
-  const yearEn = date.getFullYear();
-  const monthEn = monthsEn[date.getMonth()];
-  const dayEn = String(date.getDate()).padStart(2, '0');
+/**
+ * Formats live Nepal Standard Time (12-hour format) and current dynamic Bikram Sambat Date
+ */
+export function formatNepalTime(baseDate = new Date()): FormattedNepalTime {
+  const p = getNepalDateTimeParts(baseDate);
+  const kathmanduDate = new Date(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
 
-  const hours24 = date.getHours();
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
+  // Convert to dynamic Bikram Sambat (B.S.)
+  const bs = new NepaliDate(kathmanduDate);
+
+  const hours24 = p.hour;
+  const minutes = String(p.minute).padStart(2, '0');
+  const seconds = String(p.second).padStart(2, '0');
 
   const ampmEn = hours24 >= 12 ? 'PM' : 'AM';
-  const ampmNp = hours24 >= 12
-    ? (hours24 >= 18 ? 'साँझ' : (hours24 >= 12 ? 'दिउँसो' : 'अपरान्ह'))
-    : (hours24 >= 4 ? 'बिहान' : 'राती');
+  const ampmNp =
+    hours24 >= 12
+      ? hours24 >= 19
+        ? 'राती'
+        : hours24 >= 16
+        ? 'साँझ'
+        : 'दिउँसो'
+      : hours24 >= 4
+      ? 'बिहान'
+      : 'राती';
 
   const displayHours = hours24 % 12 || 12;
   const displayHoursStr = String(displayHours).padStart(2, '0');
 
-  // 12-Hour format (HH:MM:SS AM/PM)
+  // 12-Hour format strings
   const hhMmSsEn = `${displayHoursStr}:${minutes}:${seconds} ${ampmEn}`;
   const hhMmSsNp = `${toNepaliDigits(displayHoursStr)}:${toNepaliDigits(minutes)}:${toNepaliDigits(seconds)} ${ampmNp}`;
 
-  const time12En = `${displayHoursStr}:${minutes}:${seconds} ${ampmEn}`;
-  const time12Np = `${toNepaliDigits(displayHoursStr)}:${toNepaliDigits(minutes)}:${toNepaliDigits(seconds)} ${ampmNp}`;
+  const time12En = hhMmSsEn;
+  const time12Np = hhMmSsNp;
 
-  const timeOnlyEn = `${displayHoursStr}:${minutes}:${seconds} ${ampmEn} NPT`;
-  const timeOnlyNp = `${toNepaliDigits(displayHoursStr)}:${toNepaliDigits(minutes)}:${toNepaliDigits(seconds)} ${ampmNp} (नेपाल समय)`;
+  const timeOnlyEn = `${hhMmSsEn} NPT`;
+  const timeOnlyNp = `${hhMmSsNp} (नेपाल समय)`;
 
-  // Bikram Sambat date requested: 22 Asoj 2083 (Ashwin 22, 2083 BS)
-  const bsYear = '2083';
-  const bsMonth = '06';
-  const bsDay = '22';
-  const bsDateEn = `${bsYear}/${bsMonth}/${bsDay}`;
-  const bsDateNp = `${toNepaliDigits(bsYear)}/${toNepaliDigits(bsMonth)}/${toNepaliDigits(bsDay)}`;
+  // Dynamic Bikram Sambat date format strings
+  const bsYear = String(bs.getYear());
+  const bsMonthNum = String(bs.getMonth() + 1).padStart(2, '0');
+  const bsDayNum = String(bs.getDate()).padStart(2, '0');
 
-  const asojDateEn = `${bsDay} Asoj ${bsYear}`;
-  const asojDateNp = `${toNepaliDigits(bsDay)} असोज ${toNepaliDigits(bsYear)}`;
+  const bsDateEn = `${bsYear}/${bsMonthNum}/${bsDayNum}`;
+  const bsDateNp = `${toNepaliDigits(bsYear)}/${toNepaliDigits(bsMonthNum)}/${toNepaliDigits(bsDayNum)}`;
 
-  const ddMmYyEn = `${bsDay}:${bsMonth}:${bsYear.slice(-2)}`;
-  const ddMmYyNp = `${toNepaliDigits(bsDay)}:${toNepaliDigits(bsMonth)}:${toNepaliDigits(bsYear.slice(-2))}`;
+  // Formatted as "13 Kartik 2083" and "१३ कार्तिक २०८३"
+  const bsDateFormattedEn = bs.format('DD MMMM YYYY');
+  const bsDateFormattedNp = bs.format('DD MMMM YYYY', 'np');
 
-  const nepaliDay = NEPALI_DAYS[date.getDay()];
-  const english = `${asojDateEn} · ${hhMmSsEn} NPT (UTC+5:45)`;
-  const nepali = `${nepaliDay}, ${asojDateNp}, ${hhMmSsNp} (नेपाल समय)`;
+  // Kept for backward compatibility with Header.tsx navigation badges
+  const asojDateEn = bsDateFormattedEn;
+  const asojDateNp = bsDateFormattedNp;
+
+  const ddMmYyEn = `${bsDayNum}:${bsMonthNum}:${bsYear.slice(-2)}`;
+  const ddMmYyNp = `${toNepaliDigits(bsDayNum)}:${toNepaliDigits(bsMonthNum)}:${toNepaliDigits(bsYear.slice(-2))}`;
+
+  const nepaliDay = NEPALI_DAYS[kathmanduDate.getDay()];
+  const english = `${bsDateFormattedEn} · ${hhMmSsEn} NPT (UTC+5:45)`;
+  const nepali = `${nepaliDay}, ${bsDateFormattedNp}, ${hhMmSsNp} (नेपाल समय)`;
 
   return {
     english,
@@ -104,11 +160,13 @@ export function formatNepalTime(date = getNepalCurrentDate()): FormattedNepalTim
     bsDateNp,
     asojDateEn,
     asojDateNp,
+    bsDateFormattedEn,
+    bsDateFormattedNp,
     ddMmYyEn,
     ddMmYyNp,
     hhMmSsEn,
     hhMmSsNp,
     nepaliDay,
-    rawDate: date
+    rawDate: kathmanduDate
   };
 }

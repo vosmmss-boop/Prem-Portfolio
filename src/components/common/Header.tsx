@@ -57,11 +57,11 @@ export const Header: React.FC<HeaderProps> = ({ branding, currentView, onNavigat
     return () => clearInterval(timer);
   }, []);
 
-  // Dynamic favicon update
+  // Dynamic favicon update (only set valid HTTPS or asset URLs, never base64 data: URLs)
   useEffect(() => {
     const favicon = document.getElementById('dynamic-favicon') as HTMLLinkElement | null;
-    if (favicon && branding.logoUrl) {
-      favicon.href = branding.logoUrl;
+    if (favicon && branding.logoUrl && !branding.logoUrl.trim().toLowerCase().startsWith('data:')) {
+      favicon.href = branding.logoUrl.trim();
     }
   }, [branding.logoUrl]);
 

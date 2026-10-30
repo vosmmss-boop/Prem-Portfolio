@@ -242,14 +242,14 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                Doctor / Desk ID
+                Username
               </label>
               <input
                 type="text"
                 required
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="doctor or admin@premrajjoshi.com.np"
+                placeholder="webadmin_prem"
                 className="w-full px-3.5 py-2.5 text-xs border border-neutral-300 rounded-xl focus:ring-2 focus:ring-emerald-600 focus:outline-none"
               />
             </div>

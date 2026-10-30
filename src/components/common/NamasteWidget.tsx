@@ -34,7 +34,10 @@ import {
   Star,
   MessageCircle,
   Stethoscope,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Minus
 } from 'lucide-react';
 
 interface NamasteWidgetProps {
@@ -71,6 +74,7 @@ export const NamasteWidget: React.FC<NamasteWidgetProps> = ({
   const { language, t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'book' | 'track'>(defaultTab);
+  const [isBadgeMinimized, setIsBadgeMinimized] = useState(false);
 
   // Form State
   const [fullName, setFullName] = useState('');
@@ -342,34 +346,99 @@ export const NamasteWidget: React.FC<NamasteWidgetProps> = ({
 
   return (
     <>
-      {/* 1. Sticky Floating Action Badge on Bottom Right */}
-      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 print:hidden flex flex-col items-end">
-        <button
-          onClick={() => {
-            setActiveTab('book');
-            setIsOpen(true);
-          }}
-          className="group relative flex items-center gap-2.5 sm:gap-3 bg-gradient-to-r from-emerald-800 to-teal-700 text-white pl-2.5 pr-4 sm:pl-3.5 sm:pr-5 py-2 sm:py-2.5 rounded-full shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 border-2 border-emerald-400/40 cursor-pointer"
-          aria-label={t('namaste_badge_text')}
-        >
-          {/* Synchronized doctor thumbnail on badge */}
-          <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-full overflow-hidden border-2 border-emerald-300 bg-white shadow-xs shrink-0">
-            <img
-              src={currentDoctorPhoto}
-              alt="Dr. Prem Raj Joshi"
-              className="w-full h-full object-cover"
-            />
+      {/* 1. Sticky Floating Action Badge on Bottom Right - Non-intrusive & pointer-events safe */}
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 print:hidden pointer-events-none select-none">
+        {isBadgeMinimized ? (
+          /* Minimized Compact Mode: Zero footprint, does not obscure any article/body text */
+          <div className="pointer-events-auto flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-200">
+            <button
+              onClick={() => {
+                setActiveTab('book');
+                setIsOpen(true);
+              }}
+              className="group relative flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-emerald-950 via-teal-900 to-emerald-900 text-white shadow-2xl border-2 border-emerald-400/80 hover:scale-110 active:scale-95 transition-all duration-300 cursor-pointer animate-namaste-float animate-namaste-glow"
+              title="Dr. Prem Raj Joshi - Namaste (Click to open consultation booking)"
+              aria-label="Open Namaste Consultation Booking"
+            >
+              <div className="relative w-9 h-9 sm:w-11 sm:h-11 rounded-full overflow-hidden border border-emerald-300/80 bg-white">
+                <img
+                  src={currentDoctorPhoto}
+                  alt="Dr. Prem Raj Joshi"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              {/* Online beacon */}
+              <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-white"></span>
+              </span>
+              {/* Mini Namaste badge */}
+              <span className="absolute -bottom-1 -left-1 text-[13px] bg-amber-500/95 text-white rounded-full p-0.5 border border-amber-200 shadow-xs leading-none">
+                🙏
+              </span>
+            </button>
+            <button
+              onClick={() => setIsBadgeMinimized(false)}
+              className="p-1.5 rounded-full bg-white/95 text-neutral-600 hover:text-emerald-700 shadow-md border border-neutral-200 backdrop-blur-xs text-[11px] transition-colors cursor-pointer"
+              title="Expand Namaste Help Bar"
+              aria-label="Expand badge"
+            >
+              <ChevronUp className="w-3.5 h-3.5" />
+            </button>
           </div>
+        ) : (
+          /* Expanded Full Mode: Exquisite Ayurvedic Glassmorphism, Breathing Glow & Non-intrusive Minimize Option */
+          <div className="pointer-events-auto flex items-center gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <button
+              onClick={() => {
+                setActiveTab('book');
+                setIsOpen(true);
+              }}
+              className="group relative flex items-center gap-2.5 sm:gap-3 bg-gradient-to-r from-emerald-950/95 via-emerald-900/95 to-teal-900/95 backdrop-blur-md text-white pl-2.5 pr-4 sm:pl-3 sm:pr-4.5 py-2 sm:py-2.5 rounded-full shadow-2xl hover:shadow-[0_12px_32px_rgba(5,150,105,0.45)] hover:scale-[1.02] active:scale-95 transition-all duration-300 border border-emerald-400/50 hover:border-emerald-300 cursor-pointer animate-namaste-glow animate-namaste-float text-left"
+              aria-label={t('namaste_badge_text')}
+            >
+              {/* Pulsing Avatar with Doctor Photo */}
+              <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border-2 border-emerald-300/80 bg-white shadow-xs shrink-0 ring-2 ring-emerald-500/30">
+                <img
+                  src={currentDoctorPhoto}
+                  alt="Dr. Prem Raj Joshi"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                {/* Active Live Indicator */}
+                <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-white"></span>
+              </div>
 
-          <div className="text-left">
-            <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-emerald-200 block font-semibold leading-none mb-0.5">
-              Dr. Prem Raj Joshi
-            </span>
-            <span className="text-xs sm:text-sm font-semibold tracking-tight text-white block leading-tight font-nepali">
-              {t('namaste_badge_text')}
-            </span>
+              {/* Text content with Nepali / English typography */}
+              <div className="flex flex-col min-w-0 pr-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[14px] animate-gentle-wave inline-block leading-none">
+                    🙏
+                  </span>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-300 font-mono leading-none">
+                    Dr. Prem Raj Joshi
+                  </span>
+                </div>
+                <span className="text-xs sm:text-sm font-semibold tracking-tight text-white leading-tight font-nepali mt-0.5 drop-shadow-xs">
+                  {t('namaste_badge_text')}
+                </span>
+              </div>
+            </button>
+
+            {/* Quick minimize toggle button so widget never covers or disturbs text behind it */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsBadgeMinimized(true);
+              }}
+              className="p-1 sm:p-1.5 rounded-full bg-white/80 hover:bg-white text-neutral-500 hover:text-emerald-800 shadow-md border border-neutral-200/80 backdrop-blur-xs transition-colors cursor-pointer"
+              title="Minimize badge (won't disturb text)"
+              aria-label="Minimize Namaste badge"
+            >
+              <Minus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            </button>
           </div>
-        </button>
+        )}
       </div>
 
       {/* 2. Interactive Appointment & Status Tracking Modal */}

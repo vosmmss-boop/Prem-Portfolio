@@ -148,10 +148,10 @@ export function AppContent() {
     };
     script.text = JSON.stringify(schema);
 
-    // Sync dynamic favicon and social meta tags with uploaded logo image
-    if (syncedDoctorPhoto) {
+    // Sync dynamic favicon and social meta tags with uploaded logo image (strictly ignore base64 data: URLs)
+    if (syncedDoctorPhoto && !syncedDoctorPhoto.trim().toLowerCase().startsWith('data:')) {
       const fav = document.getElementById('dynamic-favicon') as HTMLLinkElement | null;
-      if (fav) fav.href = syncedDoctorPhoto;
+      if (fav) fav.href = syncedDoctorPhoto.trim();
       const absolutePhotoUrl = syncedDoctorPhoto.startsWith('http')
         ? syncedDoctorPhoto
         : 'https://hi.drpremrajjoshi.com.np/logo.png';

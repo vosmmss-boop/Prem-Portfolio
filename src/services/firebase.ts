@@ -491,6 +491,12 @@ export function normalizeAssetUrls<T>(data: T): T {
     const out: Record<string, any> = {};
     for (const [k, v] of Object.entries(data as Record<string, any>)) {
       if (
+        (k === 'logoUrl' || k === 'avatarUrl') &&
+        typeof v === 'string' &&
+        v.trim().toLowerCase().startsWith('data:')
+      ) {
+        out[k] = '/assets/images/doctor_portrait_1791392878397.jpg';
+      } else if (
         (k === 'cover_image' || k === 'coverImage') &&
         typeof v === 'string' &&
         v.trim().toLowerCase().startsWith('data:')

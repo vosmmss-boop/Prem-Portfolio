@@ -45,6 +45,49 @@
   animation: title-flicker 2.8s infinite ease-in-out;
 }
 
+/* Namaste Floating Widget Pulse & Glow */
+@keyframes namaste-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes namaste-glow {
+  0%, 100% {
+    box-shadow: 0 10px 25px -5px rgba(5, 150, 105, 0.4), 0 0 15px rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    box-shadow: 0 15px 30px -5px rgba(5, 150, 105, 0.6), 0 0 25px rgba(16, 185, 129, 0.45);
+  }
+}
+
+@keyframes gentle-wave {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-8deg);
+  }
+  75% {
+    transform: rotate(8deg);
+  }
+}
+
+.animate-namaste-float {
+  animation: namaste-float 3.5s ease-in-out infinite;
+}
+
+.animate-namaste-glow {
+  animation: namaste-glow 3s ease-in-out infinite;
+}
+
+.animate-gentle-wave {
+  animation: gentle-wave 2.2s ease-in-out infinite;
+}
+
 /* Shimmer Skeleton Animation */
 @keyframes shimmer {
   0% {
