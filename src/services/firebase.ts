@@ -8,8 +8,10 @@ import {
   push,
   update,
   remove,
+  goOnline,
   Database
 } from 'firebase/database';
+import { updateFavicon } from '../utils/favicon';
 import {
   getAuth,
   signInWithEmailAndPassword,
@@ -77,11 +79,18 @@ let analytics: Analytics | null = null;
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   database = getDatabase(app);
+  if (database && typeof window !== 'undefined') {
+    try {
+      goOnline(database);
+    } catch {
+      // ignore
+    }
+  }
   auth = getAuth(app);
   storage = getStorage(app);
-  // Prevent infinite 10-minute hangs on CORS or network preflight failures
-  storage.maxUploadRetryTime = 15000;
-  storage.maxOperationRetryTime = 15000;
+  // Prevent infinite hangs on CORS or network preflight failures
+  storage.maxUploadRetryTime = 10000;
+  storage.maxOperationRetryTime = 10000;
 
   if (typeof window !== 'undefined') {
     isSupported().then((supported) => {
@@ -712,17 +721,26 @@ export function subscribeToNode<T>(
   const cachedData = getLocal<T>(storageKey, initialFallback);
   onData(cachedData);
 
-  // 3-second max timeout guard
+  // Synchronously signal caller that initial data is loaded and ready to render (0ms delay!)
+  onLoaded();
+
+  // If branding is in local cache, ensure favicon matches immediately
+  if (storageKey === STORAGE_KEYS.BRANDING && cachedData && typeof cachedData === 'object') {
+    const b = cachedData as Record<string, any>;
+    if (b.logoUrl) {
+      updateFavicon(b.logoUrl);
+    }
+  }
+
+  // Fallback safety timer
   const timer = setTimeout(() => {
     if (!isResolved) {
       isResolved = true;
-      onLoaded();
     }
-  }, 3000);
+  }, 2000);
 
   if (!database) {
     clearTimeout(timer);
-    onLoaded();
     return () => {};
   }
 
@@ -734,7 +752,6 @@ export function subscribeToNode<T>(
         if (!isResolved) {
           isResolved = true;
           clearTimeout(timer);
-          onLoaded();
         }
         // If the user has unsynced local CMS changes in this browser, do not let a stale remote snapshot overwrite them!
         const hasPendingLocal =
@@ -808,6 +825,14 @@ export function subscribeToNode<T>(
 
             setLocal(storageKey, normalized, false);
             onData(normalized);
+
+            // If incoming remote node is branding, update favicon immediately
+            if (storageKey === STORAGE_KEYS.BRANDING && normalized && typeof normalized === 'object') {
+              const b = normalized as Record<string, any>;
+              if (b.logoUrl) {
+                updateFavicon(b.logoUrl);
+              }
+            }
           }
         } else {
           // If node doesn't exist yet in remote RTDB, preserve current local cache
@@ -900,11 +925,13 @@ export async function saveNodeData<T>(
       if (nodePath === 'branding' && cleanData && typeof cleanData === 'object') {
         const b = cleanData as Record<string, any>;
         if (b.logoUrl) {
+          updateFavicon(b.logoUrl);
           try {
             const settingsRef = ref(database, 'settings');
             await update(settingsRef, {
               logo: b.logoUrl,
               logoUrl: b.logoUrl,
+              favicon: b.logoUrl,
               title:
                 b.doctorName?.en && b.degreeTitle?.en
                   ? `${b.doctorName.en} - ${b.degreeTitle.en}`
@@ -1004,14 +1031,22 @@ export async function pushAllContentToFirebase(allData: {
   let pushed = 0;
   const errors: string[] = [];
 
-  for (const node of nodes) {
-    const res = await saveNodeData(node.path, node.key, node.data);
-    if (res.syncedToFirebase) {
-      pushed++;
-    } else if (res.error) {
-      errors.push(`${node.path}: ${res.error}`);
+  // Push all nodes in parallel for maximum speed
+  const results = await Promise.allSettled(
+    nodes.map((node) => saveNodeData(node.path, node.key, node.data))
+  );
+
+  results.forEach((res, idx) => {
+    if (res.status === 'fulfilled') {
+      if (res.value.syncedToFirebase) {
+        pushed++;
+      } else if (res.value.error) {
+        errors.push(`${nodes[idx].path}: ${res.value.error}`);
+      }
+    } else {
+      errors.push(`${nodes[idx].path}: ${res.reason?.message || 'Sync failed'}`);
     }
-  }
+  });
 
   return { success: errors.length === 0, pushedCount: pushed, errors };
 }

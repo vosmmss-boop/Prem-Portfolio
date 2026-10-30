@@ -33,6 +33,7 @@ import {
   formatFirebaseStorageError
 } from '../../services/firebase';
 import { generateSlug } from '../../utils/slugify';
+import { updateFavicon } from '../../utils/favicon';
 import { UniversalRichTextEditor } from '../common/UniversalRichTextEditor';
 import {
   Shield,
@@ -165,8 +166,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   onUpdateGallery,
   onBackToSite
 }) => {
-  const { isAdmin, login, logout } = useAuth();
+  const { login, logout } = useAuth();
   const { language } = useLanguage();
+
+  // In-memory portal authentication: starts false on every visit so password is required every time
+  const [isPortalAuthed, setIsPortalAuthed] = useState(false);
 
   // Login form state (empty defaults - no prefilled passwords)
   const [loginEmail, setLoginEmail] = useState('');
@@ -274,7 +278,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     if (newBio.avatarUrl && newBio.avatarUrl !== branding.logoUrl) {
       const updatedBranding = { ...branding, logoUrl: newBio.avatarUrl };
       onUpdateBranding(updatedBranding);
+      updateFavicon(newBio.avatarUrl);
       await saveNodeData('branding', 'dr_joshi_branding', updatedBranding);
+    } else if (newBio.avatarUrl) {
+      updateFavicon(newBio.avatarUrl);
     }
     if (resA.syncedToFirebase) {
       setFirebaseStatus('connected');
@@ -392,12 +399,27 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setLoginError('');
     const res = await login(loginEmail, loginPass);
     setIsLoggingIn(false);
-    if (!res.success) {
+    if (res.success) {
+      setIsPortalAuthed(true);
+      setLoginEmail('');
+      setLoginPass('');
+    } else {
       setLoginError(res.error || 'Authentication failed. Check credentials.');
     }
   };
 
-  if (!isAdmin) {
+  const handleSignOut = () => {
+    setIsPortalAuthed(false);
+    logout();
+  };
+
+  const handleBackToSite = () => {
+    setIsPortalAuthed(false);
+    logout();
+    onBackToSite();
+  };
+
+  if (!isPortalAuthed) {
     return (
       <div className="min-h-screen bg-neutral-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl border border-neutral-200">
@@ -458,7 +480,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
             <button
               type="button"
-              onClick={onBackToSite}
+              onClick={handleBackToSite}
               className="w-full py-2 text-xs text-neutral-500 hover:text-neutral-800 transition-colors"
             >
               ← Back to Main Website
@@ -493,7 +515,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       <header className="bg-neutral-900 text-white px-3 sm:px-6 py-3 sm:py-3.5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 border-b border-neutral-800">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
-            onClick={onBackToSite}
+            onClick={handleBackToSite}
             className="p-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-semibold shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -572,8 +594,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           <div className="h-5 w-px bg-neutral-700 hidden md:block" />
 
           <button
-            onClick={logout}
-            className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold rounded-lg flex items-center gap-1.5 border border-neutral-700"
+            onClick={handleSignOut}
+            className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold rounded-lg flex items-center gap-1.5 border border-neutral-700 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
@@ -2099,6 +2121,7 @@ const AutobiographyManager: React.FC<{
       if (res.url && res.url.startsWith('https://')) {
         setData((prev) => ({ ...prev, avatarUrl: res.url }));
         setAvatarSuccess('✓ Photo uploaded and converted to HTTPS URL via ImgBB!');
+        updateFavicon(res.url);
       } else {
         throw new Error('Valid HTTPS URL not received from ImgBB');
       }
@@ -2109,6 +2132,7 @@ const AutobiographyManager: React.FC<{
         if (fbRes.downloadURL && fbRes.downloadURL.startsWith('https://')) {
           setData((prev) => ({ ...prev, avatarUrl: fbRes.downloadURL }));
           setAvatarSuccess('✓ Photo uploaded to cloud storage with HTTPS link!');
+          updateFavicon(fbRes.downloadURL);
         } else {
           throw new Error(err.message || 'Image upload failed');
         }
@@ -4288,6 +4312,10 @@ const LogoFlagManager: React.FC<{
       throw new Error('Base64 logoUrl is rejected.');
     }
 
+    if (data.logoUrl) {
+      updateFavicon(data.logoUrl);
+    }
+
     const normalizedVideos = videos.map((v) => {
       const parsed = parseYouTubeUrl(v.url);
       return {
@@ -4311,8 +4339,7 @@ const LogoFlagManager: React.FC<{
       if (res.url && res.url.startsWith('https://')) {
         setData((prev) => ({ ...prev, logoUrl: res.url }));
         setLogoSuccess('✓ Logo successfully converted and uploaded to ImgBB (HTTPS URL ready!)');
-        const fav = document.getElementById('dynamic-favicon') as HTMLLinkElement | null;
-        if (fav) fav.href = res.url;
+        updateFavicon(res.url);
       } else {
         throw new Error('Did not receive a valid HTTPS URL from image upload.');
       }
@@ -4323,8 +4350,7 @@ const LogoFlagManager: React.FC<{
         if (fbRes.downloadURL && fbRes.downloadURL.startsWith('https://')) {
           setData((prev) => ({ ...prev, logoUrl: fbRes.downloadURL }));
           setLogoSuccess('✓ Logo successfully uploaded to secure cloud storage (HTTPS URL ready!)');
-          const fav = document.getElementById('dynamic-favicon') as HTMLLinkElement | null;
-          if (fav) fav.href = fbRes.downloadURL;
+          updateFavicon(fbRes.downloadURL);
         } else {
           throw new Error(err.message || 'Image upload failed');
         }
@@ -4370,8 +4396,7 @@ const LogoFlagManager: React.FC<{
     setLogoError('');
     setData({ ...data, logoUrl: trimmed });
     if (trimmed.startsWith('https://') || trimmed.startsWith('/')) {
-      const fav = document.getElementById('dynamic-favicon') as HTMLLinkElement | null;
-      if (fav) fav.href = trimmed;
+      updateFavicon(trimmed);
     }
   };
 

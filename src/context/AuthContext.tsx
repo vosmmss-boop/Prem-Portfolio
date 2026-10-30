@@ -17,38 +17,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
-    // Purge old persistent localStorage admin session to ensure visitors are prompted for password
+    // Purge any stored admin session in localStorage/sessionStorage so password is required every time
     try {
       localStorage.removeItem('dr_joshi_admin_session');
+      sessionStorage.removeItem('dr_joshi_admin_session');
     } catch {
       // ignore
     }
-
-    // Check active sessionStorage for current tab session
-    try {
-      const savedSession = sessionStorage.getItem('dr_joshi_admin_session');
-      if (savedSession) {
-        const parsed = JSON.parse(savedSession);
-        setUser(parsed);
-        ensureFirebaseAdminAuth().catch(() => {});
-      }
-    } catch {
-      // ignore
-    }
-
-    if (auth) {
-      const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-        if (firebaseUser) {
-          setUser(firebaseUser);
-        } else if (!sessionStorage.getItem('dr_joshi_admin_session')) {
-          setUser(null);
-        }
-        setAuthLoading(false);
-      });
-      return () => unsubscribe();
-    } else {
-      setAuthLoading(false);
-    }
+    // Set initial user to null so login prompt is strictly required every visit
+    setUser(null);
+    setAuthLoading(false);
   }, []);
 
   const login = async (usernameOrEmail: string, pass: string): Promise<{ success: boolean; error?: string }> => {
@@ -68,7 +46,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         displayName: 'Dr. Prem Raj Joshi (Admin Desk)'
       };
       setUser(adminObj);
-      sessionStorage.setItem('dr_joshi_admin_session', JSON.stringify(adminObj));
       await ensureFirebaseAdminAuth().catch(() => {});
       return { success: true };
     }
@@ -78,10 +55,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         const res = await signInWithEmailAndPassword(auth, cleanUser, cleanPass);
         setUser(res.user);
-        sessionStorage.setItem('dr_joshi_admin_session', JSON.stringify({
-          email: res.user.email || cleanUser,
-          displayName: res.user.displayName || 'Authorized Admin'
-        }));
         return { success: true };
       } catch (err: any) {
         return {

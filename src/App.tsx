@@ -36,6 +36,7 @@ import {
   STORAGE_KEYS
 } from './services/firebase';
 import { sanitizeSlug } from './utils/slugify';
+import { updateFavicon } from './utils/favicon';
 
 import { Header } from './components/common/Header';
 import { Footer } from './components/common/Footer';
@@ -68,8 +69,8 @@ export function AppContent() {
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [appointmentDefaultTab, setAppointmentDefaultTab] = useState<'book' | 'track'>('book');
 
-  // Loading state with 3-second maximum fallback
-  const [isDataLoading, setIsDataLoading] = useState(true);
+  // Instant Render: All entity states are preloaded synchronously from local cache/initial defaults (0ms delay)
+  const [isDataLoading, setIsDataLoading] = useState(false);
 
   // Entities state loaded from Local Storage first so CMS updates are shown immediately, then synced with Firebase Realtime Database
   const [branding, setBranding] = useState<Branding>(() => getLocal(STORAGE_KEYS.BRANDING, initialBranding));
@@ -148,10 +149,9 @@ export function AppContent() {
     };
     script.text = JSON.stringify(schema);
 
-    // Sync dynamic favicon and social meta tags with uploaded logo image (strictly ignore base64 data: URLs)
+    // Sync dynamic favicon across all link tags and social meta tags with uploaded logo image
     if (syncedDoctorPhoto && !syncedDoctorPhoto.trim().toLowerCase().startsWith('data:')) {
-      const fav = document.getElementById('dynamic-favicon') as HTMLLinkElement | null;
-      if (fav) fav.href = syncedDoctorPhoto.trim();
+      updateFavicon(syncedDoctorPhoto.trim());
       const absolutePhotoUrl = syncedDoctorPhoto.startsWith('http')
         ? syncedDoctorPhoto
         : 'https://hi.drpremrajjoshi.com.np/logo.png';

@@ -66,6 +66,30 @@
     <meta name="twitter:creator" content="@drpremrajjoshi" />
     <meta name="twitter:description" content="Ayurvedic Physician & Healthcare Expert, Institute of Medicine, Tribhuvan University." />
 
+    <!-- Immediate Dynamic Favicon Synchronizer: Applies Doctor Logo as Favicon before React loads -->
+    <script type="text/javascript">
+      (function() {
+        try {
+          var fav = localStorage.getItem('dr_joshi_custom_favicon');
+          if (!fav) {
+            var b = localStorage.getItem('dr_joshi_branding');
+            if (b) {
+              var parsed = JSON.parse(b);
+              if (parsed && parsed.logoUrl && !parsed.logoUrl.startsWith('data:')) {
+                fav = parsed.logoUrl;
+              }
+            }
+          }
+          if (fav) {
+            var links = document.querySelectorAll("link[rel*='icon']");
+            for (var i = 0; i < links.length; i++) {
+              links[i].href = fav;
+            }
+          }
+        } catch (e) {}
+      })();
+    </script>
+
     <!-- Official Favicon & Apple Touch Icon Links -->
     <link id="dynamic-favicon" rel="icon" type="image/png" sizes="32x32" href="/logo.png" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />

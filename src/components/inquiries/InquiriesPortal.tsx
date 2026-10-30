@@ -52,8 +52,11 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
   onBackToSite,
   branding
 }) => {
-  const { isAdmin, login, logout } = useAuth();
+  const { login, logout } = useAuth();
   const { language } = useLanguage();
+
+  // In-memory portal authentication: starts false on every visit so password is required every time
+  const [isPortalAuthed, setIsPortalAuthed] = useState(false);
 
   // Login form state if unauthenticated
   const [loginEmail, setLoginEmail] = useState('');
@@ -86,9 +89,24 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
     setLoginError('');
     const res = await login(loginEmail, loginPass);
     setIsLoggingIn(false);
-    if (!res.success) {
+    if (res.success) {
+      setIsPortalAuthed(true);
+      setLoginEmail('');
+      setLoginPass('');
+    } else {
       setLoginError(res.error || 'Invalid credentials');
     }
+  };
+
+  const handleExit = () => {
+    setIsPortalAuthed(false);
+    logout();
+  };
+
+  const handleBackToSite = () => {
+    setIsPortalAuthed(false);
+    logout();
+    onBackToSite();
   };
 
   // Ensure any local inquiries in localStorage are merged on mount or tab focus so nothing is ever hidden
@@ -219,7 +237,7 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
     setTimeout(() => setCopiedId(false), 2000);
   };
 
-  if (!isAdmin) {
+  if (!isPortalAuthed) {
     return (
       <div className="min-h-screen bg-neutral-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-2xl border border-neutral-200">
@@ -286,8 +304,8 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
 
           <div className="mt-6 text-center">
             <button
-              onClick={onBackToSite}
-              className="text-xs text-neutral-500 hover:text-neutral-900 font-semibold"
+              onClick={handleBackToSite}
+              className="text-xs text-neutral-500 hover:text-neutral-900 font-semibold cursor-pointer"
             >
               ← Return to Public Website
             </button>
@@ -305,7 +323,7 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
       <header className="bg-neutral-900 text-white px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2 border-b border-neutral-800">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
-            onClick={onBackToSite}
+            onClick={handleBackToSite}
             className="p-1.5 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -328,7 +346,7 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
         </div>
 
         <button
-          onClick={logout}
+          onClick={handleExit}
           className="px-2.5 sm:px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer shrink-0"
         >
           <LogOut className="w-3.5 h-3.5" />
