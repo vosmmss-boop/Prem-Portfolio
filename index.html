@@ -46,27 +46,72 @@
     <meta name="geo.position" content="27.7372;85.3315" />
     <meta name="ICBM" content="27.7372, 85.3315" />
 
-    <!-- Client-side Hash Router for #drpremlogin and #drpreminq -->
+    <!-- Skeleton Hydration, 0ms Frame-Zero Load & Hash Route Synchronizer -->
     <script type="text/javascript">
       (function() {
-        function handleHashRouting() {
-          var p = (window.location.pathname || '').toLowerCase().replace(/\/+$/, '');
-          // Intercept legacy pathname routes and redirect to hash fragment
-          if (p === '/admin' || p === '/webadminprem') {
+        function evaluateHydrationAndRoutes() {
+          var skeleton = document.getElementById('app-skeleton');
+          var root = document.getElementById('root');
+          var hash = (window.location.hash || '').toLowerCase();
+          var path = (window.location.pathname || '').toLowerCase().replace(/\/+$/, '');
+
+          // 1. Intercept legacy pathname routes -> Redirect to hash fragment without static host 404
+          if (path === '/admin' || path === '/webadminprem') {
             window.location.replace('/#drpremlogin');
             return;
           }
-          if (p === '/inquires' || p === '/inquiries' || p === '/inq-prem') {
+          if (path === '/inquires' || path === '/inquiries' || path === '/inq-prem') {
             window.location.replace('/#drpreminq');
             return;
           }
+
+          // 2. Check for window.INITIAL_LATEST_DATA injected by Cloudflare Worker
+          var hasInjectedData = Boolean(window.INITIAL_LATEST_DATA);
+          var hasLocalCache = false;
+          try {
+            hasLocalCache = Boolean(localStorage.getItem('dr_joshi_branding'));
+          } catch (e) {}
+
+          if (hasInjectedData) {
+            try {
+              var raw = window.INITIAL_LATEST_DATA;
+              var parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+              window.INITIAL_LATEST_DATA = parsed;
+            } catch (err) {
+              console.warn('[Hydration] Failed to parse INITIAL_LATEST_DATA:', err);
+            }
+            // 0ms Latency: immediately hide skeleton & display hydrated page content
+            if (skeleton) skeleton.style.display = 'none';
+            if (root) root.style.display = 'block';
+          } else if (hasLocalCache) {
+            // Local storage cache present: render frame-zero without skeleton flash
+            if (skeleton) skeleton.style.display = 'none';
+            if (root) root.style.display = 'block';
+          } else {
+            // Neither injected data nor cache present: display skeleton while Firebase fetches
+            if (skeleton) skeleton.style.display = 'block';
+          }
+
+          // 3. Hash Route Handling (#drpremlogin & #drpreminq)
+          if (hash.indexOf('drpremlogin') > -1) {
+            if (skeleton) skeleton.style.display = 'none';
+            if (root) root.style.display = 'block';
+          } else if (hash.indexOf('drpreminq') > -1) {
+            if (skeleton) skeleton.style.display = 'none';
+            if (root) root.style.display = 'block';
+            var inqSec = document.getElementById('inquiry-section');
+            if (inqSec) {
+              inqSec.scrollIntoView({ behavior: 'smooth' });
+            }
+          }
         }
+
         if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', handleHashRouting);
+          document.addEventListener('DOMContentLoaded', evaluateHydrationAndRoutes);
         } else {
-          handleHashRouting();
+          evaluateHydrationAndRoutes();
         }
-        window.addEventListener('hashchange', handleHashRouting);
+        window.addEventListener('hashchange', evaluateHydrationAndRoutes);
       })();
     </script>
 
@@ -164,6 +209,31 @@
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=Mukta:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   </head>
   <body class="bg-neutral-50 text-neutral-900 antialiased selection:bg-emerald-600 selection:text-white">
+    <!-- Immediate Zero-Latency Skeleton Container (Hidden on frame-zero when window.INITIAL_LATEST_DATA or local cache is active) -->
+    <div id="app-skeleton" style="display: none;" class="min-h-screen flex flex-col bg-neutral-50">
+      <div class="h-16 border-b border-neutral-200 bg-white/95 px-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-neutral-200 animate-pulse"></div>
+          <div>
+            <div class="w-36 h-4 bg-neutral-200 rounded animate-pulse mb-1.5"></div>
+            <div class="w-56 h-3 bg-neutral-200 rounded animate-pulse"></div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="w-16 h-8 bg-neutral-200 rounded-lg animate-pulse"></div>
+          <div class="w-24 h-8 bg-emerald-600/30 rounded-lg animate-pulse"></div>
+        </div>
+      </div>
+      <div class="max-w-7xl w-full mx-auto px-4 py-8 flex-1">
+        <div class="w-full h-80 sm:h-96 bg-neutral-200 rounded-3xl animate-pulse mb-8"></div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="h-44 bg-neutral-200 rounded-2xl animate-pulse"></div>
+          <div class="h-44 bg-neutral-200 rounded-2xl animate-pulse"></div>
+          <div class="h-44 bg-neutral-200 rounded-2xl animate-pulse"></div>
+        </div>
+      </div>
+    </div>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

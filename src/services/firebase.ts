@@ -656,16 +656,51 @@ export function mergeAndNormalizeInquiries(
 }
 
 export function getLocal<T>(key: string, fallback: T): T {
-  try {
-    const item = localStorage.getItem(key);
-    if (item !== null) {
-      const parsed = JSON.parse(item);
-      if (parsed !== null && parsed !== undefined) {
-        return normalizeAssetUrls(parsed);
+  if (typeof window !== 'undefined') {
+    // 1. Check window.INITIAL_LATEST_DATA injected by Cloudflare Worker
+    const win = window as any;
+    if (win.INITIAL_LATEST_DATA) {
+      try {
+        const raw = win.INITIAL_LATEST_DATA;
+        const initData = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (initData && typeof initData === 'object') {
+          const keyMap: Record<string, string[]> = {
+            [STORAGE_KEYS.BRANDING]: ['branding'],
+            [STORAGE_KEYS.SLIDERS]: ['slides', 'slider_images', 'sliders'],
+            [STORAGE_KEYS.AUTOBIOGRAPHY]: ['autobiography'],
+            [STORAGE_KEYS.EDUCATION]: ['education'],
+            [STORAGE_KEYS.EXPERIENCE]: ['experience'],
+            [STORAGE_KEYS.BLOGS]: ['blogs'],
+            [STORAGE_KEYS.FAQ]: ['faq', 'faqs'],
+            [STORAGE_KEYS.LINKS]: ['links', 'usefulLinks'],
+            [STORAGE_KEYS.DOWNLOADS]: ['downloads'],
+            [STORAGE_KEYS.GALLERY]: ['gallery'],
+            [STORAGE_KEYS.INQUIRIES]: ['inquiries', 'patient_inquiries']
+          };
+          const candidates = keyMap[key] || [key];
+          for (const cand of candidates) {
+            if (initData[cand] !== undefined && initData[cand] !== null) {
+              return normalizeAssetUrls(initData[cand]) as T;
+            }
+          }
+        }
+      } catch (e) {
+        // Continue to localStorage fallback
       }
     }
-  } catch (e) {
-    // ignore
+
+    // 2. Fallback to localStorage cache
+    try {
+      const item = localStorage.getItem(key);
+      if (item !== null) {
+        const parsed = JSON.parse(item);
+        if (parsed !== null && parsed !== undefined) {
+          return normalizeAssetUrls(parsed);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
   }
   return normalizeAssetUrls(fallback);
 }

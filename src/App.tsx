@@ -37,6 +37,7 @@ import {
 } from './services/firebase';
 import { sanitizeSlug } from './utils/slugify';
 import { updateFavicon } from './utils/favicon';
+import { Stethoscope, Search, MessageSquarePlus } from 'lucide-react';
 
 import { Header } from './components/common/Header';
 import { Footer } from './components/common/Footer';
@@ -69,8 +70,29 @@ export function AppContent() {
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [appointmentDefaultTab, setAppointmentDefaultTab] = useState<'book' | 'track'>('book');
 
-  // Instant Render: All entity states are preloaded synchronously from local cache/initial defaults (0ms delay)
-  const [isDataLoading, setIsDataLoading] = useState(false);
+  // Instant Render: If window.INITIAL_LATEST_DATA or local cache is present, 0ms frame-zero load; otherwise keep skeleton active until Firebase responds
+  const [isDataLoading, setIsDataLoading] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const win = window as any;
+      if (win.INITIAL_LATEST_DATA) return false;
+      try {
+        const cached = localStorage.getItem(STORAGE_KEYS.BRANDING);
+        if (cached) return false;
+      } catch (e) {}
+      return true;
+    }
+    return false;
+  });
+
+  // Ensure DOM skeleton is hidden and root is visible once hydration or data is ready
+  useEffect(() => {
+    const skeleton = document.getElementById('app-skeleton');
+    const root = document.getElementById('root');
+    if (!isDataLoading) {
+      if (skeleton) skeleton.style.display = 'none';
+      if (root) root.style.display = 'block';
+    }
+  }, [isDataLoading]);
 
   // Entities state loaded from Local Storage first so CMS updates are shown immediately, then synced with Firebase Realtime Database
   const [branding, setBranding] = useState<Branding>(() => getLocal(STORAGE_KEYS.BRANDING, initialBranding));
@@ -185,19 +207,36 @@ export function AppContent() {
         if (rawHash !== '#drpremlogin') {
           window.history.replaceState(null, '', '/#drpremlogin');
         }
+        const skeleton = document.getElementById('app-skeleton');
+        const root = document.getElementById('root');
+        if (skeleton) skeleton.style.display = 'none';
+        if (root) root.style.display = 'block';
+        setIsDataLoading(false);
         setCurrentView('admin');
         setActiveBlogSlug(null);
         setIsAppointmentModalOpen(false);
         return;
       }
 
-      if (rawHash.includes('drpreminq') || rawHash === '#inquiries' || rawHash === '#inquires' || rawHash === '#inq-prem') {
-        if (rawHash !== '#drpreminq') {
+      if (rawHash.includes('drpreminq') || rawHash === '#inquiries' || rawHash === '#inquires' || rawHash === '#inq-prem' || rawHash === '#inquiry-section') {
+        if (rawHash !== '#drpreminq' && rawHash !== '#inquiry-section') {
           window.history.replaceState(null, '', '/#drpreminq');
         }
-        setCurrentView('inquiries');
+        const skeleton = document.getElementById('app-skeleton');
+        const root = document.getElementById('root');
+        if (skeleton) skeleton.style.display = 'none';
+        if (root) root.style.display = 'block';
+        setIsDataLoading(false);
+        setCurrentView('main');
         setActiveBlogSlug(null);
-        setIsAppointmentModalOpen(false);
+        setIsAppointmentModalOpen(true);
+        setAppointmentDefaultTab('book');
+        setTimeout(() => {
+          const el = document.getElementById('inquiry-section');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 120);
         return;
       }
 
@@ -696,6 +735,45 @@ export function AppContent() {
             <DownloadsLinksSection
               downloads={downloads}
             />
+
+            {/* Section 10: Patient Inquiry & Direct Consultation (#inquiry-section) */}
+            <section
+              id="inquiry-section"
+              className="py-14 bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-950 text-white scroll-mt-20 relative overflow-hidden border-t border-emerald-800/40"
+            >
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-500/10 via-transparent to-transparent pointer-events-none" />
+              <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-mono uppercase mb-4 border border-emerald-400/30">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Direct Patient Inquiries · परामर्श सेवा</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-editorial text-white mb-3">
+                  Have a Health Question or Need Consultation?
+                </h2>
+                <p className="text-sm sm:text-base text-emerald-100/90 max-w-2xl mx-auto mb-7 font-nepali leading-relaxed">
+                  Submit your confidential symptoms, health concerns, or Ayurvedic medical inquiries directly to Dr. Prem Raj Joshi. You will receive an instant unique Tracking ID (e.g., PJ-XXXXXX) to monitor your advice and response.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    onClick={handleOpenAppointmentModal}
+                    className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-sm rounded-xl transition-all shadow-lg hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-95 cursor-pointer flex items-center gap-2"
+                  >
+                    <MessageSquarePlus className="w-4 h-4" />
+                    <span>Submit Inquiry / Book Consultation</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsAppointmentModalOpen(true);
+                      setAppointmentDefaultTab('track');
+                    }}
+                    className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-semibold text-sm rounded-xl border border-white/20 transition-all cursor-pointer flex items-center gap-2 hover:border-white/40"
+                  >
+                    <Search className="w-4 h-4" />
+                    <span>Track Existing Inquiry (स्थिति जाँच्नुहोस्)</span>
+                  </button>
+                </div>
+              </div>
+            </section>
           </main>
 
           <Footer
@@ -715,6 +793,8 @@ export function AppContent() {
               const p = window.location.pathname;
               if (p === '/track' || p === '/appointment') {
                 window.history.pushState(null, '', '/');
+              } else if (window.location.hash === '#drpreminq' || window.location.hash === '#inquiry-section') {
+                window.history.pushState(null, '', window.location.pathname || '/');
               }
             }}
             onInquirySubmitted={(newInquiry) => {
