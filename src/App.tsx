@@ -70,15 +70,20 @@ function getInitialView(): 'main' | 'admin' | 'inquiries' | '404' {
   const rawHash = (window.location.hash || '').toLowerCase();
   const path = pParam ? decodeURIComponent(pParam).toLowerCase().replace(/\/+$/, '') || '/' : rawPath;
 
-  if (rawHash.includes('drpremlogin') || path === '/admin' || path === '/webadminprem') return 'admin';
-  if (rawHash.includes('drpreminq') || path === '/inquiries' || path === '/inquires' || path === '/inq-prem') return 'main';
+  // Secret CMS Panel Route ONLY
+  if (path === '/loginprem' || rawHash === '#loginprem' || rawHash === '#/loginprem') return 'admin';
+
+  // Secret Inquiries Portal Route ONLY
+  if (path === '/loginbyprem' || rawHash === '#loginbyprem' || rawHash === '#/loginbyprem') return 'inquiries';
+
+  // Valid Public Routes
   if (path === '/' || path === '' || path === '/index.html') return 'main';
   if (path === '/track' || path === '/track-appointment' || path === '/appointment' || path === '/gallery') return 'main';
   if (path.startsWith('/blog/') || path.startsWith('/journey/') || path.startsWith('/experience/')) return 'main';
   if (['/about', '/home', '/journey', '/experience', '/socialmedia', '/gallery', '/blogs', '/faq', '/downloads'].includes(path)) return 'main';
   if (rawHash.startsWith('#blog-') || rawHash.startsWith('#/blog/') || rawHash.startsWith('#journey-') || rawHash.startsWith('#experience-')) return 'main';
 
-  // Standalone unknown route -> Immediate 404
+  // All other URLs (including legacy /admin, /webadminprem, /inq-prem, /inquiries, etc.) are wrong URLs (404)
   return '404';
 }
 
@@ -225,10 +230,10 @@ export function AppContent() {
         if (hashStr) rawHash = hashStr.toLowerCase();
       }
 
-      // 1. Hash Fragment Routing: Admin Panel (/#drpremlogin) & Patient Inquiries (/#drpreminq)
-      if (rawHash.includes('drpremlogin') || rawHash === '#admin' || rawHash === '#webadminprem') {
-        if (rawHash !== '#drpremlogin') {
-          window.history.replaceState(null, '', '/#drpremlogin');
+      // 1. Secret Access: CMS Panel (/loginprem or #loginprem) ONLY
+      if (rawPath === '/loginprem' || rawHash === '#loginprem' || rawHash === '#/loginprem') {
+        if (rawHash !== '#loginprem') {
+          window.history.replaceState(null, '', '/#loginprem');
         }
         const skeleton = document.getElementById('app-skeleton');
         const root = document.getElementById('root');
@@ -241,10 +246,24 @@ export function AppContent() {
         return;
       }
 
-      if (rawHash.includes('drpreminq') || rawHash === '#inquiries' || rawHash === '#inquires' || rawHash === '#inq-prem' || rawHash === '#inquiry-section') {
-        if (rawHash !== '#drpreminq' && rawHash !== '#inquiry-section') {
-          window.history.replaceState(null, '', '/#drpreminq');
+      // 2. Secret Access: Patient Inquiries Portal (/loginbyprem or #loginbyprem) ONLY
+      if (rawPath === '/loginbyprem' || rawHash === '#loginbyprem' || rawHash === '#/loginbyprem') {
+        if (rawHash !== '#loginbyprem') {
+          window.history.replaceState(null, '', '/#loginbyprem');
         }
+        const skeleton = document.getElementById('app-skeleton');
+        const root = document.getElementById('root');
+        if (skeleton) skeleton.style.display = 'none';
+        if (root) root.style.display = 'block';
+        setIsDataLoading(false);
+        setCurrentView('inquiries');
+        setActiveBlogSlug(null);
+        setIsAppointmentModalOpen(false);
+        return;
+      }
+
+      // 3. Public Anchor: Patient Inquiry & Appointment Booking Modal
+      if (rawHash === '#inquiry-section' || rawHash === '#appointment-modal') {
         const skeleton = document.getElementById('app-skeleton');
         const root = document.getElementById('root');
         if (skeleton) skeleton.style.display = 'none';
@@ -260,17 +279,6 @@ export function AppContent() {
             el.scrollIntoView({ behavior: 'smooth' });
           }
         }, 120);
-        return;
-      }
-
-      // 2. Redirect legacy server/pathname paths to hash fragment routes to avoid static host 404s
-      if (rawPath === '/admin' || rawPath === '/webadminprem') {
-        window.location.replace('/#drpremlogin');
-        return;
-      }
-
-      if (rawPath === '/inquires' || rawPath === '/inquiries' || rawPath === '/inq-prem') {
-        window.location.replace('/#drpreminq');
         return;
       }
 
@@ -696,7 +704,7 @@ export function AppContent() {
           onBackToSite={() => handleNavigate('main')}
         />
       ) : currentView === 'inquiries' ? (
-        /* 2. Patient Inquiries Portal View (/inq-prem) - Card-based Patient Inquiries */
+        /* 2. Patient Inquiries Portal View (/loginbyprem or #loginbyprem) */
         <InquiriesPortal
           inquiries={inquiries}
           onUpdateInquiries={setInquiries}
@@ -865,7 +873,7 @@ export function AppContent() {
               const p = window.location.pathname;
               if (p === '/track' || p === '/appointment') {
                 window.history.pushState(null, '', '/');
-              } else if (window.location.hash === '#drpreminq' || window.location.hash === '#inquiry-section') {
+              } else if (window.location.hash === '#inquiry-section' || window.location.hash === '#appointment-modal') {
                 window.history.pushState(null, '', window.location.pathname || '/');
               }
             }}

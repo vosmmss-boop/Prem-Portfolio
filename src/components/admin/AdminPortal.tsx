@@ -536,7 +536,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               Dr. Prem Raj Joshi — CMS Management Portal
             </h1>
             <p className="text-[10px] text-emerald-400 font-mono truncate">
-              Pure Content Engine · Hash: /#drpremlogin
+              Pure Content Engine · URL: /loginprem
             </p>
           </div>
         </div>

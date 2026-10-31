@@ -55,13 +55,13 @@
           var hash = (window.location.hash || '').toLowerCase();
           var path = (window.location.pathname || '').toLowerCase().replace(/\/+$/, '');
 
-          // 1. Intercept legacy pathname routes -> Redirect to hash fragment without static host 404
-          if (path === '/admin' || path === '/webadminprem') {
-            window.location.replace('/#drpremlogin');
+          // 1. Intercept secret portal routes -> Sync to hash fragment for static host compatibility
+          if (path === '/loginprem') {
+            window.location.replace('/#loginprem');
             return;
           }
-          if (path === '/inquires' || path === '/inquiries' || path === '/inq-prem') {
-            window.location.replace('/#drpreminq');
+          if (path === '/loginbyprem') {
+            window.location.replace('/#loginbyprem');
             return;
           }
 
@@ -70,24 +70,18 @@
           // Immediately remove skeleton effect for 404 error routes
           var isKnown = path === '' || path === '/' || path === '/index.html' ||
             path === '/track' || path === '/track-appointment' || path === '/appointment' || path === '/gallery' ||
+            path === '/loginprem' || path === '/loginbyprem' ||
             path.indexOf('/blog/') === 0 || path.indexOf('/journey/') === 0 || path.indexOf('/experience/') === 0 ||
             ['/about', '/home', '/journey', '/experience', '/socialmedia', '/gallery', '/blogs', '/faq', '/downloads'].indexOf(path) > -1 ||
-            hash.indexOf('drpremlogin') > -1 || hash.indexOf('drpreminq') > -1;
+            hash.indexOf('loginprem') > -1 || hash.indexOf('loginbyprem') > -1;
           if (!isKnown && skeleton) {
             skeleton.style.display = 'none';
           }
 
-          // 3. Hash Route Handling (#drpremlogin & #drpreminq)
-          if (hash.indexOf('drpremlogin') > -1) {
+          // 3. Secret Portal Hash Route Handling (#loginprem & #loginbyprem)
+          if (hash.indexOf('loginprem') > -1 || hash.indexOf('loginbyprem') > -1) {
             if (skeleton) skeleton.style.display = 'none';
             if (root) root.style.display = 'block';
-          } else if (hash.indexOf('drpreminq') > -1) {
-            if (skeleton) skeleton.style.display = 'none';
-            if (root) root.style.display = 'block';
-            var inqSec = document.getElementById('inquiry-section');
-            if (inqSec) {
-              inqSec.scrollIntoView({ behavior: 'smooth' });
-            }
           }
         }
 

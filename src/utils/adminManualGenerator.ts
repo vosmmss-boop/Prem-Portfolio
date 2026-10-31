@@ -115,12 +115,12 @@ export function downloadAdminUserManualDoc() {
     <tbody>
       <tr>
         <td><strong>CMS Management Portal</strong></td>
-        <td><code>https://drpremrajjoshi.com.np/#drpremlogin</code></td>
+        <td><code>https://drpremrajjoshi.com.np/loginprem</code> &nbsp;<em>(or <code>/#loginprem</code>)</em></td>
         <td>Update website text, bilingual content (English/Nepali), blog posts, sliders, gallery, PDF downloads, and branding.</td>
       </tr>
       <tr>
         <td><strong>Patient Inquiries Portal</strong></td>
-        <td><code>https://drpremrajjoshi.com.np/#drpreminq</code></td>
+        <td><code>https://drpremrajjoshi.com.np/loginbyprem</code> &nbsp;<em>(or <code>/#loginbyprem</code>)</em></td>
         <td>View patient consultation requests, update case status, write clinical notes, and reply directly to patients.</td>
       </tr>
     </tbody>
@@ -134,7 +134,7 @@ export function downloadAdminUserManualDoc() {
     </ul>
   </div>
 
-  <h2>2. Managing Website Content in the CMS Portal (/admin)</h2>
+  <h2>2. Managing Website Content in the CMS Portal (/loginprem)</h2>
   <p>Once logged into the CMS Management Portal, you will see a top status bar and a left-hand navigation menu containing <strong>13 specialized modules</strong>. Every module automatically syncs live to your global Firebase Realtime Database when you click its <strong>Save</strong> button.</p>
 
   <h3>Top Toolbar Controls</h3>

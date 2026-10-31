@@ -14,12 +14,12 @@
       var basePath = pathSegmentsToKeep > 0 ? '/' + pathSegments.slice(0, pathSegmentsToKeep).join('/') : '';
       var routePath = '/' + pathSegments.slice(pathSegmentsToKeep).join('/');
 
-      if (routePath.toLowerCase() === '/admin' || routePath.toLowerCase() === '/webadminprem') {
-        l.replace(l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + basePath + '/#drpremlogin');
+      if (routePath.toLowerCase() === '/loginprem') {
+        l.replace(l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + basePath + '/#loginprem');
         return;
       }
-      if (routePath.toLowerCase() === '/inquires' || routePath.toLowerCase() === '/inquiries' || routePath.toLowerCase() === '/inq-prem') {
-        l.replace(l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + basePath + '/#drpreminq');
+      if (routePath.toLowerCase() === '/loginbyprem') {
+        l.replace(l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + basePath + '/#loginbyprem');
         return;
       }
 
