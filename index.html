@@ -65,32 +65,7 @@
             return;
           }
 
-          // 2. Check for window.INITIAL_LATEST_DATA injected by Cloudflare Worker
-          var hasInjectedData = Boolean(window.INITIAL_LATEST_DATA);
-          var hasLocalCache = false;
-          try {
-            hasLocalCache = Boolean(localStorage.getItem('dr_joshi_branding'));
-          } catch (e) {}
-
-          if (hasInjectedData) {
-            try {
-              var raw = window.INITIAL_LATEST_DATA;
-              var parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-              window.INITIAL_LATEST_DATA = parsed;
-            } catch (err) {
-              console.warn('[Hydration] Failed to parse INITIAL_LATEST_DATA:', err);
-            }
-            // 0ms Latency: immediately hide skeleton & display hydrated page content
-            if (skeleton) skeleton.style.display = 'none';
-            if (root) root.style.display = 'block';
-          } else if (hasLocalCache) {
-            // Local storage cache present: render frame-zero without skeleton flash
-            if (skeleton) skeleton.style.display = 'none';
-            if (root) root.style.display = 'block';
-          } else {
-            // Neither injected data nor cache present: display skeleton while Firebase fetches
-            if (skeleton) skeleton.style.display = 'block';
-          }
+          if (root) root.style.display = 'block';
 
           // 3. Hash Route Handling (#drpremlogin & #drpreminq)
           if (hash.indexOf('drpremlogin') > -1) {

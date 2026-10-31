@@ -95,6 +95,86 @@ export const TimelineSkeleton: React.FC = () => (
   </div>
 );
 
+export const FAQSkeleton: React.FC = () => (
+  <section id="faq" className="py-20 md:py-28 bg-white border-b border-neutral-200">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="text-center max-w-2xl mx-auto mb-12 space-y-3">
+        <div className="h-4 w-32 bg-neutral-200 skeleton-shimmer rounded mx-auto" />
+        <div className="h-8 w-64 bg-neutral-200 skeleton-shimmer rounded mx-auto" />
+        <div className="h-4 w-96 max-w-full bg-neutral-200 skeleton-shimmer rounded mx-auto" />
+      </div>
+      <div className="space-y-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-16 bg-neutral-50 skeleton-shimmer rounded-xl border border-neutral-200 p-4 flex items-center justify-between">
+            <div className="h-4 w-3/4 bg-neutral-200 rounded" />
+            <div className="w-5 h-5 rounded-full bg-neutral-200" />
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+);
+
+export const DownloadsSkeleton: React.FC = () => (
+  <section id="downloads" className="py-20 md:py-28 bg-neutral-50 border-b border-neutral-200">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="text-center max-w-2xl mx-auto mb-12 space-y-3">
+        <div className="h-4 w-32 bg-neutral-200 skeleton-shimmer rounded mx-auto" />
+        <div className="h-8 w-72 bg-neutral-200 skeleton-shimmer rounded mx-auto" />
+        <div className="h-4 w-96 max-w-full bg-neutral-200 skeleton-shimmer rounded mx-auto" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-48 bg-white skeleton-shimmer rounded-2xl border border-neutral-200 p-6 space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="w-12 h-12 rounded-xl bg-neutral-200" />
+              <div className="h-4 w-12 bg-neutral-200 rounded" />
+            </div>
+            <div className="h-5 w-4/5 bg-neutral-200 rounded" />
+            <div className="h-4 w-1/2 bg-neutral-200 rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+);
+
+export const FooterSkeleton: React.FC = () => (
+  <footer className="bg-neutral-900 text-neutral-300 pt-16 pb-12 border-t border-neutral-800">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 pb-12 border-b border-neutral-800">
+        <div className="lg:col-span-5 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-neutral-800 skeleton-shimmer" />
+            <div className="space-y-2">
+              <div className="h-5 w-48 bg-neutral-800 skeleton-shimmer rounded" />
+              <div className="h-3 w-56 bg-neutral-800 skeleton-shimmer rounded" />
+            </div>
+          </div>
+          <div className="h-4 w-full bg-neutral-800 skeleton-shimmer rounded" />
+          <div className="h-4 w-3/4 bg-neutral-800 skeleton-shimmer rounded" />
+        </div>
+        <div className="lg:col-span-4 space-y-3">
+          <div className="h-4 w-36 bg-neutral-800 skeleton-shimmer rounded" />
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-4 w-48 bg-neutral-800 skeleton-shimmer rounded" />
+            ))}
+          </div>
+        </div>
+        <div className="lg:col-span-3 space-y-3">
+          <div className="h-4 w-36 bg-neutral-800 skeleton-shimmer rounded" />
+          <div className="flex gap-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="w-8 h-8 rounded-lg bg-neutral-800 skeleton-shimmer" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+);
+
 export const FullAreaSkeleton: React.FC = () => (
   <div className="min-h-screen bg-neutral-50 flex flex-col">
     <HeaderSkeleton />
@@ -104,5 +184,6 @@ export const FullAreaSkeleton: React.FC = () => (
       <CardsSkeleton count={3} />
       <TimelineSkeleton />
     </div>
+    <FooterSkeleton />
   </div>
 );

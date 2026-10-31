@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { FAQItem } from '../../types';
+import { FAQSkeleton } from '../common/SkeletonLoaders';
 import { ChevronDown, Search, HelpCircle } from 'lucide-react';
 import { RichTextContent } from '../common/RichTextContent';
 import { stripHtmlToPlainText } from '../../utils/htmlSanitizer';
@@ -15,6 +16,10 @@ export const FAQSection: React.FC<FAQSectionProps> = ({ faqs, isLoading }) => {
   const [openId, setOpenId] = useState<string | null>(faqs[0]?.id || null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  if (isLoading) {
+    return <FAQSkeleton />;
+  }
 
   // If user deleted all FAQs, cleanly hide section
   if (!faqs || faqs.length === 0) {

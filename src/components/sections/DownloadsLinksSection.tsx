@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { DownloadItem } from '../../types';
+import { DownloadsSkeleton } from '../common/SkeletonLoaders';
 import { FileText, Download, CheckCircle, Eye, X, ExternalLink, Printer } from 'lucide-react';
 
 interface DownloadsLinksSectionProps {
   downloads: DownloadItem[];
+  isLoading?: boolean;
 }
 
-export const DownloadsLinksSection: React.FC<DownloadsLinksSectionProps> = ({ downloads }) => {
+export const DownloadsLinksSection: React.FC<DownloadsLinksSectionProps> = ({ downloads, isLoading }) => {
   const { language } = useLanguage();
   const [viewingItem, setViewingItem] = useState<DownloadItem | null>(null);
   const [viewerBlobUrl, setViewerBlobUrl] = useState<string | null>(null);
@@ -108,6 +110,10 @@ Consult Dr. Prem Raj Joshi:
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  if (isLoading) {
+    return <DownloadsSkeleton />;
+  }
 
   if (!downloads || downloads.length === 0) {
     return null;

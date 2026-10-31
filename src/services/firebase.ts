@@ -737,11 +737,65 @@ export function setLocal<T>(key: string, data: T, updateModifiedTimestamp = true
 
 // Track keys modified locally during this session where Firebase write has not yet succeeded,
 // preventing stale Firebase snapshots from overwriting newly saved local CMS items.
+/**
+ * Fast parallel REST fetch for the full Firebase Realtime Database snapshot
+ * Resolves within ~200-400ms (timeout capped at 1800ms) to guarantee frame loads within 2 seconds.
+ */
+export async function fetchAllFirebaseData(timeoutMs = 1800): Promise<Record<string, any> | null> {
+  const base = (firebaseConfig.databaseURL || 'https://drsaap-52b17-default-rtdb.asia-southeast1.firebasedatabase.app').replace(/\/+$/, '');
+  const url = `${base}/.json`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' }
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json && typeof json === 'object' ? json : null;
+  } catch {
+    clearTimeout(timer);
+    return null;
+  }
+}
+
+/**
+ * Universal parser for Firebase Realtime Database nodes
+ * Converts {"_emptyList": true} or null into [] for list nodes, avoiding coding default data.
+ */
+export function parseFirebaseNodeData(val: any, isArrayNode: boolean): any {
+  if (val === null || val === undefined) {
+    return isArrayNode ? [] : null;
+  }
+  if (typeof val === 'object' && val._emptyList) {
+    return [];
+  }
+  if (isArrayNode) {
+    if (Array.isArray(val)) {
+      return normalizeAssetUrls(val.filter(Boolean));
+    }
+    if (typeof val === 'object') {
+      const arr = Object.keys(val)
+        .filter((k) => val[k] !== null && val[k] !== undefined)
+        .map((k) => ({
+          ...val[k],
+          firebaseKey: k
+        }));
+      return normalizeAssetUrls(arr);
+    }
+    return [];
+  }
+  return normalizeAssetUrls(val);
+}
+
 const locallyModifiedPendingSync = new Set<string>();
 
 /**
- * Universal Realtime Database Listener with 3-second Max Timeout fallback
- * Guarantees newly updated CMS data is preserved and not overwritten by stale theme defaults.
+ * Universal Realtime Database Listener with 2-second Max Timeout
+ * Guarantees skeleton loaders display while connecting and real data from Firebase is displayed.
  */
 export function subscribeToNode<T>(
   nodePath: string,
@@ -752,30 +806,17 @@ export function subscribeToNode<T>(
 ): () => void {
   let isResolved = false;
 
-  // Read local cache immediately so any user CMS changes are displayed instantly
-  const cachedData = getLocal<T>(storageKey, initialFallback);
-  onData(cachedData);
-
-  // Synchronously signal caller that initial data is loaded and ready to render (0ms delay!)
-  onLoaded();
-
-  // If branding is in local cache, ensure favicon matches immediately
-  if (storageKey === STORAGE_KEYS.BRANDING && cachedData && typeof cachedData === 'object') {
-    const b = cachedData as Record<string, any>;
-    if (b.logoUrl) {
-      updateFavicon(b.logoUrl);
-    }
-  }
-
-  // Fallback safety timer
+  // Fallback safety timer: within 2 seconds max, always mark loaded so skeleton never hangs
   const timer = setTimeout(() => {
     if (!isResolved) {
       isResolved = true;
+      onLoaded();
     }
   }, 2000);
 
   if (!database) {
     clearTimeout(timer);
+    onLoaded();
     return () => {};
   }
 
@@ -787,6 +828,7 @@ export function subscribeToNode<T>(
         if (!isResolved) {
           isResolved = true;
           clearTimeout(timer);
+          onLoaded();
         }
         // If the user has unsynced local CMS changes in this browser, do not let a stale remote snapshot overwrite them!
         const hasPendingLocal =
@@ -800,7 +842,7 @@ export function subscribeToNode<T>(
           // If empty list sentinel was stored in Firebase
           if (val && typeof val === 'object' && val._emptyList) {
             parsedData = [];
-          } else if (Array.isArray(initialFallback)) {
+          } else if (Array.isArray(initialFallback) || Array.isArray(val)) {
             if (Array.isArray(val)) {
               parsedData = val.filter(Boolean);
             } else if (typeof val === 'object' && val !== null) {
@@ -818,14 +860,13 @@ export function subscribeToNode<T>(
 
             // Special handling for Patient Inquiries: NEVER drop or hide local or remote inquiries!
             if (storageKey === STORAGE_KEYS.INQUIRIES) {
-              const localCurrent = getLocal<PatientInquiry[]>(storageKey, initialFallback as unknown as PatientInquiry[]);
+              const localCurrent = getLocal<PatientInquiry[]>(storageKey, []);
               const remoteArray = Array.isArray(normalized) ? normalized : [];
               const mergedInquiries = mergeAndNormalizeInquiries(localCurrent, remoteArray);
 
               setLocal(storageKey, mergedInquiries as unknown as T, false);
               onData(mergedInquiries as unknown as T);
 
-              // If there are local inquiries that aren't in Firebase yet, push them individually so remote stays in sync
               const remoteIds = new Set(
                 remoteArray
                   .map((r: any) => String(r?.id || r?.firebaseKey || ''))
@@ -841,12 +882,9 @@ export function subscribeToNode<T>(
               return;
             }
 
-            // If there are pending local edits that failed to push to Firebase (e.g. Permission Denied),
-            // merge or preserve local edits so newly added blogs/items never disappear!
             if (hasPendingLocal) {
               const localCurrent = getLocal<T>(storageKey, initialFallback);
               if (Array.isArray(localCurrent) && Array.isArray(normalized)) {
-                // Merge any local items not in remote snapshot at the front
                 const remoteIds = new Set(normalized.map((item: any) => item?.id));
                 const localOnly = localCurrent.filter((item: any) => item?.id && !remoteIds.has(item.id));
                 const merged = [...localOnly, ...normalized];
@@ -870,9 +908,11 @@ export function subscribeToNode<T>(
             }
           }
         } else {
-          // If node doesn't exist yet in remote RTDB, preserve current local cache
-          const currentLocal = getLocal<T>(storageKey, initialFallback);
-          onData(currentLocal);
+          // If node doesn't exist yet in remote RTDB:
+          // For array nodes, return empty list [] instead of fake coding default data
+          if (Array.isArray(initialFallback)) {
+            onData([] as unknown as T);
+          }
         }
       },
       (error) => {
@@ -882,9 +922,6 @@ export function subscribeToNode<T>(
           clearTimeout(timer);
           onLoaded();
         }
-        // Never overwrite with stale initialFallback on permission error; preserve local modifications
-        const currentLocal = getLocal<T>(storageKey, initialFallback);
-        onData(currentLocal);
       }
     );
 

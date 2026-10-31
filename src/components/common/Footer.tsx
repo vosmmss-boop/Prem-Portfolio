@@ -5,16 +5,23 @@ import { MapPin, Phone, Mail, Shield, ExternalLink, X, FileCheck, Lock } from 'l
 import { RichTextContent } from './RichTextContent';
 import { stripHtmlToPlainText } from '../../utils/htmlSanitizer';
 
+import { FooterSkeleton } from './SkeletonLoaders';
+
 interface FooterProps {
-  branding: Branding;
-  usefulLinks: UsefulLink[];
+  branding?: Branding;
+  usefulLinks?: UsefulLink[];
+  isLoading?: boolean;
 }
 
-export const Footer: React.FC<FooterProps> = ({ branding, usefulLinks }) => {
+export const Footer: React.FC<FooterProps> = ({ branding, usefulLinks = [], isLoading }) => {
   const { language, t } = useLanguage();
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showAllLinks, setShowAllLinks] = useState(false);
+
+  if (isLoading || !branding) {
+    return <FooterSkeleton />;
+  }
 
   const displayedLinks = showAllLinks ? usefulLinks : usefulLinks.slice(0, 5);
 

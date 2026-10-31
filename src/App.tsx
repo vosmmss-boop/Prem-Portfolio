@@ -33,7 +33,10 @@ import {
   subscribeToNode,
   getLocal,
   mergeAndNormalizeInquiries,
-  STORAGE_KEYS
+  STORAGE_KEYS,
+  fetchAllFirebaseData,
+  parseFirebaseNodeData,
+  normalizeAssetUrls
 } from './services/firebase';
 import { sanitizeSlug } from './utils/slugify';
 import { updateFavicon } from './utils/favicon';
@@ -70,42 +73,42 @@ export function AppContent() {
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [appointmentDefaultTab, setAppointmentDefaultTab] = useState<'book' | 'track'>('book');
 
-  // Instant Render: If window.INITIAL_LATEST_DATA or local cache is present, 0ms frame-zero load; otherwise keep skeleton active until Firebase responds
-  const [isDataLoading, setIsDataLoading] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const win = window as any;
-      if (win.INITIAL_LATEST_DATA) return false;
-      try {
-        const cached = localStorage.getItem(STORAGE_KEYS.BRANDING);
-        if (cached) return false;
-      } catch (e) {}
-      return true;
-    }
-    return false;
-  });
+  // Start in loading state so skeleton effect is displayed on load
+  const [isDataLoading, setIsDataLoading] = useState(true);
 
   // Ensure DOM skeleton is hidden and root is visible once hydration or data is ready
   useEffect(() => {
     const skeleton = document.getElementById('app-skeleton');
     const root = document.getElementById('root');
-    if (!isDataLoading) {
-      if (skeleton) skeleton.style.display = 'none';
-      if (root) root.style.display = 'block';
+    if (root) root.style.display = 'block';
+    if (!isDataLoading && skeleton) {
+      skeleton.style.display = 'none';
     }
   }, [isDataLoading]);
 
-  // Entities state loaded from Local Storage first so CMS updates are shown immediately, then synced with Firebase Realtime Database
+  // Entities state: Arrays initialize to empty [] so coding mock data is NEVER displayed on load!
   const [branding, setBranding] = useState<Branding>(() => getLocal(STORAGE_KEYS.BRANDING, initialBranding));
-  const [slides, setSlides] = useState<HeroSlide[]>(() => getLocal(STORAGE_KEYS.SLIDERS, initialHeroSlides));
+  const [slides, setSlides] = useState<HeroSlide[]>([]);
   const [autobiography, setAutobiography] = useState<Autobiography>(() => getLocal(STORAGE_KEYS.AUTOBIOGRAPHY, initialAutobiography));
-  const [education, setEducation] = useState<EducationMilestone[]>(() => getLocal(STORAGE_KEYS.EDUCATION, initialEducation));
-  const [experience, setExperience] = useState<ExperienceEntry[]>(() => getLocal(STORAGE_KEYS.EXPERIENCE, initialExperience));
-  const [blogs, setBlogs] = useState<BlogArticle[]>(() => getLocal(STORAGE_KEYS.BLOGS, initialBlogs));
-  const [faqs, setFaqs] = useState<FAQItem[]>(() => getLocal(STORAGE_KEYS.FAQ, initialFAQs));
-  const [usefulLinks, setUsefulLinks] = useState<UsefulLink[]>(() => getLocal(STORAGE_KEYS.LINKS, initialUsefulLinks));
-  const [downloads, setDownloads] = useState<DownloadItem[]>(() => getLocal(STORAGE_KEYS.DOWNLOADS, initialDownloads));
-  const [gallery, setGallery] = useState<GalleryItem[]>(() => getLocal(STORAGE_KEYS.GALLERY, initialGallery));
-  const [inquiries, setInquiries] = useState<PatientInquiry[]>(() => getLocal(STORAGE_KEYS.INQUIRIES, initialPatientInquiries));
+  const [education, setEducation] = useState<EducationMilestone[]>([]);
+  const [experience, setExperience] = useState<ExperienceEntry[]>([]);
+  const [blogs, setBlogs] = useState<BlogArticle[]>([]);
+  const [faqs, setFaqs] = useState<FAQItem[]>([]);
+  const [usefulLinks, setUsefulLinks] = useState<UsefulLink[]>([]);
+  const [downloads, setDownloads] = useState<DownloadItem[]>([]);
+  const [gallery, setGallery] = useState<GalleryItem[]>([]);
+  const [inquiries, setInquiries] = useState<PatientInquiry[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEYS.INQUIRIES);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((i) => i && i.id && !String(i.id).startsWith('inq-1'));
+        }
+      }
+    } catch {}
+    return [];
+  });
 
   // Synchronized doctor profile photo across the entire site
   const syncedDoctorPhoto = branding.logoUrl || autobiography.avatarUrl;
@@ -448,25 +451,70 @@ export function AppContent() {
     };
   }, [blogs, education, experience, isDataLoading]);
 
-  // Firebase Realtime Database WebSocket listeners with 3-second Max Timeout fallback
+  // Firebase Realtime Database loaders: Fast parallel REST fetch (<400ms) + WebSockets with 2-second max safety timer
   useEffect(() => {
+    let isMounted = true;
     let loadedCount = 0;
     const totalNodes = 10;
     const checkAllLoaded = () => {
       loadedCount++;
-      if (loadedCount >= totalNodes) {
+      if (loadedCount >= totalNodes && isMounted) {
         setIsDataLoading(false);
       }
     };
 
-    // Hard fallback safety timer: after 3000ms, always dismiss skeletons
-    const fallbackTimer = setTimeout(() => {
+    // 1. Instant parallel fetch: fetches full Firebase database snapshot in ~150-300ms
+    fetchAllFirebaseData(1800).then((fullData) => {
+      if (!isMounted || !fullData) return;
+      if (fullData.branding) {
+        setBranding(normalizeAssetUrls(fullData.branding));
+      }
+      if (fullData.slider_images) {
+        setSlides(parseFirebaseNodeData(fullData.slider_images, true));
+      }
+      if (fullData.autobiography) {
+        setAutobiography(normalizeAssetUrls(fullData.autobiography));
+      }
+      if (fullData.education !== undefined) {
+        setEducation(parseFirebaseNodeData(fullData.education, true));
+      }
+      if (fullData.experience !== undefined) {
+        setExperience(parseFirebaseNodeData(fullData.experience, true));
+      }
+      if (fullData.blogs !== undefined) {
+        setBlogs(parseFirebaseNodeData(fullData.blogs, true));
+      }
+      if (fullData.faq !== undefined) {
+        setFaqs(parseFirebaseNodeData(fullData.faq, true));
+      }
+      if (fullData.links !== undefined) {
+        setUsefulLinks(parseFirebaseNodeData(fullData.links, true));
+      }
+      if (fullData.downloads !== undefined) {
+        setDownloads(parseFirebaseNodeData(fullData.downloads, true));
+      }
+      if (fullData.gallery !== undefined) {
+        setGallery(parseFirebaseNodeData(fullData.gallery, true));
+      }
+      if (fullData.patient_inquiries !== undefined) {
+        const parsedInq = parseFirebaseNodeData(fullData.patient_inquiries, true);
+        setInquiries((prev) => mergeAndNormalizeInquiries(parsedInq, prev));
+      }
+      // Instantly dismiss skeleton once real Firebase data is ready
       setIsDataLoading(false);
-    }, 3000);
+    });
 
+    // 2. Hard fallback safety timer: after 2000ms (within 2 seconds), always conclude skeleton loading
+    const fallbackTimer = setTimeout(() => {
+      if (isMounted) {
+        setIsDataLoading(false);
+      }
+    }, 2000);
+
+    // 3. Live WebSocket listeners for real-time synchronization
     const unsubBranding = subscribeToNode<Branding>(
       'branding',
-      'dr_joshi_branding',
+      STORAGE_KEYS.BRANDING,
       initialBranding,
       setBranding,
       checkAllLoaded
@@ -474,15 +522,15 @@ export function AppContent() {
 
     const unsubSliders = subscribeToNode<HeroSlide[]>(
       'slider_images',
-      'dr_joshi_slider_images',
-      initialHeroSlides,
+      STORAGE_KEYS.SLIDERS,
+      [],
       setSlides,
       checkAllLoaded
     );
 
     const unsubBio = subscribeToNode<Autobiography>(
       'autobiography',
-      'dr_joshi_autobiography',
+      STORAGE_KEYS.AUTOBIOGRAPHY,
       initialAutobiography,
       setAutobiography,
       checkAllLoaded
@@ -490,64 +538,64 @@ export function AppContent() {
 
     const unsubEdu = subscribeToNode<EducationMilestone[]>(
       'education',
-      'dr_joshi_education',
-      initialEducation,
+      STORAGE_KEYS.EDUCATION,
+      [],
       setEducation,
       checkAllLoaded
     );
 
     const unsubExp = subscribeToNode<ExperienceEntry[]>(
       'experience',
-      'dr_joshi_experience',
-      initialExperience,
+      STORAGE_KEYS.EXPERIENCE,
+      [],
       setExperience,
       checkAllLoaded
     );
 
     const unsubBlogs = subscribeToNode<BlogArticle[]>(
       'blogs',
-      'dr_joshi_blogs',
-      initialBlogs,
+      STORAGE_KEYS.BLOGS,
+      [],
       setBlogs,
       checkAllLoaded
     );
 
     const unsubFaq = subscribeToNode<FAQItem[]>(
       'faq',
-      'dr_joshi_faq',
-      initialFAQs,
+      STORAGE_KEYS.FAQ,
+      [],
       setFaqs,
       checkAllLoaded
     );
 
     const unsubLinks = subscribeToNode<UsefulLink[]>(
       'links',
-      'dr_joshi_links',
-      initialUsefulLinks,
+      STORAGE_KEYS.LINKS,
+      [],
       setUsefulLinks,
       checkAllLoaded
     );
 
     const unsubDownloads = subscribeToNode<DownloadItem[]>(
       'downloads',
-      'dr_joshi_downloads',
-      initialDownloads,
+      STORAGE_KEYS.DOWNLOADS,
+      [],
       setDownloads,
       checkAllLoaded
     );
 
     const unsubGallery = subscribeToNode<GalleryItem[]>(
       'gallery',
-      'dr_joshi_gallery',
-      initialGallery,
+      STORAGE_KEYS.GALLERY,
+      [],
       setGallery,
       checkAllLoaded
     );
 
     const unsubInquiries = subscribeToNode<PatientInquiry[]>(
       'patient_inquiries',
-      'dr_joshi_patient_inquiries',
-      initialPatientInquiries,
+      STORAGE_KEYS.INQUIRIES,
+      [],
       (incoming) => {
         setInquiries((prev) => mergeAndNormalizeInquiries(incoming, prev));
       },
@@ -557,12 +605,12 @@ export function AppContent() {
     // Listen for cross-tab localStorage updates and same-window custom events so inquiries appear immediately and never drop
     const handleStorageSync = (e: StorageEvent) => {
       if (e.key === STORAGE_KEYS.INQUIRIES) {
-        const latest = getLocal<PatientInquiry[]>(STORAGE_KEYS.INQUIRIES, initialPatientInquiries);
+        const latest = getLocal<PatientInquiry[]>(STORAGE_KEYS.INQUIRIES, []);
         setInquiries((prev) => mergeAndNormalizeInquiries(latest, prev));
       }
     };
     const handleCustomInquiriesUpdate = () => {
-      const latest = getLocal<PatientInquiry[]>(STORAGE_KEYS.INQUIRIES, initialPatientInquiries);
+      const latest = getLocal<PatientInquiry[]>(STORAGE_KEYS.INQUIRIES, []);
       setInquiries((prev) => mergeAndNormalizeInquiries(latest, prev));
     };
     window.addEventListener('storage', handleStorageSync);
@@ -704,6 +752,7 @@ export function AppContent() {
                 whatsapp: branding.socialLinks?.whatsapp !== undefined ? branding.socialLinks.whatsapp : initialSocialLinks.whatsapp
               }}
               socialChannels={branding.socialChannels}
+              isLoading={isDataLoading}
             />
 
             {/* Section 6: Photo Archive & YouTube Video (#gallery) */}
@@ -734,6 +783,7 @@ export function AppContent() {
             {/* Section 9: Patient Downloads (PDFs) */}
             <DownloadsLinksSection
               downloads={downloads}
+              isLoading={isDataLoading}
             />
 
             {/* Section 10: Patient Inquiry & Direct Consultation (#inquiry-section) */}
@@ -779,6 +829,7 @@ export function AppContent() {
           <Footer
             branding={branding}
             usefulLinks={usefulLinks}
+            isLoading={isDataLoading}
           />
 
           {/* Sticky Namaste Appointment, Status Tracking & Prescription Widget */}

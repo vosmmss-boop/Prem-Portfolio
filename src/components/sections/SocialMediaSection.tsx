@@ -39,13 +39,33 @@ const XLogoIcon: React.FC<{ className?: string }> = ({ className = 'w-6 h-6' }) 
 interface SocialMediaSectionProps {
   socialLinks?: typeof initialSocialLinks;
   socialChannels?: SocialChannelItem[];
+  isLoading?: boolean;
 }
 
 export const SocialMediaSection: React.FC<SocialMediaSectionProps> = ({
   socialLinks = initialSocialLinks,
-  socialChannels
+  socialChannels,
+  isLoading
 }) => {
   const { language, t } = useLanguage();
+
+  if (isLoading) {
+    return (
+      <section id="socialmedia" className="py-14 sm:py-20 bg-neutral-900 border-b border-neutral-800 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-10 space-y-3">
+            <div className="h-4 w-32 bg-neutral-800 skeleton-shimmer rounded mx-auto" />
+            <div className="h-8 w-64 bg-neutral-800 skeleton-shimmer rounded mx-auto" />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-24 bg-neutral-800 skeleton-shimmer rounded-2xl" />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const defaultChannels = [
     {
