@@ -59,6 +59,7 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
               <img
                 src={doctorPhoto}
                 alt={doctorName}
+                loading="lazy"
                 className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
                 referrerPolicy="no-referrer"
               />
@@ -211,7 +212,7 @@ export const AutobiographySection: React.FC<AutobiographySectionProps> = ({
             <div className="bg-neutral-900 text-white px-6 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full overflow-hidden border border-emerald-400 bg-white">
-                  <img src={branding.logoUrl || autobiography.avatarUrl} alt="Dr. Prem Raj Joshi" className="w-full h-full object-cover" />
+                  <img src={branding.logoUrl || autobiography.avatarUrl} alt="Dr. Prem Raj Joshi" loading="lazy" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold font-editorial">

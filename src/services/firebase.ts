@@ -166,7 +166,7 @@ export function formatFirebaseStorageError(err: any): {
 } {
   const code = String(err?.code || '').toLowerCase();
   const rawMsg = String(err?.message || err || '');
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://hi.drpremrajjoshi.com.np';
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://drpremrajjoshi.com.np';
   const bucket = firebaseConfig.storageBucket || 'drsaap-52b17.firebasestorage.app';
 
   if (code.includes('canceled') || /canceled|cancelled/i.test(rawMsg)) {

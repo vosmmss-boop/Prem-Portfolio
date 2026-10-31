@@ -29,6 +29,7 @@ export const Footer: React.FC<FooterProps> = ({ branding, usefulLinks }) => {
                 <img
                   src={branding.logoUrl}
                   alt="Dr. Prem Raj Joshi"
+                  loading="lazy"
                   className="w-full h-full object-cover"
                 />
               </div>

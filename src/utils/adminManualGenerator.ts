@@ -115,12 +115,12 @@ export function downloadAdminUserManualDoc() {
     <tbody>
       <tr>
         <td><strong>CMS Management Portal</strong></td>
-        <td><code>https://www.drpremrajjoshi.com.np/admin</code><br/><em>(or <code>/webadminprem</code>)</em></td>
+        <td><code>https://drpremrajjoshi.com.np/#drpremlogin</code></td>
         <td>Update website text, bilingual content (English/Nepali), blog posts, sliders, gallery, PDF downloads, and branding.</td>
       </tr>
       <tr>
         <td><strong>Patient Inquiries Portal</strong></td>
-        <td><code>https://www.drpremrajjoshi.com.np/inq-prem</code></td>
+        <td><code>https://drpremrajjoshi.com.np/#drpreminq</code></td>
         <td>View patient consultation requests, update case status, write clinical notes, and reply directly to patients.</td>
       </tr>
     </tbody>
@@ -214,8 +214,8 @@ export function downloadAdminUserManualDoc() {
     <strong>Important Tip — Saving Your Work:</strong> Always click the green <strong>Save &amp; Sync</strong> button at the bottom or top of the section you are editing, or click <strong>Sync All to Live</strong> in the top header before closing the browser tab.
   </div>
 
-  <h2>3. Managing Patient Consultations in the Inquiries Portal (/inq-prem)</h2>
-  <p>When a patient submits a health inquiry on your website, they receive a unique <strong>Tracking ID</strong> (e.g., <code>PJ-XXXXXX</code>) so they can check your response on the website. You can manage all incoming inquiries from <code>https://www.drpremrajjoshi.com.np/inq-prem</code>.</p>
+  <h2>3. Managing Patient Consultations in the Inquiries Portal (/#drpreminq)</h2>
+  <p>When a patient submits a health inquiry on your website, they receive a unique <strong>Tracking ID</strong> (e.g., <code>PJ-XXXXXX</code>) so they can check your response on the website. You can manage all incoming inquiries from <code>https://drpremrajjoshi.com.np/#drpreminq</code>.</p>
 
   <h3>Step 1: Filtering &amp; Searching Patient Records</h3>
   <ul>

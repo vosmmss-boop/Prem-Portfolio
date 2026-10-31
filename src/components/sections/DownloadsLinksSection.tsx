@@ -236,6 +236,7 @@ Consult Dr. Prem Raj Joshi:
                 <iframe
                   src={viewerBlobUrl}
                   title={viewingItem.titleEn}
+                  loading="lazy"
                   className="w-full h-full border-0 bg-white"
                 />
               ) : (

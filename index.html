@@ -46,25 +46,50 @@
     <meta name="geo.position" content="27.7372;85.3315" />
     <meta name="ICBM" content="27.7372, 85.3315" />
 
+    <!-- Client-side Hash Router for #drpremlogin and #drpreminq -->
+    <script type="text/javascript">
+      (function() {
+        function handleHashRouting() {
+          var p = (window.location.pathname || '').toLowerCase().replace(/\/+$/, '');
+          // Intercept legacy pathname routes and redirect to hash fragment
+          if (p === '/admin' || p === '/webadminprem') {
+            window.location.replace('/#drpremlogin');
+            return;
+          }
+          if (p === '/inquires' || p === '/inquiries' || p === '/inq-prem') {
+            window.location.replace('/#drpreminq');
+            return;
+          }
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', handleHashRouting);
+        } else {
+          handleHashRouting();
+        }
+        window.addEventListener('hashchange', handleHashRouting);
+      })();
+    </script>
+
     <!-- Open Graph / Facebook & Twitter -->
     <meta property="fb:app_id" content="966242223397117" />
-    <meta property="og:title" content="Dr. Prem Raj Joshi - BAMS, IOM, TU | Ayurvedic Physician" />
-    <meta name="twitter:title" content="Dr. Prem Raj Joshi - BAMS, IOM, TU | Ayurvedic Physician" />
-    <meta property="og:image" content="https://hi.drpremrajjoshi.com.np/logo.png" />
+    <meta property="og:url" content="https://drpremrajjoshi.com.np/" />
+    <meta property="og:title" content="Dr. Prem Raj Joshi" />
+    <meta property="og:description" content="Official website of Dr. Prem Raj Joshi." />
+    <meta property="og:image" content="https://drpremrajjoshi.com.np/logo.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta name="twitter:image" content="https://hi.drpremrajjoshi.com.np/logo.png" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://drpremrajjoshi.com.np/" />
     <meta property="og:site_name" content="Dr. Prem Raj Joshi Official Portal" />
-    <meta property="og:description" content="Official medical portal and Ayurvedic healthcare practice of Dr. Prem Raj Joshi (BAMS, IOM, TU). Integrative consultations, health blogs, patient inquiries, and holistic medicine in Nepal." />
     <meta property="og:locale" content="en_US" />
     <meta property="og:locale:alternate" content="ne_NP" />
+
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:url" content="https://drpremrajjoshi.com.np/" />
+    <meta name="twitter:title" content="Dr. Prem Raj Joshi" />
+    <meta name="twitter:description" content="Official website of Dr. Prem Raj Joshi." />
+    <meta name="twitter:image" content="https://drpremrajjoshi.com.np/logo.png" />
     <meta name="twitter:site" content="@drpremrajjoshi" />
     <meta name="twitter:creator" content="@drpremrajjoshi" />
-    <meta name="twitter:description" content="Ayurvedic Physician & Healthcare Expert, Institute of Medicine, Tribhuvan University." />
 
     <!-- Immediate Dynamic Favicon Synchronizer: Applies Doctor Logo as Favicon before React loads -->
     <script type="text/javascript">
@@ -112,7 +137,7 @@
       "url": "https://drpremrajjoshi.com.np",
       "telephone": "+977-9848721200",
       "email": "drpremrajjoshi@gmail.com",
-      "image": "https://hi.drpremrajjoshi.com.np/logo.png",
+      "image": "https://drpremrajjoshi.com.np/logo.png",
       "hasCredential": {
         "@type": "EducationalOccupationalCredential",
         "credentialCategory": "degree",

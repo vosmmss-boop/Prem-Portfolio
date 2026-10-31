@@ -313,7 +313,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setIsSyncingAll(false);
     if (res.success) {
       setFirebaseStatus('connected');
-      showToast(`✓ All ${res.pushedCount} content modules successfully pushed & published globally to Firebase!`, 'success');
+      showToast('Successfully synced all content to Firebase!', 'success');
       setShowRulesModal(false);
     } else {
       const isDenied = res.errors.some((e) => /permission/i.test(e));
@@ -431,7 +431,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               Dr. Prem Raj Joshi CMS
             </h2>
             <p className="text-xs text-neutral-500 mt-1 font-mono">
-              Secure Web Admin Portal (/webadminprem)
+              Secure Web Admin Portal (/#drpremlogin)
             </p>
           </div>
 
@@ -527,7 +527,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               Dr. Prem Raj Joshi — CMS Management Portal
             </h1>
             <p className="text-[10px] text-emerald-400 font-mono truncate">
-              Pure Content Engine · Slug: /webadminprem
+              Pure Content Engine · Hash: /#drpremlogin
             </p>
           </div>
         </div>

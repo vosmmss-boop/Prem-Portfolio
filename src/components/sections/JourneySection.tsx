@@ -90,7 +90,7 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
 
                 {item.imageUrl && (
                   <div className="mb-4 aspect-16/9 max-h-52 w-full rounded-xl overflow-hidden bg-neutral-100 border border-neutral-200">
-                    <img src={item.imageUrl} alt={item.institutionEn} className="w-full h-full object-cover" />
+                    <img src={item.imageUrl} alt={item.institutionEn} loading="lazy" className="w-full h-full object-cover" />
                   </div>
                 )}
 
@@ -144,7 +144,7 @@ export const JourneySection: React.FC<JourneySectionProps> = ({
 
             {activeModalItem.imageUrl && (
               <div className="w-full h-48 rounded-xl overflow-hidden mb-4 border border-neutral-200">
-                <img src={activeModalItem.imageUrl} alt={activeModalItem.degreeEn} className="w-full h-full object-cover" />
+                <img src={activeModalItem.imageUrl} alt={activeModalItem.degreeEn} loading="lazy" className="w-full h-full object-cover" />
               </div>
             )}
 

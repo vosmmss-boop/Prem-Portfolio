@@ -364,6 +364,7 @@ export const NamasteWidget: React.FC<NamasteWidgetProps> = ({
                 <img
                   src={currentDoctorPhoto}
                   alt="Dr. Prem Raj Joshi"
+                  loading="lazy"
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -402,6 +403,7 @@ export const NamasteWidget: React.FC<NamasteWidgetProps> = ({
                 <img
                   src={currentDoctorPhoto}
                   alt="Dr. Prem Raj Joshi"
+                  loading="lazy"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 {/* Active Live Indicator */}
@@ -456,6 +458,7 @@ export const NamasteWidget: React.FC<NamasteWidgetProps> = ({
                   <img
                     src={currentDoctorPhoto}
                     alt="Dr. Prem Raj Joshi"
+                    loading="lazy"
                     className="w-full h-full object-cover"
                   />
                 </div>

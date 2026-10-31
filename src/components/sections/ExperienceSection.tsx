@@ -123,6 +123,7 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
                       <img
                         src={entry.imageUrl}
                         alt={entry.organizationEn}
+                        loading="lazy"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                       <div className="absolute top-2.5 right-2.5 bg-neutral-900/80 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-0.5 rounded-md flex items-center gap-1">
@@ -215,7 +216,7 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
 
             {activeItem.imageUrl && (
               <div className="mb-4 aspect-16/9 w-full rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200 shadow-xs">
-                <img src={activeItem.imageUrl} alt={activeItem.organizationEn} className="w-full h-full object-cover" />
+                <img src={activeItem.imageUrl} alt={activeItem.organizationEn} loading="lazy" className="w-full h-full object-cover" />
               </div>
             )}
 

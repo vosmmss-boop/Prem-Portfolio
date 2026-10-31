@@ -153,6 +153,7 @@ export const GallerySection: React.FC<GallerySectionProps> = ({
                         <iframe
                           src={`${ytInfo.embedUrl}&autoplay=1`}
                           title={videoTitle}
+                          loading="lazy"
                           className="w-full h-full border-0"
                           referrerPolicy="strict-origin-when-cross-origin"
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -168,6 +169,7 @@ export const GallerySection: React.FC<GallerySectionProps> = ({
                           <img
                             src={ytInfo.thumbnailUrl}
                             alt={videoTitle}
+                            loading="lazy"
                             className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-500"
                             referrerPolicy="no-referrer"
                             onError={(e) => {
@@ -222,6 +224,7 @@ export const GallerySection: React.FC<GallerySectionProps> = ({
                 <img
                   src={item.mediaUrl}
                   alt={language === 'np' ? item.titleNp : item.titleEn}
+                  loading="lazy"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   referrerPolicy="no-referrer"
                 />

@@ -253,7 +253,7 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
               Patient Inquiries Portal
             </h2>
             <p className="text-xs text-neutral-500 mt-1 font-mono">
-              Direct Doctor Access (/inq-prem)
+              Direct Doctor Access (/#drpreminq)
             </p>
           </div>
 
@@ -339,7 +339,7 @@ export const InquiriesPortal: React.FC<InquiriesPortalProps> = ({
                 Patient Inquiries & Consultation Desk
               </h1>
               <p className="text-[10px] text-emerald-400 font-mono truncate">
-                Live Connected · /inq-prem
+                Live Connected · Hash: /#drpreminq
               </p>
             </div>
           </div>

@@ -113,7 +113,7 @@ export function AppContent() {
       "url": "https://drpremrajjoshi.com.np",
       "telephone": branding.phone,
       "email": branding.email,
-      "image": syncedDoctorPhoto || "https://hi.drpremrajjoshi.com.np/logo.png",
+      "image": syncedDoctorPhoto || "https://drpremrajjoshi.com.np/logo.png",
       "hasCredential": {
         "@type": "EducationalOccupationalCredential",
         "credentialCategory": "degree",
@@ -154,7 +154,7 @@ export function AppContent() {
       updateFavicon(syncedDoctorPhoto.trim());
       const absolutePhotoUrl = syncedDoctorPhoto.startsWith('http')
         ? syncedDoctorPhoto
-        : 'https://hi.drpremrajjoshi.com.np/logo.png';
+        : 'https://drpremrajjoshi.com.np/logo.png';
       const ogImg = document.querySelector('meta[property="og:image"]') as HTMLMetaElement | null;
       if (ogImg) ogImg.content = absolutePhotoUrl;
       const twImg = document.querySelector('meta[name="twitter:image"]') as HTMLMetaElement | null;
@@ -180,7 +180,39 @@ export function AppContent() {
         if (hashStr) rawHash = hashStr.toLowerCase();
       }
 
-      // 1. Backward Compatibility: auto-redirect legacy hash paths to clean URLs
+      // 1. Hash Fragment Routing: Admin Panel (/#drpremlogin) & Patient Inquiries (/#drpreminq)
+      if (rawHash.includes('drpremlogin') || rawHash === '#admin' || rawHash === '#webadminprem') {
+        if (rawHash !== '#drpremlogin') {
+          window.history.replaceState(null, '', '/#drpremlogin');
+        }
+        setCurrentView('admin');
+        setActiveBlogSlug(null);
+        setIsAppointmentModalOpen(false);
+        return;
+      }
+
+      if (rawHash.includes('drpreminq') || rawHash === '#inquiries' || rawHash === '#inquires' || rawHash === '#inq-prem') {
+        if (rawHash !== '#drpreminq') {
+          window.history.replaceState(null, '', '/#drpreminq');
+        }
+        setCurrentView('inquiries');
+        setActiveBlogSlug(null);
+        setIsAppointmentModalOpen(false);
+        return;
+      }
+
+      // 2. Redirect legacy server/pathname paths to hash fragment routes to avoid static host 404s
+      if (rawPath === '/admin' || rawPath === '/webadminprem') {
+        window.location.replace('/#drpremlogin');
+        return;
+      }
+
+      if (rawPath === '/inquires' || rawPath === '/inquiries' || rawPath === '/inq-prem') {
+        window.location.replace('/#drpreminq');
+        return;
+      }
+
+      // 3. Backward Compatibility: auto-redirect legacy hash paths to clean URLs
       if (rawHash.startsWith('#blog-')) {
         const slug = sanitizeSlug(rawHash.slice(6));
         window.history.replaceState(null, '', `/blog/${slug}`);
@@ -209,29 +241,6 @@ export function AppContent() {
         window.history.replaceState(null, '', '/appointment');
         rawPath = '/appointment';
         rawHash = '';
-      } else if (rawHash === '#webadminprem' || rawHash === '#admin') {
-        window.history.replaceState(null, '', '/webadminprem');
-        rawPath = '/webadminprem';
-        rawHash = '';
-      } else if (rawHash === '#inq-prem' || rawHash === '#inquiries') {
-        window.history.replaceState(null, '', '/inq-prem');
-        rawPath = '/inq-prem';
-        rawHash = '';
-      }
-
-      // 2. Secret slugs: Admin CMS (/webadminprem) & Inquiries Portal (/inq-prem)
-      if (rawPath === '/webadminprem' || rawPath === '/admin') {
-        setCurrentView('admin');
-        setActiveBlogSlug(null);
-        setIsAppointmentModalOpen(false);
-        return;
-      }
-
-      if (rawPath === '/inq-prem' || rawPath === '/inquiries') {
-        setCurrentView('inquiries');
-        setActiveBlogSlug(null);
-        setIsAppointmentModalOpen(false);
-        return;
       }
 
       // 3. Track Appointment Status (/track)
@@ -388,9 +397,13 @@ export function AppContent() {
     };
 
     handleLocationChange();
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', handleLocationChange);
+    }
     window.addEventListener('popstate', handleLocationChange);
     window.addEventListener('hashchange', handleLocationChange);
     return () => {
+      document.removeEventListener('DOMContentLoaded', handleLocationChange);
       window.removeEventListener('popstate', handleLocationChange);
       window.removeEventListener('hashchange', handleLocationChange);
     };
@@ -535,7 +548,9 @@ export function AppContent() {
   }, []);
 
   const handleNavigate = (view: string) => {
-    window.history.pushState(null, '', '/');
+    if (window.location.hash) {
+      window.history.pushState(null, '', window.location.pathname || '/');
+    }
     setCurrentView('main');
     setActiveBlogSlug(null);
     setIsAppointmentModalOpen(false);

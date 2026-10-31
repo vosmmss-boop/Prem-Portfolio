@@ -361,6 +361,7 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                   <img
                     src={activeBlog.cover_image || activeBlog.coverImage}
                     alt={language === 'np' ? activeBlog.titleNp : activeBlog.titleEn}
+                    loading="lazy"
                     className="relative z-10 max-h-[480px] w-auto max-w-full object-contain mx-auto shadow-md rounded-xl transition-transform duration-300 group-hover:scale-[1.01]"
                     onError={(e) => {
                       const target = e.currentTarget;
@@ -436,6 +437,7 @@ export const BlogsSection: React.FC<BlogsSectionProps> = ({
                     <img
                       src={doctorImage || "/src/assets/images/doctor_portrait_1791392878397.jpg"}
                       alt="Dr. Prem Raj Joshi"
+                      loading="lazy"
                       className="w-full h-full object-cover group-hover/doc:scale-110 transition-transform"
                     />
                   </div>

@@ -136,6 +136,7 @@ export const SitePopupModal: React.FC<SitePopupModalProps> = ({
                 <img
                   src={doctorLogo}
                   alt={doctorName}
+                  loading="lazy"
                   className="w-8 h-8 rounded-full object-cover border border-emerald-400 bg-white shrink-0"
                   referrerPolicy="no-referrer"
                 />
@@ -184,6 +185,7 @@ export const SitePopupModal: React.FC<SitePopupModalProps> = ({
                   <img
                     src={popupNotice.imageUrl}
                     alt={title || 'Notice banner'}
+                    loading="lazy"
                     width={getCustomDimensions().width}
                     height={getCustomDimensions().height}
                     className={`max-w-full transition-transform duration-300 group-hover:scale-[1.02] ${getImageHeightClass()} ${
