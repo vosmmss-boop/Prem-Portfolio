@@ -1050,6 +1050,15 @@ export async function pushAllContentToFirebase(allData: {
   downloads: DownloadItem[];
   gallery: GalleryItem[];
 }): Promise<{ success: boolean; pushedCount: number; errors: string[] }> {
+  // Parallel Cloudflare Edge Worker KV sync
+  if (typeof window !== 'undefined') {
+    fetch('/update-edge-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(allData)
+    }).catch(err => console.warn('Cloudflare KV sync failed:', err));
+  }
+
   const nodes = [
     { path: 'branding', key: STORAGE_KEYS.BRANDING, data: allData.branding },
     { path: 'slider_images', key: STORAGE_KEYS.SLIDERS, data: allData.slides },

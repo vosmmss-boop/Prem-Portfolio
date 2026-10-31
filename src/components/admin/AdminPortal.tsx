@@ -295,10 +295,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     }
   };
 
-  // Push all 10 modules simultaneously to Firebase
+  // Push all 10 modules simultaneously to Firebase & Cloudflare Edge Worker
   const handleSyncAllToFirebase = async () => {
     setIsSyncingAll(true);
-    const res = await pushAllContentToFirebase({
+    const allSiteContentData = {
       branding,
       slides,
       autobiography,
@@ -309,7 +309,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       usefulLinks,
       downloads,
       gallery
-    });
+    };
+
+    // Parallel Cloudflare Edge Worker KV sync
+    fetch('/update-edge-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(allSiteContentData)
+    }).catch(err => console.warn('Cloudflare KV sync failed:', err));
+
+    const res = await pushAllContentToFirebase(allSiteContentData);
     setIsSyncingAll(false);
     if (res.success) {
       setFirebaseStatus('connected');
