@@ -62,9 +62,29 @@ import { AdminPortal } from './components/admin/AdminPortal';
 import { InquiriesPortal } from './components/inquiries/InquiriesPortal';
 import { NotFoundPage } from './components/pages/NotFoundPage';
 
+function getInitialView(): 'main' | 'admin' | 'inquiries' | '404' {
+  if (typeof window === 'undefined') return 'main';
+  const urlParams = new URLSearchParams(window.location.search);
+  const pParam = urlParams.get('p');
+  const rawPath = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+  const rawHash = (window.location.hash || '').toLowerCase();
+  const path = pParam ? decodeURIComponent(pParam).toLowerCase().replace(/\/+$/, '') || '/' : rawPath;
+
+  if (rawHash.includes('drpremlogin') || path === '/admin' || path === '/webadminprem') return 'admin';
+  if (rawHash.includes('drpreminq') || path === '/inquiries' || path === '/inquires' || path === '/inq-prem') return 'main';
+  if (path === '/' || path === '' || path === '/index.html') return 'main';
+  if (path === '/track' || path === '/track-appointment' || path === '/appointment' || path === '/gallery') return 'main';
+  if (path.startsWith('/blog/') || path.startsWith('/journey/') || path.startsWith('/experience/')) return 'main';
+  if (['/about', '/home', '/journey', '/experience', '/socialmedia', '/gallery', '/blogs', '/faq', '/downloads'].includes(path)) return 'main';
+  if (rawHash.startsWith('#blog-') || rawHash.startsWith('#/blog/') || rawHash.startsWith('#journey-') || rawHash.startsWith('#experience-')) return 'main';
+
+  // Standalone unknown route -> Immediate 404
+  return '404';
+}
+
 export function AppContent() {
   // Navigation / View State ('main' | 'admin' | 'inquiries' | '404')
-  const [currentView, setCurrentView] = useState<'main' | 'admin' | 'inquiries' | '404'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'admin' | 'inquiries' | '404'>(getInitialView);
 
   // Active blog slug for direct route access (/blog/:slug)
   const [activeBlogSlug, setActiveBlogSlug] = useState<string | null>(null);
@@ -73,18 +93,18 @@ export function AppContent() {
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const [appointmentDefaultTab, setAppointmentDefaultTab] = useState<'book' | 'track'>('book');
 
-  // Start in loading state so skeleton effect is displayed on load
-  const [isDataLoading, setIsDataLoading] = useState(true);
+  // Start in loading state for main/admin views, but NEVER load skeleton for 404 error pages
+  const [isDataLoading, setIsDataLoading] = useState(() => getInitialView() !== '404');
 
   // Ensure DOM skeleton is hidden and root is visible once hydration or data is ready
   useEffect(() => {
     const skeleton = document.getElementById('app-skeleton');
     const root = document.getElementById('root');
     if (root) root.style.display = 'block';
-    if (!isDataLoading && skeleton) {
+    if ((!isDataLoading || currentView === '404') && skeleton) {
       skeleton.style.display = 'none';
     }
-  }, [isDataLoading]);
+  }, [isDataLoading, currentView]);
 
   // Entities state: Arrays initialize to empty [] so coding mock data is NEVER displayed on load!
   const [branding, setBranding] = useState<Branding>(() => getLocal(STORAGE_KEYS.BRANDING, initialBranding));
@@ -424,18 +444,18 @@ export function AppContent() {
           return;
         }
 
-        // While Firebase is loading, do not prematurely display 404
-        if (isDataLoading) {
-          setCurrentView('main');
-          return;
-        }
-
-        // Unmatched path
+        // Unmatched path -> Immediate 404 with zero skeleton
         setCurrentView('404');
+        setIsDataLoading(false);
+        const skeleton = document.getElementById('app-skeleton');
+        if (skeleton) skeleton.style.display = 'none';
         return;
       }
 
       setCurrentView('404');
+      setIsDataLoading(false);
+      const skeleton = document.getElementById('app-skeleton');
+      if (skeleton) skeleton.style.display = 'none';
     };
 
     handleLocationChange();
@@ -697,6 +717,7 @@ export function AppContent() {
           <Footer
             branding={branding}
             usefulLinks={usefulLinks}
+            isLoading={false}
           />
         </>
       ) : (

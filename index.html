@@ -67,6 +67,16 @@
 
           if (root) root.style.display = 'block';
 
+          // Immediately remove skeleton effect for 404 error routes
+          var isKnown = path === '' || path === '/' || path === '/index.html' ||
+            path === '/track' || path === '/track-appointment' || path === '/appointment' || path === '/gallery' ||
+            path.indexOf('/blog/') === 0 || path.indexOf('/journey/') === 0 || path.indexOf('/experience/') === 0 ||
+            ['/about', '/home', '/journey', '/experience', '/socialmedia', '/gallery', '/blogs', '/faq', '/downloads'].indexOf(path) > -1 ||
+            hash.indexOf('drpremlogin') > -1 || hash.indexOf('drpreminq') > -1;
+          if (!isKnown && skeleton) {
+            skeleton.style.display = 'none';
+          }
+
           // 3. Hash Route Handling (#drpremlogin & #drpreminq)
           if (hash.indexOf('drpremlogin') > -1) {
             if (skeleton) skeleton.style.display = 'none';
